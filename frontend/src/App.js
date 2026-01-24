@@ -13,6 +13,8 @@ import AuthCallback from '@/pages/AuthCallback';
 import Browse from '@/pages/Browse';
 import Library from '@/pages/Library';
 import ArtistDashboard from '@/pages/ArtistDashboard';
+import TrackDetail from '@/pages/TrackDetail';
+import ArtistProfile from '@/pages/ArtistProfile';
 import '@/App.css';
 
 const ProtectedRoute = ({ children }) => {
