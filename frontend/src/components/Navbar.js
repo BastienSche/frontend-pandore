@@ -25,13 +25,17 @@ const Navbar = () => {
   };
 
   const handleRoleSwitch = async () => {
-    if (user.role === 'artist') {
-      await switchRole(null);
-    } else {
+    const currentRole = user.role;
+    const newRole = currentRole === 'artist' ? 'user' : 'artist';
+    
+    // Si on passe en mode artist et qu'on n'a pas encore de nom d'artiste
+    if (newRole === 'artist' && !user.artist_name) {
       const artistName = prompt('Entrez votre nom d\'artiste:');
-      if (artistName) {
-        await switchRole(artistName);
-      }
+      if (!artistName) return;
+      await switchRole(artistName);
+    } else {
+      // Sinon, switch direct sans demander
+      await switchRole(newRole === 'artist' ? user.artist_name : null);
     }
   };
 
