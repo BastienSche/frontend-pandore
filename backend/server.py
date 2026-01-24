@@ -570,10 +570,22 @@ async def create_track(track_data: TrackCreate, authorization: Optional[str] = H
     return TrackResponse(**track_doc)
 
 @api_router.get("/tracks", response_model=List[TrackResponse])
-async def get_tracks(limit: int = 50, skip: int = 0, genre: Optional[str] = None):
+async def get_tracks(limit: int = 50, skip: int = 0, genre: Optional[str] = None, status: Optional[str] = None, authorization: Optional[str] = Header(None), request: Request = None):
+    # Get current user if authenticated
+    try:
+        user = await get_current_user(authorization, request) if authorization else None
+    except:
+        user = None
+    
     query = {}
     if genre:
         query["genre"] = genre
+    
+    # Only show published tracks unless user is viewing their own tracks
+    if status:
+        query["status"] = status
+    elif not user:
+        query["status"] = "published"
     
     tracks = await db.tracks.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
     return [TrackResponse(**track) for track in tracks]
