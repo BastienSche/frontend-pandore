@@ -107,8 +107,9 @@ class TrackResponse(BaseModel):
 
 class AlbumCreate(BaseModel):
     title: str
-    price: float
+    price: float  # Prix en cents
     description: Optional[str] = None
+    status: str = "draft"  # draft|published
 
 class AlbumResponse(BaseModel):
     album_id: str
