@@ -1,0 +1,139 @@
+{
+  "brand_identity": {
+    "name": "Pandore",
+    "core_values": ["Premium", "Artist-Centric", "Ownership", "Minimalist"],
+    "aesthetic": "Digital Gallery",
+    "emotional_tone": "Sophisticated, Clean, Respectful of Art"
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Outfit, sans-serif",
+      "body": "Plus Jakarta Sans, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "weights": {
+      "light": 300,
+      "regular": 400,
+      "medium": 500,
+      "bold": 700
+    },
+    "scale": {
+      "h1": "text-5xl md:text-7xl font-bold tracking-tight",
+      "h2": "text-3xl md:text-5xl font-semibold tracking-tight",
+      "h3": "text-2xl md:text-3xl font-medium",
+      "body_lg": "text-lg leading-relaxed",
+      "body_base": "text-base leading-relaxed",
+      "caption": "text-sm text-muted-foreground uppercase tracking-widest"
+    }
+  },
+  "colors": {
+    "light": {
+      "background": "#FFFFFF",
+      "foreground": "#0F172A",
+      "primary": "#4F46E5",
+      "secondary": "#F1F5F9",
+      "accent": "#818CF8",
+      "muted": "#F8FAFC",
+      "border": "#E2E8F0"
+    },
+    "dark": {
+      "background": "#020617",
+      "foreground": "#F8FAFC",
+      "primary": "#6366F1",
+      "secondary": "#1E293B",
+      "accent": "#4F46E5",
+      "muted": "#0F172A",
+      "border": "#1E293B"
+    },
+    "semantic": {
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "info": "#3B82F6"
+    }
+  },
+  "layout": {
+    "spacing": {
+      "container_padding": "px-4 md:px-8 lg:px-12",
+      "section_gap": "py-16 md:py-24",
+      "component_gap": "gap-6 md:gap-8"
+    },
+    "grid": {
+      "bento": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "gallery": "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10",
+      "dashboard": "grid grid-cols-12 gap-6"
+    },
+    "radius": {
+      "default": "rounded-xl",
+      "card": "rounded-2xl",
+      "button": "rounded-full"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 py-6 font-medium transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/25",
+      "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-full px-6 py-6 font-medium",
+      "ghost": "hover:bg-accent/10 hover:text-accent rounded-full px-4 py-2"
+    },
+    "cards": {
+      "album": "group relative aspect-square overflow-hidden rounded-2xl bg-muted transition-all hover:shadow-2xl hover:shadow-primary/10",
+      "artist": "aspect-[4/5] overflow-hidden rounded-2xl bg-muted relative group",
+      "glass": "backdrop-blur-xl bg-background/70 border border-white/10 shadow-2xl"
+    },
+    "player": {
+      "container": "fixed bottom-0 left-0 right-0 h-24 backdrop-blur-2xl bg-background/80 border-t border-border/50 z-50 flex items-center px-8 justify-between",
+      "progress": "h-1.5 bg-secondary rounded-full overflow-hidden cursor-pointer group-hover:h-2 transition-all"
+    },
+    "inputs": {
+      "default": "h-12 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-primary/20 transition-all"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-xl bg-white/5 border border-white/10",
+    "gradients": {
+      "hero": "bg-gradient-to-br from-primary/20 via-background to-background",
+      "glow": "absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+    },
+    "shadows": {
+      "soft": "shadow-[0_8px_30px_rgb(0,0,0,0.04)]",
+      "glow": "shadow-[0_0_50px_-12px_rgba(79,70,229,0.3)]"
+    }
+  },
+  "assets": {
+    "hero_images": [
+      "https://images.unsplash.com/photo-1714779573250-36242918e044?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1741879381993-a921ac5380e1?crop=entropy&cs=srgb&fm=jpg&q=85"
+    ],
+    "album_covers": [
+      "https://images.unsplash.com/photo-1669801158950-f663cf15298c?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1735641241204-44519d33651b?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.pexels.com/photos/13807426/pexels-photo-13807426.jpeg"
+    ],
+    "artist_portraits": [
+      "https://images.unsplash.com/photo-1545682113-be24ae6223d7?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1748015879337-ef95556c3749?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1716804081881-302f238ade48?crop=entropy&cs=srgb&fm=jpg&q=85"
+    ],
+    "studio_backgrounds": [
+      "https://images.unsplash.com/photo-1566612453429-50faafea3e5f?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1767474833531-c1be2788064a?crop=entropy&cs=srgb&fm=jpg&q=85"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "IMPLEMENTATION STRATEGY: Use Tailwind + Shadcn to achieve the 'Material/Apple' look. Do not install MUI.",
+    "THEME: Implement a robust Dark/Light mode toggle using 'next-themes'. Default to System.",
+    "PLAYER: The audio player must be persistent (Context API). It should float or stick to the bottom.",
+    "ANIMATION: Use 'framer-motion' for page transitions and hover effects. Keyframes: 'fade-in-up' for lists.",
+    "DASHBOARD: Keep the Artist Dashboard dense but legible. Use tables for track lists, cards for analytics.",
+    "NAVIGATION: Sidebar for Dashboard, Top Navbar for Marketplace.",
+    "ACCESSIBILITY: Ensure all interactive elements have aria-labels and keyboard focus states."
+  ],
+  "universal_guidelines": [
+    "Do not use generic gradients. Use subtle noise or grain if possible.",
+    "Avoid 'Inter' for headings. Use 'Outfit' or a similar geometric sans.",
+    "Spacing is luxury. Don't crowd the UI.",
+    "Use 'sonner' for all toast notifications.",
+    "All images must have alt text.",
+    "Use 'lucide-react' for icons."
+  ]
+}
