@@ -509,7 +509,12 @@ const ArtistDashboard = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" data-testid={`edit-track-${track.track_id}`}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditTrack(track)}
+                          data-testid={`edit-track-${track.track_id}`}
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button
