@@ -932,10 +932,24 @@ async def stripe_webhook(request: Request):
 # Include router
 app.include_router(api_router)
 
+# Dynamic CORS setup for credentials
+async def add_cors_headers(request: Request, call_next):
+    response = await call_next(request)
+    origin = request.headers.get('origin')
+    if origin:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = '*'
+        response.headers['Access-Control-Allow-Headers'] = '*'
+        response.headers['Access-Control-Expose-Headers'] = '*'
+    return response
+
+app.middleware('http')(add_cors_headers)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"] if os.environ.get('CORS_ORIGINS') == '*' else os.environ.get('CORS_ORIGINS', '').split(','),
+    allow_origin_regex=r".*",
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"]
