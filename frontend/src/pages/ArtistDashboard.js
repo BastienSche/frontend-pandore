@@ -71,10 +71,10 @@ const ArtistDashboard = () => {
     setUploadingTrack(true);
 
     try {
-      let audioUrl = '';
-      let coverUrl = '';
+      let audioUrl = editingTrack?.preview_url || '';
+      let coverUrl = editingTrack?.cover_url || '';
 
-      // Upload audio file
+      // Upload audio file if changed
       if (trackForm.audioFile) {
         const audioFormData = new FormData();
         audioFormData.append('file', trackForm.audioFile);
@@ -82,10 +82,10 @@ const ArtistDashboard = () => {
           withCredentials: true,
           headers: { 'Content-Type': 'multipart/form-data' }
         });
-        audioUrl = audioRes.data.file_url;
+        audioUrl = BACKEND_URL + audioRes.data.file_url;
       }
 
-      // Upload cover file
+      // Upload cover file if changed
       if (trackForm.coverFile) {
         const coverFormData = new FormData();
         coverFormData.append('file', trackForm.coverFile);
@@ -93,10 +93,10 @@ const ArtistDashboard = () => {
           withCredentials: true,
           headers: { 'Content-Type': 'multipart/form-data' }
         });
-        coverUrl = coverRes.data.cover_url;
+        coverUrl = BACKEND_URL + coverRes.data.cover_url;
       }
 
-      // Create track
+      // Prepare track data
       const trackData = {
         title: trackForm.title,
         price: parseFloat(trackForm.price) * 100, // Convert to cents
@@ -115,41 +115,86 @@ const ArtistDashboard = () => {
         status: trackForm.status
       };
 
-      const trackRes = await axios.post(`${API}/tracks`, trackData, {
-        withCredentials: true
-      });
+      if (editingTrack) {
+        // Update existing track
+        await axios.put(`${API}/tracks/${editingTrack.track_id}`, {
+          ...trackData,
+          preview_url: audioUrl,
+          file_url: audioUrl,
+          cover_url: coverUrl
+        }, {
+          withCredentials: true
+        });
+        toast.success('Titre modifié avec succès !');
+      } else {
+        // Create new track
+        const trackRes = await axios.post(`${API}/tracks`, trackData, {
+          withCredentials: true
+        });
 
-      // Update track with file URLs
-      await axios.put(`${API}/tracks/${trackRes.data.track_id}`, {
-        preview_url: BACKEND_URL + audioUrl,
-        file_url: BACKEND_URL + audioUrl,
-        cover_url: coverUrl ? BACKEND_URL + coverUrl : null
-      }, {
-        withCredentials: true
-      });
+        // Update track with file URLs
+        await axios.put(`${API}/tracks/${trackRes.data.track_id}`, {
+          preview_url: audioUrl,
+          file_url: audioUrl,
+          cover_url: coverUrl
+        }, {
+          withCredentials: true
+        });
 
-      toast.success('Titre ajouté avec succès !');
+        toast.success('Titre ajouté avec succès !');
+      }
+
       setShowTrackDialog(false);
-      setTrackForm({
-        title: '',
-        price: '',
-        genre: '',
-        description: '',
-        durationSec: '',
-        previewStartSec: 0,
-        masteringEngineer: '',
-        masteringDetails: '',
-        splits: [{ party: '', percent: '' }],
-        status: 'draft',
-        audioFile: null,
-        coverFile: null
-      });
+      setEditingTrack(null);
+      resetTrackForm();
       fetchArtistContent();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur lors de l\'ajout');
+      toast.error(error.response?.data?.detail || 'Erreur lors de l\'opération');
     } finally {
       setUploadingTrack(false);
     }
+  };
+
+  const resetTrackForm = () => {
+    setTrackForm({
+      title: '',
+      price: '',
+      genre: '',
+      description: '',
+      durationSec: '',
+      previewStartSec: 0,
+      masteringEngineer: '',
+      masteringDetails: '',
+      splits: [{ party: '', percent: '' }],
+      status: 'draft',
+      audioFile: null,
+      coverFile: null
+    });
+  };
+
+  const handleEditTrack = (track) => {
+    setEditingTrack(track);
+    setTrackForm({
+      title: track.title,
+      price: (track.price / 100).toString(),
+      genre: track.genre,
+      description: track.description || '',
+      durationSec: track.duration?.toString() || '',
+      previewStartSec: track.preview_start_time || 0,
+      masteringEngineer: track.mastering?.engineer || '',
+      masteringDetails: track.mastering?.details || '',
+      splits: track.splits && track.splits.length > 0 ? track.splits : [{ party: '', percent: '' }],
+      status: track.status,
+      audioFile: null,
+      coverFile: null
+    });
+    setShowTrackDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setShowTrackDialog(false);
+    setEditingTrack(null);
+    resetTrackForm();
   };
 
   const handleDeleteTrack = async (trackId) => {
