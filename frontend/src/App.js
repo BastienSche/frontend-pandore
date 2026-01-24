@@ -15,6 +15,8 @@ import Library from '@/pages/Library';
 import ArtistDashboard from '@/pages/ArtistDashboard';
 import TrackDetail from '@/pages/TrackDetail';
 import ArtistProfile from '@/pages/ArtistProfile';
+import Playlists from '@/pages/Playlists';
+import AlbumDetail from '@/pages/AlbumDetail';
 import '@/App.css';
 
 const ProtectedRoute = ({ children }) => {
