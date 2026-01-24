@@ -140,6 +140,22 @@ class LikeRequest(BaseModel):
     item_type: Literal["track", "album", "artist"]
     item_id: str
 
+class ArtistProfileCreate(BaseModel):
+    name: str
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    links: Optional[List[str]] = None
+
+class ArtistProfileResponse(BaseModel):
+    profile_id: str
+    user_id: str
+    name: str
+    bio: Optional[str]
+    avatar_url: Optional[str]
+    links: Optional[List[str]]
+    created_at: str
+    updated_at: str
+
 class CheckoutRequest(BaseModel):
     item_type: Literal["track", "album"]
     item_id: str
