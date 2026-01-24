@@ -388,6 +388,65 @@ async def update_role(artist_name: Optional[str] = None, authorization: Optional
     
     return {"role": new_role, "artist_name": artist_name}
 
+# ==================== ARTIST PROFILE ROUTES ====================
+
+@api_router.post("/artist/profile", response_model=ArtistProfileResponse)
+async def create_artist_profile(profile_data: ArtistProfileCreate, authorization: Optional[str] = Header(None), request: Request = None):
+    user = await get_current_user(authorization, request)
+    
+    if user["role"] != "artist":
+        raise HTTPException(status_code=403, detail="Only artists can create profiles")
+    
+    # Check if profile already exists
+    existing = await db.artist_profiles.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="Profile already exists")
+    
+    profile_id = f"profile_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc).isoformat()
+    
+    profile_doc = {
+        "profile_id": profile_id,
+        "user_id": user["user_id"],
+        "name": profile_data.name,
+        "bio": profile_data.bio,
+        "avatar_url": profile_data.avatar_url,
+        "links": profile_data.links or [],
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.artist_profiles.insert_one(profile_doc)
+    return ArtistProfileResponse(**profile_doc)
+
+@api_router.get("/artist/profile", response_model=ArtistProfileResponse)
+async def get_my_artist_profile(authorization: Optional[str] = Header(None), request: Request = None):
+    user = await get_current_user(authorization, request)
+    
+    profile = await db.artist_profiles.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    return ArtistProfileResponse(**profile)
+
+@api_router.put("/artist/profile", response_model=ArtistProfileResponse)
+async def update_artist_profile(profile_data: ArtistProfileCreate, authorization: Optional[str] = Header(None), request: Request = None):
+    user = await get_current_user(authorization, request)
+    
+    if user["role"] != "artist":
+        raise HTTPException(status_code=403, detail="Only artists can update profiles")
+    
+    update_data = profile_data.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.artist_profiles.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": update_data}
+    )
+    
+    profile = await db.artist_profiles.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    return ArtistProfileResponse(**profile)
+
 # ==================== UPLOAD ROUTES ====================
 
 @api_router.post("/upload/audio")
