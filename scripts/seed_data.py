@@ -128,7 +128,16 @@ async def create_tracks(artists, tracks_per_artist=5):
         "https://images.unsplash.com/photo-1608433319511-dfe8ea4cbd3c?w=500",
         "https://images.unsplash.com/photo-1611339555312-e607c8352fd7?w=500",
         "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=500",
-        "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=500",
+        "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500",
+        "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500",
+        "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=500",
+        "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=500",
+        "https://images.unsplash.com/photo-1446511437394-36cdff3ae1b3?w=500",
+        "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=500",
+        "https://images.unsplash.com/photo-1458560871784-56d23406c091?w=500",
+        "https://images.unsplash.com/photo-1487180144351-b8472da7d491?w=500",
+        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500",
+        "https://images.unsplash.com/photo-1483412033650-1015ddeb83d1?w=500",
     ]
     
     for artist in artists:
