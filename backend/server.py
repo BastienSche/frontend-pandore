@@ -75,12 +75,15 @@ class GoogleSessionResponse(BaseModel):
 
 class TrackCreate(BaseModel):
     title: str
-    price: float
+    price: float  # Prix en cents
     genre: str
     description: Optional[str] = None
     album_id: Optional[str] = None
     preview_start_time: int = 0
-    mastering_details: Optional[str] = None
+    duration_sec: Optional[int] = None
+    mastering: Optional[dict] = None  # {"engineer": "name", "details": "info"}
+    splits: Optional[List[dict]] = None  # [{"party": "name", "percent": 50}]
+    status: str = "draft"  # draft|published
 
 class TrackResponse(BaseModel):
     track_id: str
