@@ -14,7 +14,6 @@ const TrackCard = ({ track }) => {
   return (
     <Card
       className="group relative overflow-hidden rounded-2xl bg-muted transition-all hover:shadow-2xl hover:shadow-primary/10 cursor-pointer"
-      onClick={() => navigate(`/track/${track.track_id}`)}
       data-testid={`track-card-${track.track_id}`}
     >
       <CardContent className="p-0">
