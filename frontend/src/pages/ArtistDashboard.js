@@ -134,6 +134,12 @@ const ArtistDashboard = () => {
         price: '',
         genre: '',
         description: '',
+        durationSec: '',
+        previewStartSec: 0,
+        masteringEngineer: '',
+        masteringDetails: '',
+        splits: [{ party: '', percent: '' }],
+        status: 'draft',
         audioFile: null,
         coverFile: null
       });
