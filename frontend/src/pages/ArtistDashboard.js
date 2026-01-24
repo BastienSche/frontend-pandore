@@ -23,6 +23,7 @@ const ArtistDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [uploadingTrack, setUploadingTrack] = useState(false);
   const [showTrackDialog, setShowTrackDialog] = useState(false);
+  const [editingTrack, setEditingTrack] = useState(null);
 
   // Track form state
   const [trackForm, setTrackForm] = useState({
