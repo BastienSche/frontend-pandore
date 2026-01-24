@@ -83,7 +83,16 @@ function AppRouter() {
           }
         />
         <Route path="/track/:trackId" element={<TrackDetail />} />
+        <Route path="/album/:albumId" element={<AlbumDetail />} />
         <Route path="/artist/:artistId" element={<ArtistProfile />} />
+        <Route
+          path="/playlists"
+          element={
+            <ProtectedRoute>
+              <Playlists />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <AudioPlayer />
