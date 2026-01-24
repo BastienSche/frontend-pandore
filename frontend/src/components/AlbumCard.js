@@ -14,7 +14,7 @@ const AlbumCard = ({ album }) => {
       data-testid={`album-card-${album.album_id}`}
     >
       <CardContent className="p-0">
-        <div className="relative aspect-square">
+        <div className="relative aspect-square" onClick={() => navigate(`/album/${album.album_id}`)}>
           {album.cover_url ? (
             <img
               src={album.cover_url}
