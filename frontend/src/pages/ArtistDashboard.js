@@ -422,15 +422,18 @@ const ArtistDashboard = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="audio">Fichier audio * (MP3)</Label>
+                    <Label htmlFor="audio">Fichier audio {editingTrack ? '(optionnel - laisser vide pour garder l\'actuel)' : '*'}</Label>
                     <Input
                       id="audio"
                       type="file"
                       accept="audio/*"
                       onChange={(e) => setTrackForm({ ...trackForm, audioFile: e.target.files[0] })}
-                      required
+                      required={!editingTrack}
                       data-testid="track-audio-input"
                     />
+                    {editingTrack && trackForm.audioFile === null && (
+                      <p className="text-xs text-muted-foreground">✓ Fichier actuel conservé</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -442,18 +445,21 @@ const ArtistDashboard = () => {
                       onChange={(e) => setTrackForm({ ...trackForm, coverFile: e.target.files[0] })}
                       data-testid="track-cover-input"
                     />
+                    {editingTrack && trackForm.coverFile === null && editingTrack.cover_url && (
+                      <p className="text-xs text-muted-foreground">✓ Cover actuelle conservée</p>
+                    )}
                   </div>
 
                   <Button type="submit" className="w-full" disabled={uploadingTrack} data-testid="track-submit-button">
                     {uploadingTrack ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Upload en cours...
+                        {editingTrack ? 'Modification...' : 'Upload en cours...'}
                       </>
                     ) : (
                       <>
                         <Upload className="w-4 h-4 mr-2" />
-                        Ajouter le titre
+                        {editingTrack ? 'Modifier le titre' : 'Ajouter le titre'}
                       </>
                     )}
                   </Button>
