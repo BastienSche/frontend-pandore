@@ -246,9 +246,9 @@ async def login(credentials: UserLogin, response: Response):
     response.set_cookie(
         key="session_token",
         value=token,
-        httponly=True,
-        secure=True,
-        samesite="none",
+        httponly=False,
+        secure=False,
+        samesite="lax",
         path="/",
         max_age=7*24*60*60
     )
