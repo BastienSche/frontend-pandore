@@ -648,6 +648,7 @@ async def create_album(album_data: AlbumCreate, authorization: Optional[str] = H
         "cover_url": None,
         "description": album_data.description,
         "track_ids": [],
+        "status": album_data.status,
         "likes_count": 0,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
