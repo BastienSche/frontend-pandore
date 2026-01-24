@@ -551,7 +551,7 @@ async def create_track(track_data: TrackCreate, authorization: Optional[str] = H
         "artist_name": user["artist_name"],
         "album_id": track_data.album_id,
         "price": track_data.price,
-        "duration": None,
+        "duration": track_data.duration_sec,
         "preview_url": "",
         "preview_start_time": track_data.preview_start_time,
         "preview_duration": 15,
@@ -559,7 +559,9 @@ async def create_track(track_data: TrackCreate, authorization: Optional[str] = H
         "cover_url": None,
         "genre": track_data.genre,
         "description": track_data.description,
-        "mastering_details": track_data.mastering_details,
+        "mastering": track_data.mastering,
+        "splits": track_data.splits or [],
+        "status": track_data.status,
         "likes_count": 0,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
