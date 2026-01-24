@@ -212,7 +212,7 @@ const ArtistDashboard = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="price">Prix ($) *</Label>
+                      <Label htmlFor="price">Prix (€) *</Label>
                       <Input
                         id="price"
                         type="number"
@@ -222,7 +222,9 @@ const ArtistDashboard = () => {
                         onChange={(e) => setTrackForm({ ...trackForm, price: e.target.value })}
                         required
                         data-testid="track-price-input"
+                        placeholder="1.99"
                       />
+                      <p className="text-xs text-muted-foreground">Prix en euros</p>
                     </div>
 
                     <div className="space-y-2">
@@ -233,6 +235,33 @@ const ArtistDashboard = () => {
                         onChange={(e) => setTrackForm({ ...trackForm, genre: e.target.value })}
                         required
                         data-testid="track-genre-input"
+                        placeholder="Hip-Hop, Rock, etc."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="duration">Durée (secondes)</Label>
+                      <Input
+                        id="duration"
+                        type="number"
+                        min="1"
+                        value={trackForm.durationSec}
+                        onChange={(e) => setTrackForm({ ...trackForm, durationSec: e.target.value })}
+                        placeholder="180"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="previewStart">Preview début (sec)</Label>
+                      <Input
+                        id="previewStart"
+                        type="number"
+                        min="0"
+                        value={trackForm.previewStartSec}
+                        onChange={(e) => setTrackForm({ ...trackForm, previewStartSec: e.target.value })}
+                        placeholder="30"
                       />
                     </div>
                   </div>
@@ -243,9 +272,107 @@ const ArtistDashboard = () => {
                       id="description"
                       value={trackForm.description}
                       onChange={(e) => setTrackForm({ ...trackForm, description: e.target.value })}
-                      rows={3}
+                      rows={2}
                       data-testid="track-description-input"
                     />
+                  </div>
+
+                  <div className="space-y-3 p-4 border rounded-lg">
+                    <h4 className="font-medium">Mastering</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="masteringEngineer">Ingénieur</Label>
+                        <Input
+                          id="masteringEngineer"
+                          value={trackForm.masteringEngineer}
+                          onChange={(e) => setTrackForm({ ...trackForm, masteringEngineer: e.target.value })}
+                          placeholder="Nom de l'ingénieur"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="masteringDetails">Détails</Label>
+                        <Input
+                          id="masteringDetails"
+                          value={trackForm.masteringDetails}
+                          onChange={(e) => setTrackForm({ ...trackForm, masteringDetails: e.target.value })}
+                          placeholder="Studio, technique..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 p-4 border rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-medium">Répartition des revenus</h4>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setTrackForm({
+                          ...trackForm,
+                          splits: [...trackForm.splits, { party: '', percent: '' }]
+                        })}
+                      >
+                        + Ajouter
+                      </Button>
+                    </div>
+                    {trackForm.splits.map((split, index) => (
+                      <div key={index} className="grid grid-cols-2 gap-4">
+                        <Input
+                          placeholder="Nom"
+                          value={split.party}
+                          onChange={(e) => {
+                            const newSplits = [...trackForm.splits];
+                            newSplits[index].party = e.target.value;
+                            setTrackForm({ ...trackForm, splits: newSplits });
+                          }}
+                        />
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            placeholder="%"
+                            min="0"
+                            max="100"
+                            value={split.percent}
+                            onChange={(e) => {
+                              const newSplits = [...trackForm.splits];
+                              newSplits[index].percent = e.target.value;
+                              setTrackForm({ ...trackForm, splits: newSplits });
+                            }}
+                          />
+                          {trackForm.splits.length > 1 && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => {
+                                const newSplits = trackForm.splits.filter((_, i) => i !== index);
+                                setTrackForm({ ...trackForm, splits: newSplits });
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Statut *</Label>
+                    <select
+                      id="status"
+                      value={trackForm.status}
+                      onChange={(e) => setTrackForm({ ...trackForm, status: e.target.value })}
+                      className="w-full h-12 rounded-xl border border-border bg-background px-3"
+                      required
+                    >
+                      <option value="draft">Brouillon</option>
+                      <option value="published">Publié</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      Les brouillons ne sont visibles que par vous
+                    </p>
                   </div>
 
                   <div className="space-y-2">
