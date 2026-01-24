@@ -373,17 +373,23 @@ async def logout(response: Response, authorization: Optional[str] = Header(None)
     return {"message": "Logged out successfully"}
 
 @api_router.put("/auth/role")
-async def update_role(artist_name: Optional[str] = None, authorization: Optional[str] = Header(None), request: Request = None):
+async def update_role(new_role: str, artist_name: Optional[str] = None, authorization: Optional[str] = Header(None), request: Request = None):
     """Toggle between user and artist role"""
     user = await get_current_user(authorization, request)
     
-    new_role = "artist" if artist_name else "user"
+    # Si on passe en mode artist et qu'on a déjà un artist_name, le garder
+    if new_role == "artist":
+        # Si pas de nouveau nom fourni, garder l'ancien s'il existe
+        if not artist_name and user.get("artist_name"):
+            artist_name = user["artist_name"]
+        elif not artist_name:
+            raise HTTPException(status_code=400, detail="Artist name required for artist role")
     
     await db.users.update_one(
         {"user_id": user["user_id"]},
         {"$set": {
             "role": new_role,
-            "artist_name": artist_name
+            "artist_name": artist_name if new_role == "artist" else user.get("artist_name")
         }}
     )
     
