@@ -42,8 +42,16 @@ ARTIST_NAMES = [
     "Mind Bender", "Heart Breaker", "Dream Weaver", "Star Gazer", "Moon Walker"
 ]
 
-TRACK_PREFIXES = ["Midnight", "Golden", "Electric", "Cosmic", "Urban", "Crystal", "Velvet", "Neon", "Digital", "Analog"]
-TRACK_SUFFIXES = ["Dreams", "Vibes", "Echoes", "Waves", "Flow", "Pulse", "Lights", "Nights", "Days", "Moments"]
+TRACK_PREFIXES = [
+    "Midnight", "Golden", "Electric", "Cosmic", "Urban", "Crystal", "Velvet", "Neon", "Digital", "Analog",
+    "Silent", "Loud", "Deep", "High", "Lost", "Found", "Hidden", "Visible", "Dark", "Bright",
+    "Cold", "Warm", "Fast", "Slow", "Wild", "Calm", "Heavy", "Light", "Sweet", "Bitter"
+]
+TRACK_SUFFIXES = [
+    "Dreams", "Vibes", "Echoes", "Waves", "Flow", "Pulse", "Lights", "Nights", "Days", "Moments",
+    "Stories", "Tales", "Memories", "Feelings", "Emotions", "Thoughts", "Ideas", "Visions", "Sounds", "Rhythms",
+    "Beats", "Melodies", "Harmonies", "Symphonies", "Jams", "Grooves", "Loops", "Tracks", "Tunes", "Songs"
+]
 
 MASTERING_ENGINEERS = ["John Smith", "Sarah Johnson", "Mike Davis", "Emily Chen", "David Brown", "Lisa Anderson"]
 MASTERING_STUDIOS = ["Abbey Road Studios", "Electric Lady Studios", "Capitol Studios", "Sunset Sound", "The Hit Factory"]
