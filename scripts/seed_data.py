@@ -360,8 +360,9 @@ async def main():
     print(f"  - Artists: {len(artists)}")
     print(f"  - Tracks: {len(tracks)}")
     print(f"  - Albums: {len(albums)}")
-    print(f"  - Users: 30")
-    print(f"  - Playlists: 50")
+    print(f"  - Users: 100")
+    print(f"  - Playlists: 150")
+    print(f"\n🎵 TOTAL CONTENT: {len(tracks)} tracks from {len(artists)} artists!")
     
     client.close()
 
