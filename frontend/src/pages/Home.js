@@ -96,15 +96,15 @@ const Home = () => {
             className="flex justify-center gap-12 pt-8"
           >
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">140+</div>
+              <div className="text-3xl font-bold text-primary">500+</div>
               <div className="text-sm text-muted-foreground">Titres</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">20+</div>
+              <div className="text-3xl font-bold text-primary">50+</div>
               <div className="text-sm text-muted-foreground">Artistes</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">20+</div>
+              <div className="text-3xl font-bold text-primary">75+</div>
               <div className="text-sm text-muted-foreground">Albums</div>
             </div>
           </motion.div>
