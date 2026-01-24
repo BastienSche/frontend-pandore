@@ -184,7 +184,17 @@ async def create_tracks(artists, tracks_per_artist=5):
                 f"Exploring new sonic territories with this {genre.lower()} production.",
                 f"Deep {genre.lower()} vibes perfect for late night listening.",
                 f"High-energy {genre.lower()} track with punchy drums and atmospheric synths.",
-                f"Melodic {genre.lower()} journey through space and time."
+                f"Melodic {genre.lower()} journey through space and time.",
+                f"Raw and authentic {genre.lower()} sound with emotional depth.",
+                f"Experimental {genre.lower()} featuring unique sound design.",
+                f"Uplifting {genre.lower()} anthem that will move your soul.",
+                f"Minimal {genre.lower()} production with maximum impact.",
+                f"Groovy {genre.lower()} banger perfect for the dance floor.",
+                f"Introspective {genre.lower()} piece with thoughtful lyrics.",
+                f"Futuristic {genre.lower()} track pushing boundaries of the genre.",
+                f"Nostalgic {genre.lower()} vibes with a modern twist.",
+                f"Powerful {genre.lower()} statement with bold production choices.",
+                f"Smooth {genre.lower()} groove that flows effortlessly."
             ]
             
             track_doc = {
