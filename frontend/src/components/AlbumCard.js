@@ -11,7 +11,6 @@ const AlbumCard = ({ album }) => {
   return (
     <Card
       className="group relative overflow-hidden rounded-2xl bg-muted transition-all hover:shadow-2xl hover:shadow-primary/10 cursor-pointer"
-      onClick={() => navigate(`/album/${album.album_id}`)}
       data-testid={`album-card-${album.album_id}`}
     >
       <CardContent className="p-0">
