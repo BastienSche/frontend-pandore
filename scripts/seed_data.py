@@ -33,7 +33,13 @@ ARTIST_NAMES = [
     "Luna Waves", "Midnight Echo", "Solar Beats", "Urban Pulse", "Neon Dreams",
     "Crystal Sound", "Velvet Voice", "Electric Soul", "Cosmic Groove", "Analog Heart",
     "Digital Dawn", "Echo Chamber", "Frequency Lab", "Sound Architect", "Beat Surgeon",
-    "Rhythm Doctor", "Bass Dealer", "Synth Wizard", "Melody Maker", "Harmony Hunter"
+    "Rhythm Doctor", "Bass Dealer", "Synth Wizard", "Melody Maker", "Harmony Hunter",
+    "Phoenix Rising", "Ocean Drift", "Thunder Beats", "Starlight Mix", "Shadow Walker",
+    "Golden Hour", "Silver Tone", "Crimson Wave", "Azure Dreams", "Violet Pulse",
+    "Arctic Flow", "Desert Storm", "Forest Echo", "Mountain Peak", "River Sound",
+    "Sky Dancer", "Earth Mover", "Fire Breather", "Water Bearer", "Wind Chaser",
+    "Night Rider", "Day Dreamer", "Time Keeper", "Space Traveler", "Soul Searcher",
+    "Mind Bender", "Heart Breaker", "Dream Weaver", "Star Gazer", "Moon Walker"
 ]
 
 TRACK_PREFIXES = ["Midnight", "Golden", "Electric", "Cosmic", "Urban", "Crystal", "Velvet", "Neon", "Digital", "Analog"]
