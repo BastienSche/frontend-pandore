@@ -135,18 +135,26 @@ async def create_tracks(artists, tracks_per_artist=5):
             # Splits
             splits = []
             if random.random() > 0.5:
-                remaining = 100
                 split_count = random.randint(1, 3)
-                for j in range(split_count):
-                    if j == split_count - 1:
-                        percent = remaining
-                    else:
-                        percent = random.randint(20, remaining - (split_count - j - 1) * 10)
-                        remaining -= percent
-                    splits.append({
-                        "party": f"Party {j+1}",
-                        "percent": percent
-                    })
+                if split_count == 1:
+                    splits.append({"party": artist["artist_name"], "percent": 100})
+                else:
+                    remaining = 100
+                    for j in range(split_count):
+                        if j == split_count - 1:
+                            percent = remaining
+                        else:
+                            max_percent = remaining - (split_count - j - 1) * 10
+                            if max_percent < 10:
+                                max_percent = remaining
+                            percent = random.randint(10, max(10, max_percent))
+                            remaining -= percent
+                        
+                        party_names = [artist["artist_name"], "Producer", "Co-Writer", "Studio", "Label"]
+                        splits.append({
+                            "party": party_names[j] if j < len(party_names) else f"Party {j+1}",
+                            "percent": percent
+                        })
             
             descriptions = [
                 f"A {genre.lower()} track that blends modern production with classic influences.",
