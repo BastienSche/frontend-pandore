@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-01-24T14:54:05.899917",
-  "success_rate": 92.0,
-  "tests_passed": 23,
+  "timestamp": "2026-01-24T14:54:27.164955",
+  "success_rate": 100.0,
+  "tests_passed": 25,
   "tests_run": 25,
   "results": [
     {
@@ -36,8 +36,8 @@
     },
     {
       "test": "Switch to User Role",
-      "success": false,
-      "details": "Status: 422, Expected: 200, Error: [{'type': 'missing', 'loc': ['query', 'artist_name'], 'msg': 'Field required', 'input': None, 'url': 'https://errors.pydantic.dev/2.12/v/missing'}]",
+      "success": true,
+      "details": "Status: 200",
       "endpoint": "auth/role"
     },
     {
@@ -62,19 +62,19 @@
       "test": "Get Specific Track",
       "success": true,
       "details": "Status: 200",
-      "endpoint": "tracks/track_e7d178bda7c4"
+      "endpoint": "tracks/track_4874b70715c8"
     },
     {
       "test": "Update Track",
       "success": true,
       "details": "Status: 200",
-      "endpoint": "tracks/track_e7d178bda7c4"
+      "endpoint": "tracks/track_4874b70715c8"
     },
     {
       "test": "Delete Track",
       "success": true,
       "details": "Status: 200",
-      "endpoint": "tracks/track_e7d178bda7c4"
+      "endpoint": "tracks/track_4874b70715c8"
     },
     {
       "test": "Get Albums List",
@@ -92,7 +92,7 @@
       "test": "Get Specific Album",
       "success": true,
       "details": "Status: 200",
-      "endpoint": "albums/album_c6955d708ef4"
+      "endpoint": "albums/album_9bc485fa3593"
     },
     {
       "test": "Get Artists List",
@@ -104,12 +104,12 @@
       "test": "Get Specific Artist",
       "success": true,
       "details": "Status: 200",
-      "endpoint": "artists/user_3dd45b770c34"
+      "endpoint": "artists/user_de1b924dfb2c"
     },
     {
       "test": "Switch to User for Library Test",
-      "success": false,
-      "details": "Status: 422, Expected: 200, Error: [{'type': 'missing', 'loc': ['query', 'artist_name'], 'msg': 'Field required', 'input': None, 'url': 'https://errors.pydantic.dev/2.12/v/missing'}]",
+      "success": true,
+      "details": "Status: 200",
       "endpoint": "auth/role"
     },
     {
@@ -134,13 +134,13 @@
       "test": "Update Playlist Tracks",
       "success": true,
       "details": "Status: 200",
-      "endpoint": "playlists/playlist_b6c5a60ed088/tracks"
+      "endpoint": "playlists/playlist_b04dfc68b8ac/tracks"
     },
     {
       "test": "Delete Playlist",
       "success": true,
       "details": "Status: 200",
-      "endpoint": "playlists/playlist_b6c5a60ed088"
+      "endpoint": "playlists/playlist_b04dfc68b8ac"
     },
     {
       "test": "Get User Likes",
