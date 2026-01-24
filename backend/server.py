@@ -317,9 +317,9 @@ async def google_callback(session_request: GoogleSessionRequest, response: Respo
     response.set_cookie(
         key="session_token",
         value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
+        httponly=False,
+        secure=False,
+        samesite="lax",
         path="/",
         max_age=7*24*60*60
     )
