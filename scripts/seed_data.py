@@ -317,7 +317,11 @@ async def create_playlists(count=50):
     playlist_names = [
         "Chill Vibes", "Workout Mix", "Late Night Sessions", "Morning Energy",
         "Focus Music", "Party Hits", "Road Trip", "Study Beats", "Sunset Grooves",
-        "Deep Focus", "Happy Vibes", "Rainy Day", "Sunday Morning", "Night Drive"
+        "Deep Focus", "Happy Vibes", "Rainy Day", "Sunday Morning", "Night Drive",
+        "Summer Anthems", "Winter Warmth", "Spring Awakening", "Autumn Feels",
+        "Coffee Shop", "Gym Motivation", "Dinner Party", "Pre-Game Hype",
+        "Chill Electronic", "Bass Heavy", "Acoustic Sessions", "Jazz Essentials",
+        "Hip-Hop Classics", "Indie Discoveries", "Rock Anthems", "Soul Classics"
     ]
     
     for i in range(count):
