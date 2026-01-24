@@ -350,7 +350,7 @@ async def logout(response: Response, authorization: Optional[str] = Header(None)
     return {"message": "Logged out successfully"}
 
 @api_router.put("/auth/role")
-async def update_role(artist_name: Optional[str], authorization: Optional[str] = Header(None), request: Request = None):
+async def update_role(artist_name: Optional[str] = None, authorization: Optional[str] = Header(None), request: Request = None):
     """Toggle between user and artist role"""
     user = await get_current_user(authorization, request)
     
