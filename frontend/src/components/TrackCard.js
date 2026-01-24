@@ -17,7 +17,7 @@ const TrackCard = ({ track }) => {
       data-testid={`track-card-${track.track_id}`}
     >
       <CardContent className="p-0">
-        <div className="relative aspect-square">
+        <div className="relative aspect-square" onClick={() => navigate(`/track/${track.track_id}`)}>
           {track.cover_url ? (
             <img
               src={track.cover_url}
