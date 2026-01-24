@@ -98,9 +98,20 @@ const ArtistDashboard = () => {
       // Create track
       const trackData = {
         title: trackForm.title,
-        price: parseFloat(trackForm.price),
+        price: parseFloat(trackForm.price) * 100, // Convert to cents
         genre: trackForm.genre,
-        description: trackForm.description
+        description: trackForm.description,
+        duration_sec: trackForm.durationSec ? parseInt(trackForm.durationSec) : null,
+        preview_start_time: parseInt(trackForm.previewStartSec) || 0,
+        mastering: trackForm.masteringEngineer ? {
+          engineer: trackForm.masteringEngineer,
+          details: trackForm.masteringDetails
+        } : null,
+        splits: trackForm.splits.filter(s => s.party && s.percent).map(s => ({
+          party: s.party,
+          percent: parseFloat(s.percent)
+        })),
+        status: trackForm.status
       };
 
       const trackRes = await axios.post(`${API}/tracks`, trackData, {
