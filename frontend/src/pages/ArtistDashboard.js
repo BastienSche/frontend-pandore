@@ -233,7 +233,7 @@ const ArtistDashboard = () => {
               </p>
             </div>
 
-            <Dialog open={showTrackDialog} onOpenChange={setShowTrackDialog}>
+            <Dialog open={showTrackDialog} onOpenChange={handleCloseDialog}>
               <DialogTrigger asChild>
                 <Button size="lg" className="rounded-full" data-testid="upload-track-button">
                   <Plus className="w-5 h-5 mr-2" />
@@ -242,7 +242,7 @@ const ArtistDashboard = () => {
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Ajouter un nouveau titre</DialogTitle>
+                  <DialogTitle>{editingTrack ? 'Modifier le titre' : 'Ajouter un nouveau titre'}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleTrackSubmit} className="space-y-4">
                   <div className="space-y-2">
