@@ -120,6 +120,7 @@ class AlbumResponse(BaseModel):
     cover_url: Optional[str]
     description: Optional[str]
     track_ids: List[str]
+    status: str
     likes_count: int
     created_at: str
 
