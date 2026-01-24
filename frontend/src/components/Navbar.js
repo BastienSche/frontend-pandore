@@ -61,6 +61,13 @@ const Navbar = () => {
                   </Button>
                 </Link>
 
+                <Link to="/playlists" data-testid="navbar-playlists-link">
+                  <Button variant="ghost" className="rounded-full" data-testid="playlists-button">
+                    <Music className="w-4 h-4 mr-2" />
+                    Playlists
+                  </Button>
+                </Link>
+
                 {user.role === 'artist' && (
                   <Link to="/artist-dashboard" data-testid="navbar-dashboard-link">
                     <Button variant="ghost" className="rounded-full" data-testid="artist-dashboard-button">
