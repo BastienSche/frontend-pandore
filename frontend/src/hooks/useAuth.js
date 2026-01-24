@@ -52,9 +52,12 @@ export const useAuth = () => {
   };
 
   const switchRole = async (artistName = null) => {
-    await axios.put(`${API}/auth/role?artist_name=${artistName || ''}`, {}, {
-      withCredentials: true
-    });
+    const newRole = artistName || user?.artist_name ? 'artist' : 'user';
+    await axios.put(
+      `${API}/auth/role?new_role=${newRole}${artistName ? `&artist_name=${artistName}` : ''}`,
+      {},
+      { withCredentials: true }
+    );
     await checkAuth();
   };
 
