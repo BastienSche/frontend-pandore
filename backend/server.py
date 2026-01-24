@@ -99,7 +99,9 @@ class TrackResponse(BaseModel):
     cover_url: Optional[str]
     genre: str
     description: Optional[str]
-    mastering_details: Optional[str]
+    mastering: Optional[dict]
+    splits: Optional[List[dict]]
+    status: str
     likes_count: int
     created_at: str
 
