@@ -347,12 +347,12 @@ async def main():
         await db.playlists.delete_many({})
         print("✅ Data cleared")
     
-    # Créer les données
-    artists = await create_artists(20)
-    tracks = await create_tracks(artists, tracks_per_artist=7)
-    albums = await create_albums(artists, albums_per_artist=2)
-    await create_users_and_purchases(30)
-    await create_playlists(50)
+    # Créer les données - AUGMENTATION DES QUANTITÉS
+    artists = await create_artists(50)  # 20 -> 50 artistes
+    tracks = await create_tracks(artists, tracks_per_artist=10)  # 5 -> 10 tracks par artiste
+    albums = await create_albums(artists, albums_per_artist=3)  # 2 -> 3 albums par artiste
+    await create_users_and_purchases(100)  # 30 -> 100 users
+    await create_playlists(150)  # 50 -> 150 playlists
     
     print("=" * 50)
     print("✅ Seeding completed successfully!")
