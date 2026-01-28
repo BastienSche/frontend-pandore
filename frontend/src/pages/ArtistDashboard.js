@@ -178,14 +178,17 @@ const ArtistDashboard = () => {
 
   useEffect(() => {
     // Wait for auth to load before checking role
-    if (!user) return;
-    
+    if (authLoading) return;
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     if (user.role !== 'artist') {
       navigate('/browse');
       return;
     }
     fetchData();
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   const fetchData = async () => {
     try {
