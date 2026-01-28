@@ -368,7 +368,8 @@ const ArtistDashboard = () => {
     }
   };
 
-  if (loading) {
+  // Show loading while auth is checking
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
         <BubbleBackground />
