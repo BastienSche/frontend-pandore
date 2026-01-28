@@ -1032,6 +1032,161 @@ async def stripe_webhook(request: Request):
         logger.error(f"Webhook error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
+# ==================== ARTIST STATS ROUTES ====================
+
+@api_router.get("/artist/stats")
+async def get_artist_stats(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get comprehensive stats for an artist"""
+    user = await get_current_user(authorization, request)
+    
+    if user["role"] != "artist":
+        raise HTTPException(status_code=403, detail="Only artists can view stats")
+    
+    artist_id = user["user_id"]
+    
+    # Get all artist's tracks
+    tracks = await db.tracks.find({"artist_id": artist_id}, {"_id": 0}).to_list(1000)
+    
+    # Get all purchases for artist's tracks
+    track_ids = [t["track_id"] for t in tracks]
+    purchases = await db.purchases.find({"item_id": {"$in": track_ids}}, {"_id": 0}).to_list(10000)
+    
+    # Get play counts (from a plays collection if exists, otherwise simulate)
+    plays_collection = await db.plays.find({"track_id": {"$in": track_ids}}, {"_id": 0}).to_list(100000)
+    
+    # Calculate stats
+    total_tracks = len(tracks)
+    published_tracks = len([t for t in tracks if t.get("status") == "published"])
+    draft_tracks = total_tracks - published_tracks
+    
+    total_sales = len(purchases)
+    total_revenue = sum(p.get("amount", 0) for p in purchases)
+    
+    # Calculate per-track stats
+    track_stats = []
+    for track in tracks:
+        track_purchases = [p for p in purchases if p["item_id"] == track["track_id"]]
+        track_plays = [p for p in plays_collection if p.get("track_id") == track["track_id"]]
+        
+        track_stats.append({
+            "track_id": track["track_id"],
+            "title": track["title"],
+            "cover_url": track.get("cover_url"),
+            "genre": track.get("genre"),
+            "price": track.get("price", 0),
+            "status": track.get("status", "draft"),
+            "sales_count": len(track_purchases),
+            "revenue": sum(p.get("amount", 0) for p in track_purchases),
+            "play_count": len(track_plays),
+            "play_duration_sec": sum(p.get("duration_sec", 15) for p in track_plays),
+            "likes_count": track.get("likes_count", 0),
+            "created_at": track.get("created_at")
+        })
+    
+    # Sort by revenue
+    track_stats.sort(key=lambda x: x["revenue"], reverse=True)
+    
+    # Calculate time-based stats (last 7 days, 30 days)
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+    
+    def parse_date(date_str):
+        if not date_str:
+            return None
+        try:
+            return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        except:
+            return None
+    
+    recent_purchases = [p for p in purchases if parse_date(p.get("purchased_at")) and parse_date(p.get("purchased_at")) > week_ago]
+    monthly_purchases = [p for p in purchases if parse_date(p.get("purchased_at")) and parse_date(p.get("purchased_at")) > month_ago]
+    
+    # Total play time
+    total_play_duration = sum(p.get("duration_sec", 15) for p in plays_collection)
+    
+    return {
+        "overview": {
+            "total_tracks": total_tracks,
+            "published_tracks": published_tracks,
+            "draft_tracks": draft_tracks,
+            "total_sales": total_sales,
+            "total_revenue": total_revenue,
+            "total_play_count": len(plays_collection),
+            "total_play_duration_sec": total_play_duration,
+            "total_play_duration_hours": round(total_play_duration / 3600, 1)
+        },
+        "period_stats": {
+            "last_7_days": {
+                "sales": len(recent_purchases),
+                "revenue": sum(p.get("amount", 0) for p in recent_purchases)
+            },
+            "last_30_days": {
+                "sales": len(monthly_purchases),
+                "revenue": sum(p.get("amount", 0) for p in monthly_purchases)
+            }
+        },
+        "track_stats": track_stats,
+        "top_tracks": track_stats[:5]
+    }
+
+@api_router.get("/artist/tracks")
+async def get_artist_tracks(authorization: Optional[str] = Header(None), request: Request = None):
+    """Get all tracks for the logged-in artist"""
+    user = await get_current_user(authorization, request)
+    
+    if user["role"] != "artist":
+        raise HTTPException(status_code=403, detail="Only artists can view their tracks")
+    
+    tracks = await db.tracks.find({"artist_id": user["user_id"]}, {"_id": 0}).to_list(1000)
+    return tracks
+
+@api_router.put("/artist/tracks/{track_id}/publish")
+async def publish_track(track_id: str, authorization: Optional[str] = Header(None), request: Request = None):
+    """Toggle track publish status"""
+    user = await get_current_user(authorization, request)
+    
+    if user["role"] != "artist":
+        raise HTTPException(status_code=403, detail="Only artists can publish tracks")
+    
+    track = await db.tracks.find_one({"track_id": track_id}, {"_id": 0})
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    
+    if track["artist_id"] != user["user_id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    new_status = "published" if track.get("status") == "draft" else "draft"
+    
+    await db.tracks.update_one(
+        {"track_id": track_id},
+        {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"status": new_status, "message": f"Track {'published' if new_status == 'published' else 'unpublished'} successfully"}
+
+@api_router.post("/plays")
+async def record_play(track_id: str, duration_sec: int = 15, authorization: Optional[str] = Header(None), request: Request = None):
+    """Record a track play for analytics"""
+    play_doc = {
+        "play_id": f"play_{uuid.uuid4().hex[:12]}",
+        "track_id": track_id,
+        "duration_sec": duration_sec,
+        "played_at": datetime.now(timezone.utc).isoformat(),
+        "user_id": None
+    }
+    
+    # Try to get user if authenticated
+    try:
+        user = await get_current_user(authorization, request)
+        play_doc["user_id"] = user["user_id"]
+    except:
+        pass
+    
+    await db.plays.insert_one(play_doc)
+    return {"status": "recorded"}
+
 # Include router
 app.include_router(api_router)
 
