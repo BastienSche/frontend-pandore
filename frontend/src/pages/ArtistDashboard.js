@@ -145,7 +145,7 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => (
 );
 
 const ArtistDashboard = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(null);
