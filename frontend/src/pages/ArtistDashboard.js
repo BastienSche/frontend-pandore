@@ -177,7 +177,10 @@ const ArtistDashboard = () => {
   });
 
   useEffect(() => {
-    if (user?.role !== 'artist') {
+    // Wait for auth to load before checking role
+    if (!user) return;
+    
+    if (user.role !== 'artist') {
       navigate('/browse');
       return;
     }
