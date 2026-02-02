@@ -25,7 +25,7 @@ const TrackDetail = () => {
     fetchTrack();
   }, [trackId]);
 
-  const fetchTrack = async () => {
+  const fetchTrack = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/tracks/${trackId}`);
       setTrack(response.data);
@@ -35,7 +35,7 @@ const TrackDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+    }, [trackId, navigate]);
 
   const handlePurchase = async () => {
     setPurchasing(true);
