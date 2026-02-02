@@ -20,6 +20,7 @@ const TrackDetail = () => {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchTrack();
   }, [trackId]);

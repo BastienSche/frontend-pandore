@@ -176,6 +176,7 @@ const ArtistDashboard = () => {
     coverFile: null
   });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Wait for auth to load before checking role
     if (authLoading) return;

@@ -22,9 +22,10 @@ const AlbumDetail = () => {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchAlbum();
-  }, [albumId]);
+  }, []);
 
   const fetchAlbum = async () => {
     try {

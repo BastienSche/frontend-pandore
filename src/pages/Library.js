@@ -20,6 +20,7 @@ const Library = () => {
   const [loading, setLoading] = useState(true);
   const [checkingPayment, setCheckingPayment] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
     if (sessionId) {

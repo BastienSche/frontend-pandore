@@ -17,6 +17,7 @@ const ArtistProfile = () => {
   const [artist, setArtist] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchArtist();
   }, [artistId]);
