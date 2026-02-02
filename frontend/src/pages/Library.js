@@ -6,6 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import { Button } from '@/components/ui/button';
+import {BubbleBackground, GlowOrb} from '@/components/BubbleCard';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -114,15 +117,33 @@ const Library = () => {
   }
 
   return (
-    <div className="min-h-screen pb-32">
-      <div className="bg-gradient-to-br from-primary/20 via-background to-background py-16 px-4 md:px-8">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-4" data-testid="library-title">
-            Ma Bibliothèque
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Tous vos achats en un seul endroit
-          </p>
+    <div className="min-h-screen pb-32 relative overflow-hidden">
+      <BubbleBackground />
+      <GlowOrb color="purple" size={500} x="10%" y="20%" blur={150} />
+      <GlowOrb color="cyan" size={400} x="90%" y="70%" blur={120} />
+
+      {/* Header */}
+      <div className="relative pt-28 pb-8 px-6 md:px-12">
+        <div className="max-w-7xl mx-auto relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col md:flex-row md:items-end md:justify-between gap-6"
+          >
+            <div>
+              <Badge className="mb-4 bg-purple-500/20 text-purple-400 border-purple-500/30">
+                Lorep ipsum
+              </Badge>
+              <h1 className="text-4xl md:text-6xl font-bold tracking-tighter" data-testid="dashboard-title">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                  Bibliothèque
+                </span>
+              </h1>
+              <p className="text-lg text-muted-foreground mt-2">
+                Bienvenue, 
+              </p>
+            </div>
+          </motion.div>
         </div>
       </div>
 
