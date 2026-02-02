@@ -12,7 +12,18 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
-from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
+try:
+    from emergentintegrations.payments.stripe.checkout import (
+        StripeCheckout,
+        CheckoutSessionResponse,
+        CheckoutStatusResponse,
+        CheckoutSessionRequest,
+    )
+except ImportError:
+    StripeCheckout = None
+    CheckoutSessionResponse = None
+    CheckoutStatusResponse = None
+    CheckoutSessionRequest = None
 import aiofiles
 import shutil
 
@@ -41,6 +52,13 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 logger = logging.getLogger(__name__)
+
+def ensure_stripe_available():
+    if StripeCheckout is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Stripe integration unavailable. Install emergentintegrations to enable payments.",
+        )
 
 # ==================== MODELS ====================
 
@@ -843,6 +861,7 @@ async def get_likes(authorization: Optional[str] = Header(None), request: Reques
 
 @api_router.post("/purchases/checkout")
 async def create_checkout(checkout_data: CheckoutRequest, authorization: Optional[str] = Header(None), request: Request = None):
+    ensure_stripe_available()
     user = await get_current_user(authorization, request)
     
     # Get item details
@@ -909,6 +928,7 @@ async def create_checkout(checkout_data: CheckoutRequest, authorization: Optiona
 
 @api_router.get("/purchases/status/{session_id}")
 async def get_checkout_status(session_id: str, authorization: Optional[str] = Header(None), request: Request = None):
+    ensure_stripe_available()
     user = await get_current_user(authorization, request)
     
     # Get transaction
@@ -987,6 +1007,7 @@ async def get_library(authorization: Optional[str] = Header(None), request: Requ
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
+    ensure_stripe_available()
     body_bytes = await request.body()
     signature = request.headers.get("Stripe-Signature")
     
