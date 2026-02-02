@@ -28,9 +28,9 @@ const Library = () => {
     } else {
       fetchLibrary();
     }
-  }, [searchParams]);
+  }, [searchParams, checkPaymentStatus, fetchLibrary]);
 
-  const checkPaymentStatus = async (sessionId) => {
+  const checkPaymentStatus = useCallback(async (sessionId) => {
     setCheckingPayment(true);
     let attempts = 0;
     const maxAttempts = 5;
@@ -73,9 +73,9 @@ const Library = () => {
     };
 
     poll();
-  };
+  }, [fetchLibrary]);
 
-  const fetchLibrary = async () => {
+  const fetchLibrary = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/purchases/library`, {
         withCredentials: true
@@ -86,7 +86,7 @@ const Library = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchLibrary]);
 
   const handleDownload = async (fileUrl, filename) => {
     try {

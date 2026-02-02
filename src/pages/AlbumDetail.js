@@ -25,9 +25,9 @@ const AlbumDetail = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchAlbum();
-  }, []);
+  }, [fetchAlbum]);
 
-  const fetchAlbum = async () => {
+  const fetchAlbum = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/albums/${albumId}`);
       setAlbum(response.data);
@@ -46,7 +46,7 @@ const AlbumDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [albumId, navigate]);
 
   const handlePurchase = async () => {
     setPurchasing(true);

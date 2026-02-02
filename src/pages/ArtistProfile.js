@@ -20,9 +20,9 @@ const ArtistProfile = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchArtist();
-  }, [artistId]);
+  }, [fetchArtist]);
 
-  const fetchArtist = async () => {
+  const fetchArtist = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/artists/${artistId}`);
       setArtist(response.data);
@@ -31,7 +31,7 @@ const ArtistProfile = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [artistId]);
 
   if (loading) {
     return (

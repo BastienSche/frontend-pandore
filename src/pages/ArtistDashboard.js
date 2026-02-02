@@ -189,9 +189,9 @@ const ArtistDashboard = () => {
       return;
     }
     fetchData();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, fetchData]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [statsRes, tracksRes] = await Promise.all([
         axios.get(`${API}/artist/stats`, { withCredentials: true }),
@@ -214,7 +214,7 @@ const ArtistDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const resetForm = () => {
     setTrackForm({
