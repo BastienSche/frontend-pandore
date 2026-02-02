@@ -198,7 +198,7 @@ const Home = () => {
       </section>
 
       {/* New Releases - Floating Cards */}
-      <section className="relative py-32 px-6 md:px-12">
+      <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="cyan" size={400} x="10%" y="50%" blur={100} />
         
         <div className="max-w-7xl mx-auto relative z-10">
@@ -251,7 +251,7 @@ const Home = () => {
       </section>
 
       {/* Top Tracks */}
-      <section className="relative py-32 px-6 md:px-12">
+      <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="purple" size={500} x="90%" y="30%" blur={120} />
         
         <div className="max-w-7xl mx-auto relative z-10">
@@ -294,7 +294,7 @@ const Home = () => {
       </section>
 
       {/* Featured Albums */}
-      <section className="relative py-32 px-6 md:px-12">
+      <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="pink" size={400} x="20%" y="60%" blur={100} />
         
         <div className="max-w-7xl mx-auto relative z-10">
@@ -332,7 +332,7 @@ const Home = () => {
       </section>
 
       {/* Featured Artists - Circular Bubbles */}
-      <section className="relative py-32 px-6 md:px-12">
+      <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="cyan" size={500} x="70%" y="40%" blur={120} />
         
         <div className="max-w-7xl mx-auto relative z-10">
@@ -395,7 +395,7 @@ const Home = () => {
       </section>
 
       {/* Why Pandore - Glass Cards */}
-      <section className="relative py-32 px-6 md:px-12">
+      <section className="relative py-16 px-6 md:px-12">
         <div className="max-w-6xl mx-auto relative z-10">
           <motion.div
             initial="hidden"
@@ -464,7 +464,7 @@ const Home = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="relative py-32 px-6 md:px-12">
+      <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="cyan" size={600} x="50%" y="50%" blur={150} />
         
         <div className="max-w-4xl mx-auto relative z-10">
