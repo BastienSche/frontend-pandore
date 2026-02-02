@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { Play, Heart, ShoppingCart, Music, Loader2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,9 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import TrackCard from '@/components/TrackCard';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { addToLibrary, getAlbumById, getTracksByIds } from '@/data/fakeData';
 
 const AlbumDetail = () => {
   const { albumId } = useParams();
@@ -22,50 +19,23 @@ const AlbumDetail = () => {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    fetchAlbum();
-  }, [fetchAlbum]);
-
-  const fetchAlbum = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API}/albums/${albumId}`);
-      setAlbum(response.data);
-      
-      // Fetch tracks if track_ids exist
-      if (response.data.track_ids && response.data.track_ids.length > 0) {
-        const tracksPromises = response.data.track_ids.map(trackId =>
-          axios.get(`${API}/tracks/${trackId}`)
-        );
-        const tracksResponses = await Promise.all(tracksPromises);
-        setTracks(tracksResponses.map(r => r.data));
-      }
-    } catch (error) {
+    const found = getAlbumById(albumId);
+    if (!found) {
       toast.error('Album introuvable');
       navigate('/browse');
-    } finally {
-      setLoading(false);
+      return;
     }
+    setAlbum(found);
+    setTracks(found.track_ids?.length ? getTracksByIds(found.track_ids) : []);
+    setLoading(false);
   }, [albumId, navigate]);
 
   const handlePurchase = async () => {
     setPurchasing(true);
-    try {
-      const originUrl = window.location.origin;
-      const response = await axios.post(
-        `${API}/purchases/checkout`,
-        {
-          item_type: 'album',
-          item_id: albumId,
-          origin_url: originUrl
-        },
-        { withCredentials: true }
-      );
-      window.location.href = response.data.url;
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur lors de l\'achat');
-      setPurchasing(false);
-    }
+    addToLibrary('album', albumId);
+    toast.success('Album ajouté à votre bibliothèque');
+    setPurchasing(false);
   };
 
   if (loading) {

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { Play, Pause, Heart, ShoppingCart, Music, Loader2, Clock, User, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,9 +7,7 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { addToLibrary, getTrackById } from '@/data/fakeData';
 
 const TrackDetail = () => {
   const { trackId } = useParams();
@@ -20,41 +17,22 @@ const TrackDetail = () => {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    fetchTrack();
-  }, [fetchTrack]);
-
-  const fetchTrack = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API}/tracks/${trackId}`);
-      setTrack(response.data);
-    } catch (error) {
+    const found = getTrackById(trackId);
+    if (!found) {
       toast.error('Track introuvable');
       navigate('/browse');
-    } finally {
-      setLoading(false);
+      return;
     }
-    }, [trackId, navigate]);
+    setTrack(found);
+    setLoading(false);
+  }, [trackId, navigate]);
 
   const handlePurchase = async () => {
     setPurchasing(true);
-    try {
-      const originUrl = window.location.origin;
-      const response = await axios.post(
-        `${API}/purchases/checkout`,
-        {
-          item_type: 'track',
-          item_id: trackId,
-          origin_url: originUrl
-        },
-        { withCredentials: true }
-      );
-      window.location.href = response.data.url;
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur lors de l\'achat');
-      setPurchasing(false);
-    }
+    addToLibrary('track', trackId);
+    toast.success('Track ajouté à votre bibliothèque');
+    setPurchasing(false);
   };
 
   if (loading) {

@@ -111,7 +111,7 @@ const TrackCard = ({ track }) => {
                 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
                 data-testid={`track-price-${track.track_id}`}
               >
-                ${track.price}
+                {(track.price / 100).toFixed(2)}€
               </span>
             </div>
             

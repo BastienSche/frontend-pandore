@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
 import { Music, Play, TrendingUp, Sparkles, ArrowRight, Disc, Star, Headphones } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,9 +8,7 @@ import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { getTracks, getAlbums, getArtists } from '@/data/fakeData';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -54,23 +51,16 @@ const Home = () => {
     fetchHomeData();
   }, []);
 
-  const fetchHomeData = async () => {
-    try {
-      const [tracksRes, albumsRes, artistsRes] = await Promise.all([
-        axios.get(`${API}/tracks?limit=12`),
-        axios.get(`${API}/albums?limit=8`),
-        axios.get(`${API}/artists?limit=8`)
-      ]);
-      
-      setNewReleases(tracksRes.data.slice(0, 6));
-      setTopTracks(tracksRes.data.sort((a, b) => b.likes_count - a.likes_count).slice(0, 6));
-      setFeaturedAlbums(albumsRes.data);
-      setFeaturedArtists(artistsRes.data);
-    } catch (error) {
-      console.error('Error fetching home data:', error);
-    } finally {
-      setLoading(false);
-    }
+  const fetchHomeData = () => {
+    const tracks = getTracks();
+    const albums = getAlbums();
+    const artists = getArtists();
+
+    setNewReleases(tracks.slice(0, 6));
+    setTopTracks([...tracks].sort((a, b) => b.likes_count - a.likes_count).slice(0, 6));
+    setFeaturedAlbums(albums.slice(0, 8));
+    setFeaturedArtists(artists.slice(0, 8));
+    setLoading(false);
   };
 
   return (

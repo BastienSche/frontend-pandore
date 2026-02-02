@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Search, Disc, Music } from 'lucide-react';
@@ -8,9 +7,7 @@ import AlbumCard from '@/components/AlbumCard';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { getTracks, getAlbums } from '@/data/fakeData';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -39,14 +36,10 @@ const Browse = () => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = () => {
     try {
-      const [tracksRes, albumsRes] = await Promise.all([
-        axios.get(`${API}/tracks`),
-        axios.get(`${API}/albums`)
-      ]);
-      setTracks(tracksRes.data);
-      setAlbums(albumsRes.data);
+      setTracks(getTracks());
+      setAlbums(getAlbums());
     } catch (error) {
       toast.error('Erreur lors du chargement');
     } finally {

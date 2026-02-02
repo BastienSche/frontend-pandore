@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import axios from 'axios';
 import { 
   Upload, Music, Disc, Plus, Edit, Trash2, Loader2, 
   TrendingUp, DollarSign, Play, Clock, Eye, EyeOff,
@@ -18,9 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { getArtistStats, getArtistTracks, getDemoAudioUrl, saveArtistTracks } from '@/data/fakeData';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color = "cyan", trend }) => (
   <motion.div
@@ -176,7 +173,6 @@ const ArtistDashboard = () => {
     coverFile: null
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Wait for auth to load before checking role
     if (authLoading) return;
@@ -188,33 +184,11 @@ const ArtistDashboard = () => {
       navigate('/browse');
       return;
     }
-    fetchData();
-  }, [user, authLoading, navigate, fetchData]);
-
-  const fetchData = useCallback(async () => {
-    try {
-      const [statsRes, tracksRes] = await Promise.all([
-        axios.get(`${API}/artist/stats`, { withCredentials: true }),
-        axios.get(`${API}/artist/tracks`, { withCredentials: true })
-      ]);
-      setStats(statsRes.data);
-      setTracks(tracksRes.data);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      // Use tracks data from stats if available
-      if (error.response?.status === 404) {
-        try {
-          const tracksRes = await axios.get(`${API}/tracks`, { withCredentials: true });
-          const myTracks = tracksRes.data.filter(t => t.artist_id === user.user_id);
-          setTracks(myTracks);
-        } catch (e) {
-          console.error('Error fetching tracks:', e);
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+    const artistTracks = getArtistTracks(user.user_id);
+    setTracks(artistTracks);
+    setStats(getArtistStats(artistTracks));
+    setLoading(false);
+  }, [user, authLoading, navigate]);
 
   const resetForm = () => {
     setTrackForm({
@@ -267,30 +241,12 @@ const ArtistDashboard = () => {
     setSubmitting(true);
 
     try {
-      let audioUrl = editingTrack?.preview_url || '';
-      let coverUrl = editingTrack?.cover_url || '';
-
-      // Upload audio file if changed
-      if (trackForm.audioFile) {
-        const audioFormData = new FormData();
-        audioFormData.append('file', trackForm.audioFile);
-        const audioRes = await axios.post(`${API}/upload/audio`, audioFormData, {
-          withCredentials: true,
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        audioUrl = BACKEND_URL + audioRes.data.file_url;
-      }
-
-      // Upload cover file if changed
-      if (trackForm.coverFile) {
-        const coverFormData = new FormData();
-        coverFormData.append('file', trackForm.coverFile);
-        const coverRes = await axios.post(`${API}/upload/cover`, coverFormData, {
-          withCredentials: true,
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        coverUrl = BACKEND_URL + coverRes.data.cover_url;
-      }
+      const audioUrl = trackForm.audioFile
+        ? URL.createObjectURL(trackForm.audioFile)
+        : (editingTrack?.preview_url || getDemoAudioUrl(tracks.length));
+      const coverUrl = trackForm.coverFile
+        ? URL.createObjectURL(trackForm.coverFile)
+        : (editingTrack?.cover_url || `https://picsum.photos/seed/pandore-track-${Date.now()}/600/600`);
 
       const trackData = {
         title: trackForm.title,
@@ -316,30 +272,31 @@ const ArtistDashboard = () => {
         status: trackForm.status
       };
 
-      if (editingTrack) {
-        await axios.put(`${API}/tracks/${editingTrack.track_id}`, {
-          ...trackData,
-          preview_url: audioUrl,
-          file_url: audioUrl,
-          cover_url: coverUrl
-        }, { withCredentials: true });
-        toast.success('Track modifié avec succès !');
-      } else {
-        const trackRes = await axios.post(`${API}/tracks`, trackData, { withCredentials: true });
-        if (audioUrl || coverUrl) {
-          await axios.put(`${API}/tracks/${trackRes.data.track_id}`, {
-            preview_url: audioUrl,
-            file_url: audioUrl,
-            cover_url: coverUrl
-          }, { withCredentials: true });
-        }
-        toast.success('Track ajouté avec succès !');
-      }
+      const nextTrack = {
+        track_id: editingTrack?.track_id || `track_custom_${Date.now()}`,
+        artist_id: user.user_id,
+        artist_name: user.artist_name || user.name,
+        preview_url: audioUrl,
+        file_url: audioUrl,
+        cover_url: coverUrl,
+        play_count: editingTrack?.play_count || Math.floor(Math.random() * 5000),
+        sales_count: editingTrack?.sales_count || Math.floor(Math.random() * 300),
+        revenue: editingTrack?.revenue || Math.floor(Math.random() * 50000),
+        ...trackData
+      };
+
+      const updatedTracks = editingTrack
+        ? tracks.map((track) => track.track_id === editingTrack.track_id ? nextTrack : track)
+        : [nextTrack, ...tracks];
+
+      setTracks(updatedTracks);
+      saveArtistTracks(user.user_id, updatedTracks);
+      setStats(getArtistStats(updatedTracks));
+      toast.success(editingTrack ? 'Track modifié avec succès !' : 'Track ajouté avec succès !');
 
       setShowTrackDialog(false);
       setEditingTrack(null);
       resetForm();
-      fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erreur lors de l\'opération');
     } finally {
@@ -351,9 +308,11 @@ const ArtistDashboard = () => {
     if (!window.confirm(`Supprimer "${track.title}" ?`)) return;
 
     try {
-      await axios.delete(`${API}/tracks/${track.track_id}`, { withCredentials: true });
+      const updatedTracks = tracks.filter((item) => item.track_id !== track.track_id);
+      setTracks(updatedTracks);
+      saveArtistTracks(user.user_id, updatedTracks);
+      setStats(getArtistStats(updatedTracks));
       toast.success('Track supprimé');
-      fetchData();
     } catch (error) {
       toast.error('Erreur lors de la suppression');
     }
@@ -361,9 +320,15 @@ const ArtistDashboard = () => {
 
   const handleTogglePublish = async (track) => {
     try {
-      await axios.put(`${API}/artist/tracks/${track.track_id}/publish`, {}, { withCredentials: true });
+      const updatedTracks = tracks.map((item) => {
+        if (item.track_id !== track.track_id) return item;
+        const nextStatus = item.status === 'published' ? 'draft' : 'published';
+        return { ...item, status: nextStatus };
+      });
+      setTracks(updatedTracks);
+      saveArtistTracks(user.user_id, updatedTracks);
+      setStats(getArtistStats(updatedTracks));
       toast.success(track.status === 'published' ? 'Track retiré' : 'Track publié !');
-      fetchData();
     } catch (error) {
       toast.error('Erreur lors de la publication');
     }

@@ -1,26 +1,41 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const STORAGE_KEY = 'pandore_fake_user';
+
+const createDefaultUser = (overrides = {}) => ({
+  user_id: 'artist_0',
+  name: 'Demo User',
+  email: 'demo@pandore.app',
+  role: 'artist',
+  artist_name: 'Demo Artist',
+  picture: 'https://picsum.photos/seed/pandore-demo-user/200/200',
+  ...overrides
+});
+
+const loadUser = () => {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return createDefaultUser();
+    return JSON.parse(raw);
+  } catch (error) {
+    return createDefaultUser();
+  }
+};
+
+const persistUser = (user) => {
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+  return user;
+};
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const checkAuth = async () => {
-    try {
-      const response = await axios.get(`${API}/auth/me`, {
-        withCredentials: true
-      });
-      setUser(response.data);
-      return response.data;
-    } catch (error) {
-      setUser(null);
-      return null;
-    } finally {
-      setLoading(false);
-    }
+    const currentUser = loadUser();
+    setUser(currentUser);
+    setLoading(false);
+    return currentUser;
   };
 
   useEffect(() => {
@@ -28,37 +43,43 @@ export const useAuth = () => {
   }, []);
 
   const login = async (email, password) => {
-    const response = await axios.post(`${API}/auth/login`, 
-      { email, password },
-      { withCredentials: true }
+    const loggedUser = persistUser(
+      createDefaultUser({
+        email,
+        name: email?.split('@')[0] || 'Demo User'
+      })
     );
-    setUser(response.data.user);
-    return response.data;
+    setUser(loggedUser);
+    return { user: loggedUser };
   };
 
   const register = async (email, password, name, artistName = null) => {
-    const response = await axios.post(`${API}/auth/register`, {
-      email,
-      password,
-      name,
-      artist_name: artistName
-    });
-    return response.data;
+    const role = artistName ? 'artist' : 'user';
+    const registeredUser = persistUser(
+      createDefaultUser({
+        email,
+        name: name || email?.split('@')[0] || 'Demo User',
+        role,
+        artist_name: artistName || (role === 'artist' ? 'Demo Artist' : null)
+      })
+    );
+    setUser(registeredUser);
+    return { user: registeredUser };
   };
 
   const logout = async () => {
-    await axios.post(`${API}/auth/logout`, {}, { withCredentials: true });
+    window.localStorage.removeItem(STORAGE_KEY);
     setUser(null);
   };
 
   const switchRole = async (artistName = null) => {
     const newRole = artistName || user?.artist_name ? 'artist' : 'user';
-    await axios.put(
-      `${API}/auth/role?new_role=${newRole}${artistName ? `&artist_name=${artistName}` : ''}`,
-      {},
-      { withCredentials: true }
-    );
-    await checkAuth();
+    const updated = persistUser({
+      ...user,
+      role: newRole,
+      artist_name: artistName || user?.artist_name
+    });
+    setUser(updated);
   };
 
   return {

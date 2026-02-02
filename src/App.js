@@ -1,15 +1,13 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { Toaster } from '@/components/ui/sonner';
-import { useAuth } from '@/hooks/useAuth';
 import Navbar from '@/components/Navbar';
 import AudioPlayer from '@/components/AudioPlayer';
 import Home from '@/pages/Home';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
-import AuthCallback from '@/pages/AuthCallback';
 import Browse from '@/pages/Browse';
 import Library from '@/pages/Library';
 import ArtistDashboard from '@/pages/ArtistDashboard';
@@ -20,37 +18,10 @@ import AlbumDetail from '@/pages/AlbumDetail';
 import '@/App.css';
 
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-
-  // If passed user from AuthCallback, render immediately
-  if (location.state?.user) {
-    return children;
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
   return children;
 };
 
 function AppRouter() {
-  const location = useLocation();
-  
-  // Check URL fragment (not query params) for session_id
-  if (location.hash?.includes('session_id=')) {
-    return <AuthCallback />;
-  }
-
   return (
     <>
       <Navbar />

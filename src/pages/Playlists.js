@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { Plus, Music, Play, Edit, Trash2, Lock, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,9 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { createPlaylist, deletePlaylist, getPlaylists } from '@/data/fakeData';
 
 const Playlists = () => {
   const navigate = useNavigate();
@@ -25,10 +22,9 @@ const Playlists = () => {
     fetchPlaylists();
   }, []);
 
-  const fetchPlaylists = async () => {
+  const fetchPlaylists = () => {
     try {
-      const response = await axios.get(`${API}/playlists`, { withCredentials: true });
-      setPlaylists(response.data);
+      setPlaylists(getPlaylists());
     } catch (error) {
       toast.error('Erreur lors du chargement');
     } finally {
@@ -39,11 +35,11 @@ const Playlists = () => {
   const handleCreatePlaylist = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API}/playlists`, newPlaylist, { withCredentials: true });
+      const updated = createPlaylist(newPlaylist);
       toast.success('Playlist créée !');
       setShowCreateDialog(false);
       setNewPlaylist({ name: '', description: '' });
-      fetchPlaylists();
+      setPlaylists(updated);
     } catch (error) {
       toast.error('Erreur lors de la création');
     }
@@ -53,9 +49,9 @@ const Playlists = () => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette playlist ?')) return;
     
     try {
-      await axios.delete(`${API}/playlists/${playlistId}`, { withCredentials: true });
+      const updated = deletePlaylist(playlistId);
       toast.success('Playlist supprimée');
-      fetchPlaylists();
+      setPlaylists(updated);
     } catch (error) {
       toast.error('Erreur lors de la suppression');
     }

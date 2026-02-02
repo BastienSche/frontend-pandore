@@ -74,7 +74,7 @@ const AlbumCard = ({ album }) => {
               className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400"
               data-testid={`album-price-${album.album_id}`}
             >
-              ${album.price}
+              {(album.price / 100).toFixed(2)}€
             </span>
             
             <Button 

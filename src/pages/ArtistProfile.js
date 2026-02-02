@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
 import { Music, Disc, Heart, ExternalLink, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,29 +7,22 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import { toast } from 'sonner';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { getArtistById } from '@/data/fakeData';
 
 const ArtistProfile = () => {
   const { artistId } = useParams();
   const [artist, setArtist] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    fetchArtist();
-  }, [fetchArtist]);
-
-  const fetchArtist = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API}/artists/${artistId}`);
-      setArtist(response.data);
-    } catch (error) {
+    const found = getArtistById(artistId);
+    if (!found) {
       toast.error('Artiste introuvable');
-    } finally {
       setLoading(false);
+      return;
     }
+    setArtist(found);
+    setLoading(false);
   }, [artistId]);
 
   if (loading) {
