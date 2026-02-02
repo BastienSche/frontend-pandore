@@ -23,7 +23,7 @@ const TrackDetail = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchTrack();
-  }, [trackId]);
+  }, [fetchTrack]);
 
   const fetchTrack = useCallback(async () => {
     try {
