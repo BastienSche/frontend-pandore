@@ -74,16 +74,16 @@ const Home = () => {
       <GlowOrb color="pink" size={400} x="50%" y="90%" blur={100} />
 
       {/* Hero Section */}
-      <section className="relative min-h-[95vh] flex items-center justify-center px-6 overflow-hidden">
+      <section className="relative min-h-[100vh] flex items-center justify-center px-2 overflow-hidden">
         {/* Background Image with Overlay */}
-        <div 
+        {/* <div 
           className="absolute inset-0 bg-cover bg-center opacity-30"
           style={{
             backgroundImage: `url('https://images.unsplash.com/photo-1726650683763-a6ba2bf5ea27?crop=entropy&cs=srgb&fm=jpg&q=85')`,
             filter: 'blur(2px)'
           }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/80 to-background" />
+        /> */}
+        {/* <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/80 to-background" /> */}
         
         <div className="relative z-10 max-w-5xl mx-auto text-center space-y-10">
           <motion.div
@@ -186,7 +186,7 @@ const Home = () => {
         </div>
 
         {/* Scroll Indicator */}
-        <motion.div
+        {/* <motion.div
           className="absolute bottom-8 left-1/2 -translate-x-1/2"
           animate={{ y: [0, 10, 0] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -194,12 +194,12 @@ const Home = () => {
           <div className="w-6 h-10 rounded-full border-2 border-white/20 flex justify-center pt-2">
             <div className="w-1 h-2 bg-primary rounded-full" />
           </div>
-        </motion.div>
+        </motion.div> */}
       </section>
 
       {/* New Releases - Floating Cards */}
       <section className="relative py-16 px-6 md:px-12">
-        <GlowOrb color="cyan" size={400} x="10%" y="50%" blur={100} />
+        <GlowOrb color="cyan" size={400} x="0%" y="50%" blur={100} />
         
         <div className="max-w-7xl mx-auto relative z-10">
           <motion.div

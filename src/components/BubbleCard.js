@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 
 const floatVariants = {
@@ -54,40 +54,165 @@ export const BubbleCard = ({
 };
 
 export const BubbleBackground = () => {
-  const bubbles = Array.from({ length: 12 }, (_, i) => ({
-    id: i,
-    size: Math.random() * 150 + 50,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    delay: Math.random() * 5,
-    duration: Math.random() * 8 + 6,
-    opacity: Math.random() * 0.08 + 0.02
-  }));
+  const [bubbles, setBubbles] = useState(() =>
+    Array.from({ length: 16 }, (_, i) => {
+      // Mouvement de base plus doux au chargement
+      const speedBase = 0.25 + Math.random() * 0.35;
+      const angle = Math.random() * Math.PI * 2;
+
+      return {
+        id: i,
+        size: Math.random() * 140 + 60,
+        x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1920),
+        y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1080),
+        vx: Math.cos(angle) * speedBase,
+        vy: Math.sin(angle) * speedBase,
+        opacity: Math.random() * 0.08 + 0.03
+      };
+    })
+  );
+
+  const mouseRef = useRef({ x: null, y: null });
+  const scrollDeltaRef = useRef(0);
+  const lastScrollYRef = useRef(
+    typeof window !== 'undefined' ? window.scrollY : 0
+  );
+  const animationFrameRef = useRef(null);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const handleScroll = () => {
+      if (typeof window === 'undefined') return;
+      const currentY = window.scrollY;
+      const delta = currentY - lastScrollYRef.current;
+      scrollDeltaRef.current = delta;
+      lastScrollYRef.current = currentY;
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('scroll', handleScroll, { passive: true });
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    let lastTime = performance.now();
+
+    const animate = (time) => {
+      const dt = Math.min((time - lastTime) / 16.67, 2);
+      lastTime = time;
+
+      if (typeof window === 'undefined') {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const mouse = mouseRef.current;
+
+      setBubbles((prev) =>
+        prev.map((bubble) => {
+          let { x, y, vx, vy } = bubble;
+
+          // Répulsion plus forte autour du curseur (aimant inversé)
+          if (mouse.x !== null && mouse.y !== null) {
+            const dx = x - mouse.x;
+            const dy = y - mouse.y;
+            const distSq = dx * dx + dy * dy;
+            const radius = 220;
+            if (distSq < radius * radius && distSq > 1) {
+              const dist = Math.sqrt(distSq);
+              const force = 0.25 / dist; // plus fort qu'avant
+              vx += (dx / dist) * force;
+              vy += (dy / dist) * force;
+            }
+          }
+
+          // Quand on scroll vers le bas (delta > 0), les bulles montent, mais comme un petit coup de vent
+          const scrollInfluence = scrollDeltaRef.current * 0.0006;
+          vy -= scrollInfluence;
+
+          // Friction un peu plus forte pour garder un mouvement doux
+          const maxSpeed = 1.6;
+          vx *= 0.99;
+          vy *= 0.99;
+
+          const speed = Math.sqrt(vx * vx + vy * vy);
+          if (speed > maxSpeed) {
+            vx = (vx / speed) * maxSpeed;
+            vy = (vy / speed) * maxSpeed;
+          }
+
+          x += vx * dt * 16;
+          y += vy * dt * 16;
+
+          const radiusPx = bubble.size / 2;
+
+          if (x - radiusPx < 0) {
+            x = radiusPx;
+            vx = Math.abs(vx) * 0.9;
+          } else if (x + radiusPx > width) {
+            x = width - radiusPx;
+            vx = -Math.abs(vx) * 0.9;
+          }
+
+          if (y - radiusPx < 0) {
+            y = radiusPx;
+            vy = Math.abs(vy) * 0.9;
+          } else if (y + radiusPx > height) {
+            y = height - radiusPx;
+            vy = -Math.abs(vy) * 0.9;
+          }
+
+          return {
+            ...bubble,
+            x,
+            y,
+            vx,
+            vy
+          };
+        })
+      );
+
+      scrollDeltaRef.current *= 0.9;
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
       {bubbles.map((bubble) => (
-        <motion.div
+        <div
           key={bubble.id}
-          className="absolute rounded-full"
+          className="absolute rounded-full will-change-transform"
           style={{
             width: bubble.size,
             height: bubble.size,
-            left: `${bubble.x}%`,
-            top: `${bubble.y}%`,
+            transform: `translate(${bubble.x - bubble.size / 2}px, ${
+              bubble.y - bubble.size / 2
+            }px)`,
             background: `radial-gradient(circle at 30% 30%, rgba(34, 211, 238, ${bubble.opacity}), transparent 70%)`,
             border: `1px solid rgba(255, 255, 255, ${bubble.opacity / 2})`
-          }}
-          animate={{
-            y: [-20, 20, -20],
-            x: [-10, 10, -10],
-            scale: [1, 1.1, 1]
-          }}
-          transition={{
-            duration: bubble.duration,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: bubble.delay
           }}
         />
       ))}
