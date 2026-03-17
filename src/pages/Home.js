@@ -95,16 +95,6 @@ const Home = () => {
 
       {/* Hero Section */}
       <section className="relative min-h-[100vh] flex items-center justify-center px-2 overflow-hidden">
-        {/* Background Image with Overlay */}
-        {/* <div 
-          className="absolute inset-0 bg-cover bg-center opacity-30"
-          style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1726650683763-a6ba2bf5ea27?crop=entropy&cs=srgb&fm=jpg&q=85')`,
-            filter: 'blur(2px)'
-          }}
-        /> */}
-        {/* <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/80 to-background" /> */}
-        
         <div className="relative z-10 max-w-5xl mx-auto text-center space-y-10">
           <motion.div
             initial={{ opacity: 0, y: 40 }}

@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { Progress } from '@/components/ui/progress';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color = "cyan", trend }) => (
   <motion.div
@@ -151,6 +152,7 @@ const ArtistDashboard = () => {
   const [showTrackDialog, setShowTrackDialog] = useState(false);
   const [editingTrack, setEditingTrack] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [trackStep, setTrackStep] = useState(0);
 
   // Track form state
   const [trackForm, setTrackForm] = useState({
@@ -236,6 +238,7 @@ const ArtistDashboard = () => {
       audioFile: null,
       coverFile: null
     });
+    setTrackStep(0);
   };
 
   const handleEditTrack = (track) => {
@@ -259,8 +262,31 @@ const ArtistDashboard = () => {
       audioFile: null,
       coverFile: null
     });
+    setTrackStep(0);
     setShowTrackDialog(true);
   };
+
+  const closeTrackDialog = () => {
+    setShowTrackDialog(false);
+    setEditingTrack(null);
+    setTrackStep(0);
+  };
+
+  const canGoNext = () => {
+    if (trackStep === 0) return !!trackForm.title?.trim() && !!trackForm.genre?.trim();
+    if (trackStep === 1) return !!trackForm.price && parseFloat(trackForm.price) > 0;
+    return true;
+  };
+
+  const nextStep = () => {
+    if (!canGoNext()) {
+      toast.error('Complète les champs requis');
+      return;
+    }
+    setTrackStep((s) => Math.min(s + 1, 3));
+  };
+
+  const prevStep = () => setTrackStep((s) => Math.max(s - 1, 0));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -645,7 +671,7 @@ const ArtistDashboard = () => {
       </div>
 
       {/* Track Dialog */}
-      <Dialog open={showTrackDialog} onOpenChange={(open) => { if (!open) { setShowTrackDialog(false); setEditingTrack(null); } }}>
+      <Dialog open={showTrackDialog} onOpenChange={(open) => { if (!open) closeTrackDialog(); }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto glass-heavy border-white/10 rounded-3xl">
           <DialogHeader>
             <DialogTitle className="text-2xl">
@@ -654,8 +680,16 @@ const ArtistDashboard = () => {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>Étape {trackStep + 1}/4</span>
+                <span>{trackStep === 0 ? 'Infos' : trackStep === 1 ? 'Prix' : trackStep === 2 ? 'Fichiers' : 'Avancé'}</span>
+              </div>
+              <Progress value={((trackStep + 1) / 4) * 100} />
+            </div>
+
             {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${trackStep !== 0 ? 'hidden' : ''}`}>
               <div className="space-y-2">
                 <Label>Titre *</Label>
                 <Input
@@ -679,7 +713,7 @@ const ArtistDashboard = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className={`space-y-2 ${trackStep !== 0 ? 'hidden' : ''}`}>
               <Label>Description</Label>
               <Textarea
                 value={trackForm.description}
@@ -691,7 +725,7 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Price & Duration */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 ${trackStep !== 1 ? 'hidden' : ''}`}>
               <div className="space-y-2">
                 <Label>Prix (€) *</Label>
                 <Input
@@ -738,7 +772,7 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Preview & Release */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className={`grid grid-cols-2 md:grid-cols-3 gap-4 ${trackStep !== 1 ? 'hidden' : ''}`}>
               <div className="space-y-2">
                 <Label>Preview début (sec)</Label>
                 <Input
@@ -771,7 +805,7 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Mastering Section */}
-            <div className="glass rounded-2xl p-4 space-y-4">
+            <div className={`glass rounded-2xl p-4 space-y-4 ${trackStep !== 3 ? 'hidden' : ''}`}>
               <h4 className="font-semibold flex items-center gap-2">
                 <FileAudio className="w-4 h-4 text-cyan-400" />
                 Mastering
@@ -808,7 +842,7 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Revenue Splits */}
-            <div className="glass rounded-2xl p-4 space-y-4">
+            <div className={`glass rounded-2xl p-4 space-y-4 ${trackStep !== 3 ? 'hidden' : ''}`}>
               <div className="flex items-center justify-between">
                 <h4 className="font-semibold flex items-center gap-2">
                   <PieChart className="w-4 h-4 text-purple-400" />
@@ -882,7 +916,7 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Status */}
-            <div className="space-y-2">
+            <div className={`space-y-2 ${trackStep !== 3 ? 'hidden' : ''}`}>
               <Label>Statut</Label>
               <select
                 value={trackForm.status}
@@ -895,7 +929,7 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Files */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${trackStep !== 2 ? 'hidden' : ''}`}>
               <div className="glass rounded-2xl p-4 space-y-3">
                 <Label className="flex items-center gap-2">
                   <FileAudio className="w-4 h-4 text-cyan-400" />
@@ -932,34 +966,53 @@ const ArtistDashboard = () => {
               </div>
             </div>
 
-            {/* Submit */}
+            {/* Stepper actions */}
             <div className="flex gap-3 pt-4">
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1 h-12 rounded-full"
-                onClick={() => { setShowTrackDialog(false); setEditingTrack(null); }}
+                className="h-12 rounded-full"
+                onClick={closeTrackDialog}
               >
                 Annuler
               </Button>
-              <Button
-                type="submit"
-                className="flex-1 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
-                disabled={submitting}
-                data-testid="form-submit"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {editingTrack ? 'Modification...' : 'Ajout...'}
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    {editingTrack ? 'Enregistrer' : 'Ajouter le track'}
-                  </>
-                )}
-              </Button>
+              <div className="flex-1" />
+
+              {trackStep > 0 && (
+                <Button type="button" variant="outline" className="h-12 rounded-full" onClick={prevStep}>
+                  Retour
+                </Button>
+              )}
+
+              {trackStep < 3 ? (
+                <Button
+                  type="button"
+                  className="h-12 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0"
+                  onClick={nextStep}
+                  disabled={!canGoNext()}
+                >
+                  Continuer
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  className="h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
+                  disabled={submitting}
+                  data-testid="form-submit"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {editingTrack ? 'Modification...' : 'Ajout...'}
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      {editingTrack ? 'Enregistrer' : 'Ajouter le track'}
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </form>
         </DialogContent>

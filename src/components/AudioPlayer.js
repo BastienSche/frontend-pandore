@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AudioPlayer = () => {
-  const { currentTrack, isPlaying, currentTime, duration, playTrack, pause, seek } = useAudioPlayer();
+  const { currentTrack, isPlaying, currentTime, duration, playTrack, pause, seek, next, prev, volume, setVolume } = useAudioPlayer();
 
   if (!currentTrack) return null;
 
@@ -85,6 +85,7 @@ const AudioPlayer = () => {
                 size="icon" 
                 className="rounded-full w-10 h-10 hover:bg-white/10"
                 data-testid="player-previous-button"
+                onClick={prev}
               >
                 <SkipBack className="w-5 h-5" />
               </Button>
@@ -110,6 +111,7 @@ const AudioPlayer = () => {
                 size="icon" 
                 className="rounded-full w-10 h-10 hover:bg-white/10"
                 data-testid="player-next-button"
+                onClick={next}
               >
                 <SkipForward className="w-5 h-5" />
               </Button>
@@ -145,6 +147,16 @@ const AudioPlayer = () => {
               >
                 <Volume2 className="w-4 h-4 text-muted-foreground" />
               </Button>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={volume}
+                onChange={(e) => setVolume(parseFloat(e.target.value))}
+                className="w-24 h-1 bg-white/10 rounded-full appearance-none cursor-pointer"
+                aria-label="Volume"
+              />
             </div>
           </div>
 

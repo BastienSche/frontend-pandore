@@ -1,15 +1,44 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { Play, Pause, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { fetchLikeState, like, unlike } from '@/lib/likes';
 
 const TrackCard = ({ track }) => {
   const { currentTrack, isPlaying, playTrack } = useAudioPlayer();
   const navigate = useNavigate();
   const isCurrentTrack = currentTrack?.track_id === track.track_id;
+  const [liked, setLiked] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const state = await fetchLikeState('track', [track.track_id]);
+        if (mounted) setLiked(!!state?.[track.track_id]);
+      } catch {
+        // ignore (unauthenticated or network)
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [track.track_id]);
+
+  const toggleLike = async (e) => {
+    e.stopPropagation();
+    const next = !liked;
+    setLiked(next);
+    try {
+      if (next) await like('track', track.track_id);
+      else await unlike('track', track.track_id);
+    } catch {
+      setLiked(!next);
+    }
+  };
 
   return (
     <motion.div
@@ -120,8 +149,9 @@ const TrackCard = ({ track }) => {
               size="icon" 
               className="rounded-full w-8 h-8 hover:bg-pink-500/10 hover:text-pink-400 transition-colors"
               data-testid={`track-like-button-${track.track_id}`}
+              onClick={toggleLike}
             >
-              <Heart className="w-4 h-4" />
+              <Heart className={`w-4 h-4 ${liked ? 'fill-pink-400 text-pink-400' : ''}`} />
             </Button>
           </div>
         </div>

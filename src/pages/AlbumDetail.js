@@ -9,6 +9,7 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import TrackCard from '@/components/TrackCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { fetchLikeState, like, unlike } from '@/lib/likes';
 
 const AlbumDetail = () => {
   const { albumId } = useParams();
@@ -18,6 +19,7 @@ const AlbumDetail = () => {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
+  const [liked, setLiked] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -52,6 +54,34 @@ const AlbumDetail = () => {
       }
     })();
   }, [albumId, navigate]);
+
+  useEffect(() => {
+    if (!albumId) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const state = await fetchLikeState('album', [albumId]);
+        if (mounted) setLiked(!!state?.[albumId]);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [albumId]);
+
+  const toggleLike = async () => {
+    const next = !liked;
+    setLiked(next);
+    try {
+      if (next) await like('album', albumId);
+      else await unlike('album', albumId);
+    } catch (e) {
+      setLiked(!next);
+      toast.error(e.response?.data?.detail || 'Erreur');
+    }
+  };
 
   const handlePurchase = async () => {
     setPurchasing(true);
@@ -217,9 +247,14 @@ const AlbumDetail = () => {
                   )}
                 </Button>
 
-                <Button variant="outline" className="w-full h-12 rounded-full">
+                <Button
+                  variant="outline"
+                  className="w-full h-12 rounded-full"
+                  onClick={toggleLike}
+                  data-testid="album-like-button"
+                >
                   <Heart className="w-5 h-5 mr-2" />
-                  Ajouter aux favoris
+                  {liked ? 'Retirer des favoris' : 'Ajouter aux favoris'}
                 </Button>
 
                 <Separator />

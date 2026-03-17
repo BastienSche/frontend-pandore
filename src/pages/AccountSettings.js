@@ -83,8 +83,30 @@ const AccountSettings = () => {
     setRoleTargetIsArtist(user.role === 'artist');
     setArtistName(user.artist_name || '');
 
-    const local = loadLocalSettings();
-    if (local) setListenerSettings({ ...defaultListenerSettings, ...local });
+    (async () => {
+      try {
+        const { data } = await apiClient.get('/api/users/me/settings');
+        setListenerSettings({
+          playback: {
+            autoplay: data?.autoplay ?? true,
+            normalizeVolume: data?.normalize_volume ?? true,
+            highQualityStreaming: data?.high_quality_streaming ?? true
+          },
+          notifications: {
+            newReleases: data?.notifications_new_releases ?? true,
+            recommendations: data?.notifications_recommendations ?? true,
+            purchases: data?.notifications_purchases ?? true
+          },
+          privacy: {
+            shareListeningActivity: data?.privacy_share_listening_activity ?? false,
+            personalizedAds: data?.privacy_personalized_ads ?? false
+          }
+        });
+      } catch {
+        const local = loadLocalSettings();
+        if (local) setListenerSettings({ ...defaultListenerSettings, ...local });
+      }
+    })();
   }, [authLoading, user, navigate]);
 
   useEffect(() => {
@@ -158,6 +180,16 @@ const AccountSettings = () => {
     try {
       await applyRoleChange();
       saveLocalSettings(listenerSettings);
+      await apiClient.put('/api/users/me/settings', {
+        autoplay: !!listenerSettings.playback.autoplay,
+        normalize_volume: !!listenerSettings.playback.normalizeVolume,
+        high_quality_streaming: !!listenerSettings.playback.highQualityStreaming,
+        notifications_new_releases: !!listenerSettings.notifications.newReleases,
+        notifications_recommendations: !!listenerSettings.notifications.recommendations,
+        notifications_purchases: !!listenerSettings.notifications.purchases,
+        privacy_share_listening_activity: !!listenerSettings.privacy.shareListeningActivity,
+        privacy_personalized_ads: !!listenerSettings.privacy.personalizedAds
+      });
       if (roleTargetIsArtist) {
         await saveArtistProfile();
       }

@@ -18,6 +18,8 @@ const Playlists = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newPlaylist, setNewPlaylist] = useState({ name: '', description: '' });
+  const [editingPlaylist, setEditingPlaylist] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', description: '' });
 
   useEffect(() => {
     fetchPlaylists();
@@ -56,6 +58,24 @@ const Playlists = () => {
       setPlaylists((prev) => (prev || []).filter((p) => p.playlist_id !== playlistId));
     } catch (error) {
       toast.error('Erreur lors de la suppression');
+    }
+  };
+
+  const openEdit = (playlist) => {
+    setEditingPlaylist(playlist);
+    setEditForm({ name: playlist.name || '', description: playlist.description || '' });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingPlaylist) return;
+    try {
+      const { data } = await apiClient.put(`/api/playlists/${editingPlaylist.playlist_id}`, editForm);
+      setPlaylists((prev) => (prev || []).map((p) => (p.playlist_id === data.playlist_id ? data : p)));
+      toast.success('Playlist mise à jour');
+      setEditingPlaylist(null);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erreur');
     }
   };
 
@@ -217,6 +237,7 @@ const Playlists = () => {
                         variant="outline"
                         size="icon"
                         className="rounded-full glass border-white/15 hover:bg-white/10 hover:border-white/25"
+                        onClick={() => openEdit(playlist)}
                         data-testid={`edit-playlist-${playlist.playlist_id}`}
                       >
                         <Edit className="w-4 h-4" />
@@ -238,6 +259,42 @@ const Playlists = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={!!editingPlaylist} onOpenChange={(open) => !open && setEditingPlaylist(null)}>
+        <DialogContent className="glass-heavy border-white/10 rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Modifier la playlist</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nom *</Label>
+              <Input
+                id="edit-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                required
+                className="h-12 rounded-xl bg-white/5 border-white/10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editForm.description}
+                onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                rows={3}
+                className="rounded-xl bg-white/5 border-white/10"
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full h-12 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 border-0"
+            >
+              Enregistrer
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

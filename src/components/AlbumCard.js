@@ -1,12 +1,41 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Music, Heart, Disc } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
+import { fetchLikeState, like, unlike } from '@/lib/likes';
 
 const AlbumCard = ({ album }) => {
   const navigate = useNavigate();
+  const [liked, setLiked] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const state = await fetchLikeState('album', [album.album_id]);
+        if (mounted) setLiked(!!state?.[album.album_id]);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [album.album_id]);
+
+  const toggleLike = async (e) => {
+    e.stopPropagation();
+    const next = !liked;
+    setLiked(next);
+    try {
+      if (next) await like('album', album.album_id);
+      else await unlike('album', album.album_id);
+    } catch {
+      setLiked(!next);
+    }
+  };
 
   return (
     <motion.div
@@ -82,8 +111,9 @@ const AlbumCard = ({ album }) => {
               size="icon" 
               className="rounded-full w-8 h-8 hover:bg-pink-500/10 hover:text-pink-400 transition-colors"
               data-testid={`album-like-button-${album.album_id}`}
+              onClick={toggleLike}
             >
-              <Heart className="w-4 h-4" />
+              <Heart className={`w-4 h-4 ${liked ? 'fill-pink-400 text-pink-400' : ''}`} />
             </Button>
           </div>
         </div>

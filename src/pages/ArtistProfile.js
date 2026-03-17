@@ -8,11 +8,13 @@ import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import { toast } from 'sonner';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { fetchFollowState, followArtist, unfollowArtist } from '@/lib/follows';
 
 const ArtistProfile = () => {
   const { artistId } = useParams();
   const [artist, setArtist] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [following, setFollowing] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -42,6 +44,34 @@ const ArtistProfile = () => {
       }
     })();
   }, [artistId]);
+
+  useEffect(() => {
+    if (!artistId) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const state = await fetchFollowState([artistId]);
+        if (mounted) setFollowing(!!state?.[artistId]);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [artistId]);
+
+  const toggleFollow = async () => {
+    const next = !following;
+    setFollowing(next);
+    try {
+      if (next) await followArtist(artistId);
+      else await unfollowArtist(artistId);
+    } catch (e) {
+      setFollowing(!next);
+      toast.error(e.response?.data?.detail || 'Erreur');
+    }
+  };
 
   if (loading) {
     return (
@@ -83,9 +113,15 @@ const ArtistProfile = () => {
               </div>
             </div>
 
-            <Button size="lg" variant="outline" className="rounded-full" data-testid="follow-artist-button">
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-full"
+              data-testid="follow-artist-button"
+              onClick={toggleFollow}
+            >
               <Heart className="w-5 h-5 mr-2" />
-              Suivre
+              {following ? 'Suivi' : 'Suivre'}
             </Button>
           </div>
         </div>
