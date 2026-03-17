@@ -15,6 +15,7 @@ import TrackDetail from '@/pages/TrackDetail';
 import ArtistProfile from '@/pages/ArtistProfile';
 import Playlists from '@/pages/Playlists';
 import AlbumDetail from '@/pages/AlbumDetail';
+import UiKit from '@/pages/UiKit';
 import '@/App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -27,6 +28,7 @@ function AppRouter() {
       <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/ui" element={<UiKit />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
