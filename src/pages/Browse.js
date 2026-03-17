@@ -7,7 +7,7 @@ import AlbumCard from '@/components/AlbumCard';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { getTracks, getAlbums } from '@/data/fakeData';
+import { apiClient } from '@/lib/apiClient';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -36,10 +36,14 @@ const Browse = () => {
     fetchData();
   }, []);
 
-  const fetchData = () => {
+  const fetchData = async () => {
     try {
-      setTracks(getTracks());
-      setAlbums(getAlbums());
+      const [tracksResp, albumsResp] = await Promise.all([
+        apiClient.get('/api/tracks'),
+        apiClient.get('/api/albums')
+      ]);
+      setTracks(tracksResp.data || []);
+      setAlbums(albumsResp.data || []);
     } catch (error) {
       toast.error('Erreur lors du chargement');
     } finally {

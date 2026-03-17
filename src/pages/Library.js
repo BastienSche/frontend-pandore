@@ -8,20 +8,33 @@ import {BubbleBackground, GlowOrb} from '@/components/BubbleCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { getLibrary } from '@/data/fakeData';
+import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 
 const Library = () => {
   const [library, setLibrary] = useState({ tracks: [], albums: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      setLibrary(getLibrary());
-    } catch (error) {
-      toast.error('Erreur lors du chargement de la bibliothèque');
-    } finally {
-      setLoading(false);
-    }
+    (async () => {
+      try {
+        const { data } = await apiClient.get('/api/purchases/library');
+        const tracks = (data?.tracks || []).map((t) => ({
+          ...t,
+          file_url: resolveApiUrl(t.file_url),
+          preview_url: resolveApiUrl(t.preview_url),
+          cover_url: resolveApiUrl(t.cover_url)
+        }));
+        const albums = (data?.albums || []).map((a) => ({
+          ...a,
+          cover_url: resolveApiUrl(a.cover_url)
+        }));
+        setLibrary({ tracks, albums });
+      } catch (error) {
+        toast.error('Erreur lors du chargement de la bibliothèque');
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const handleDownload = async (fileUrl, filename) => {

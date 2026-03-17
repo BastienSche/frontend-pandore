@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { getArtistStats, getArtistTracks, getDemoAudioUrl, saveArtistTracks } from '@/data/fakeData';
+import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color = "cyan", trend }) => (
   <motion.div
@@ -184,11 +184,37 @@ const ArtistDashboard = () => {
       navigate('/browse');
       return;
     }
-    const artistTracks = getArtistTracks(user.user_id);
-    setTracks(artistTracks);
-    setStats(getArtistStats(artistTracks));
-    setLoading(false);
+    (async () => {
+      try {
+        const { data } = await apiClient.get('/api/artist/stats');
+        const trackStats = (data?.track_stats || []).map((t) => ({
+          ...t,
+          preview_url: resolveApiUrl(t?.preview_url),
+          file_url: resolveApiUrl(t?.file_url),
+          cover_url: resolveApiUrl(t?.cover_url)
+        }));
+        setStats(data);
+        setTracks(trackStats);
+      } catch (error) {
+        toast.error(error.response?.data?.detail || "Erreur lors du chargement du dashboard");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [user, authLoading, navigate]);
+
+  const reloadStats = async () => {
+    const { data } = await apiClient.get('/api/artist/stats');
+    const trackStats = (data?.track_stats || []).map((t) => ({
+      ...t,
+      preview_url: resolveApiUrl(t?.preview_url),
+      file_url: resolveApiUrl(t?.file_url),
+      cover_url: resolveApiUrl(t?.cover_url)
+    }));
+    setStats(data);
+    setTracks(trackStats);
+    return { stats: data, tracks: trackStats };
+  };
 
   const resetForm = () => {
     setTrackForm({
@@ -241,13 +267,6 @@ const ArtistDashboard = () => {
     setSubmitting(true);
 
     try {
-      const audioUrl = trackForm.audioFile
-        ? URL.createObjectURL(trackForm.audioFile)
-        : (editingTrack?.preview_url || getDemoAudioUrl(tracks.length));
-      const coverUrl = trackForm.coverFile
-        ? URL.createObjectURL(trackForm.coverFile)
-        : (editingTrack?.cover_url || `https://picsum.photos/seed/pandore-track-${Date.now()}/600/600`);
-
       const trackData = {
         title: trackForm.title,
         price: parseFloat(trackForm.price) * 100,
@@ -272,26 +291,39 @@ const ArtistDashboard = () => {
         status: trackForm.status
       };
 
-      const nextTrack = {
-        track_id: editingTrack?.track_id || `track_custom_${Date.now()}`,
-        artist_id: user.user_id,
-        artist_name: user.artist_name || user.name,
-        preview_url: audioUrl,
-        file_url: audioUrl,
-        cover_url: coverUrl,
-        play_count: editingTrack?.play_count || Math.floor(Math.random() * 5000),
-        sales_count: editingTrack?.sales_count || Math.floor(Math.random() * 300),
-        revenue: editingTrack?.revenue || Math.floor(Math.random() * 50000),
-        ...trackData
-      };
+      let trackId = editingTrack?.track_id;
+      if (editingTrack) {
+        await apiClient.put(`/api/tracks/${trackId}`, trackData);
+      } else {
+        const { data: created } = await apiClient.post('/api/tracks', trackData);
+        trackId = created?.track_id;
+      }
 
-      const updatedTracks = editingTrack
-        ? tracks.map((track) => track.track_id === editingTrack.track_id ? nextTrack : track)
-        : [nextTrack, ...tracks];
+      if (trackId && (trackForm.audioFile || trackForm.coverFile)) {
+        const update = {};
+        if (trackForm.audioFile) {
+          const fd = new FormData();
+          fd.append('file', trackForm.audioFile);
+          const { data: upload } = await apiClient.post('/api/upload/audio', fd, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          update.file_url = upload?.file_url || null;
+          update.preview_url = upload?.file_url || null;
+        }
+        if (trackForm.coverFile) {
+          const fd = new FormData();
+          fd.append('file', trackForm.coverFile);
+          const { data: upload } = await apiClient.post('/api/upload/cover', fd, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          update.cover_url = upload?.cover_url || null;
+        }
+        if (Object.keys(update).length) {
+          await apiClient.put(`/api/tracks/${trackId}`, update);
+        }
+      }
 
-      setTracks(updatedTracks);
-      saveArtistTracks(user.user_id, updatedTracks);
-      setStats(getArtistStats(updatedTracks));
+      await reloadStats();
       toast.success(editingTrack ? 'Track modifié avec succès !' : 'Track ajouté avec succès !');
 
       setShowTrackDialog(false);
@@ -308,10 +340,8 @@ const ArtistDashboard = () => {
     if (!window.confirm(`Supprimer "${track.title}" ?`)) return;
 
     try {
-      const updatedTracks = tracks.filter((item) => item.track_id !== track.track_id);
-      setTracks(updatedTracks);
-      saveArtistTracks(user.user_id, updatedTracks);
-      setStats(getArtistStats(updatedTracks));
+      await apiClient.delete(`/api/tracks/${track.track_id}`);
+      await reloadStats();
       toast.success('Track supprimé');
     } catch (error) {
       toast.error('Erreur lors de la suppression');
@@ -320,14 +350,8 @@ const ArtistDashboard = () => {
 
   const handleTogglePublish = async (track) => {
     try {
-      const updatedTracks = tracks.map((item) => {
-        if (item.track_id !== track.track_id) return item;
-        const nextStatus = item.status === 'published' ? 'draft' : 'published';
-        return { ...item, status: nextStatus };
-      });
-      setTracks(updatedTracks);
-      saveArtistTracks(user.user_id, updatedTracks);
-      setStats(getArtistStats(updatedTracks));
+      await apiClient.put(`/api/artist/tracks/${track.track_id}/publish`);
+      await reloadStats();
       toast.success(track.status === 'published' ? 'Track retiré' : 'Track publié !');
     } catch (error) {
       toast.error('Erreur lors de la publication');

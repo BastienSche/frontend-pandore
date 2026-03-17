@@ -15,6 +15,7 @@ import TrackDetail from '@/pages/TrackDetail';
 import ArtistProfile from '@/pages/ArtistProfile';
 import Playlists from '@/pages/Playlists';
 import AlbumDetail from '@/pages/AlbumDetail';
+import AccountSettings from '@/pages/AccountSettings';
 import UiKit from '@/pages/UiKit';
 import '@/App.css';
 
@@ -63,6 +64,14 @@ function AppRouter() {
           element={
             <ProtectedRoute>
               <Playlists />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <AccountSettings />
             </ProtectedRoute>
           }
         />

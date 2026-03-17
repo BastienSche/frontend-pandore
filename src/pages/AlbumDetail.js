@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import TrackCard from '@/components/TrackCard';
-import { addToLibrary, getAlbumById, getTracksByIds } from '@/data/fakeData';
+import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 
 const AlbumDetail = () => {
   const { albumId } = useParams();
@@ -20,22 +20,58 @@ const AlbumDetail = () => {
   const [purchasing, setPurchasing] = useState(false);
 
   useEffect(() => {
-    const found = getAlbumById(albumId);
-    if (!found) {
-      toast.error('Album introuvable');
-      navigate('/browse');
-      return;
-    }
-    setAlbum(found);
-    setTracks(found.track_ids?.length ? getTracksByIds(found.track_ids) : []);
-    setLoading(false);
+    (async () => {
+      try {
+        const { data } = await apiClient.get(`/api/albums/${albumId}`);
+        const resolvedAlbum = { ...data, cover_url: resolveApiUrl(data?.cover_url) };
+        setAlbum(resolvedAlbum);
+
+        const trackIds = data?.track_ids || [];
+        if (!trackIds.length) {
+          setTracks([]);
+        } else {
+          const trackResults = await Promise.all(
+            trackIds.map((id) => apiClient.get(`/api/tracks/${id}`).then((r) => r.data).catch(() => null))
+          );
+          setTracks(
+            trackResults
+              .filter(Boolean)
+              .map((t) => ({
+                ...t,
+                preview_url: resolveApiUrl(t?.preview_url),
+                file_url: resolveApiUrl(t?.file_url),
+                cover_url: resolveApiUrl(t?.cover_url)
+              }))
+          );
+        }
+      } catch (error) {
+        toast.error('Album introuvable');
+        navigate('/browse');
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [albumId, navigate]);
 
   const handlePurchase = async () => {
     setPurchasing(true);
-    addToLibrary('album', albumId);
-    toast.success('Album ajouté à votre bibliothèque');
-    setPurchasing(false);
+    try {
+      const originUrl = window.location.origin;
+      const { data } = await apiClient.post('/api/purchases/checkout', {
+        item_type: 'album',
+        item_id: albumId,
+        origin_url: originUrl
+      });
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      toast.success('Checkout créé');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Erreur lors de l'achat");
+    } finally {
+      setPurchasing(false);
+    }
   };
 
   if (loading) {

@@ -8,7 +8,7 @@ import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getTracks, getAlbums, getArtists } from '@/data/fakeData';
+import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -51,16 +51,36 @@ const Home = () => {
     fetchHomeData();
   }, []);
 
-  const fetchHomeData = () => {
-    const tracks = getTracks();
-    const albums = getAlbums();
-    const artists = getArtists();
+  const fetchHomeData = async () => {
+    try {
+      const [tracksResp, albumsResp, artistsResp] = await Promise.all([
+        apiClient.get('/api/tracks?limit=60'),
+        apiClient.get('/api/albums?limit=40'),
+        apiClient.get('/api/artists?limit=40')
+      ]);
 
-    setNewReleases(tracks.slice(0, 6));
-    setTopTracks([...tracks].sort((a, b) => b.likes_count - a.likes_count).slice(0, 6));
-    setFeaturedAlbums(albums.slice(0, 8));
-    setFeaturedArtists(artists.slice(0, 8));
-    setLoading(false);
+      const tracks = (tracksResp.data || []).map((t) => ({
+        ...t,
+        preview_url: resolveApiUrl(t?.preview_url),
+        file_url: resolveApiUrl(t?.file_url),
+        cover_url: resolveApiUrl(t?.cover_url)
+      }));
+      const albums = (albumsResp.data || []).map((a) => ({
+        ...a,
+        cover_url: resolveApiUrl(a?.cover_url)
+      }));
+      const artists = (artistsResp.data || []).map((a) => ({
+        ...a,
+        picture: resolveApiUrl(a?.picture)
+      }));
+
+      setNewReleases(tracks.slice(0, 6));
+      setTopTracks([...tracks].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0)).slice(0, 6));
+      setFeaturedAlbums(albums.slice(0, 8));
+      setFeaturedArtists(artists.slice(0, 8));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

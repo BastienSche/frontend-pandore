@@ -1,30 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { apiClient } from '@/lib/apiClient';
 
-const STORAGE_KEY = 'pandore_fake_user';
+const STORAGE_USER_KEY = 'pandore_user';
+const STORAGE_TOKEN_KEY = 'pandore_token';
 
-const createDefaultUser = (overrides = {}) => ({
-  user_id: 'artist_0',
-  name: 'Demo User',
-  email: 'demo@pandore.app',
-  role: 'artist',
-  artist_name: 'Demo Artist',
-  picture: 'https://picsum.photos/seed/pandore-demo-user/200/200',
-  ...overrides
-});
-
-const loadUser = () => {
+const loadStoredUser = () => {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createDefaultUser();
-    return JSON.parse(raw);
-  } catch (error) {
-    return createDefaultUser();
+    const raw = window.localStorage.getItem(STORAGE_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
   }
 };
 
-const persistUser = (user) => {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-  return user;
+const persistSession = ({ user, token }) => {
+  if (user) window.localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+  if (token) window.localStorage.setItem(STORAGE_TOKEN_KEY, token);
+};
+
+const clearSession = () => {
+  window.localStorage.removeItem(STORAGE_USER_KEY);
+  window.localStorage.removeItem(STORAGE_TOKEN_KEY);
+};
+
+const emitAuthChanged = () => {
+  window.dispatchEvent(new Event('pandore-auth-changed'));
 };
 
 export const useAuth = () => {
@@ -32,55 +32,86 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   const checkAuth = async () => {
-    const currentUser = loadUser();
-    setUser(currentUser);
-    setLoading(false);
-    return currentUser;
+    setLoading(true);
+    try {
+      const { data } = await apiClient.get('/api/auth/me');
+      setUser(data);
+      persistSession({ user: data });
+      return data;
+    } catch (error) {
+      const stored = loadStoredUser();
+      setUser(stored);
+      return stored;
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     checkAuth();
+
+    const syncFromStorage = () => {
+      const stored = loadStoredUser();
+      setUser(stored);
+    };
+
+    const onStorage = (e) => {
+      if (!e) return;
+      if (e.key === STORAGE_USER_KEY || e.key === STORAGE_TOKEN_KEY) syncFromStorage();
+    };
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('pandore-auth-changed', syncFromStorage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('pandore-auth-changed', syncFromStorage);
+    };
   }, []);
 
   const login = async (email, password) => {
-    const loggedUser = persistUser(
-      createDefaultUser({
-        email,
-        name: email?.split('@')[0] || 'Demo User'
-      })
-    );
-    setUser(loggedUser);
-    return { user: loggedUser };
+    const { data } = await apiClient.post('/api/auth/login', { email, password });
+    const nextUser = data?.user || null;
+    const token = data?.token || null;
+    if (token) persistSession({ user: nextUser, token });
+    if (nextUser) setUser(nextUser);
+    emitAuthChanged();
+    return data;
   };
 
   const register = async (email, password, name, artistName = null) => {
-    const role = artistName ? 'artist' : 'user';
-    const registeredUser = persistUser(
-      createDefaultUser({
-        email,
-        name: name || email?.split('@')[0] || 'Demo User',
-        role,
-        artist_name: artistName || (role === 'artist' ? 'Demo Artist' : null)
-      })
-    );
-    setUser(registeredUser);
-    return { user: registeredUser };
+    const payload = { email, password, name, artist_name: artistName || null };
+    const { data } = await apiClient.post('/api/auth/register', payload);
+    setUser(data);
+    persistSession({ user: data });
+    emitAuthChanged();
+    return data;
   };
 
   const logout = async () => {
-    window.localStorage.removeItem(STORAGE_KEY);
-    setUser(null);
+    try {
+      await apiClient.post('/api/auth/logout');
+    } finally {
+      clearSession();
+      setUser(null);
+      emitAuthChanged();
+    }
   };
 
   const switchRole = async (artistName = null) => {
+    const params = new URLSearchParams();
     const newRole = artistName || user?.artist_name ? 'artist' : 'user';
-    const updated = persistUser({
-      ...user,
-      role: newRole,
-      artist_name: artistName || user?.artist_name
-    });
+    params.set('new_role', newRole);
+    if (artistName) params.set('artist_name', artistName);
+    const { data } = await apiClient.put(`/api/auth/role?${params.toString()}`);
+    const updated = { ...(user || {}), role: data.role, artist_name: data.artist_name };
     setUser(updated);
+    persistSession({ user: updated });
+    emitAuthChanged();
+    return updated;
   };
+
+  const isAuthenticated = useMemo(() => !!user, [user]);
 
   return {
     user,
@@ -90,6 +121,6 @@ export const useAuth = () => {
     logout,
     checkAuth,
     switchRole,
-    isAuthenticated: !!user
+    isAuthenticated
   };
 };

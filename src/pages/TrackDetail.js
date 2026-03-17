@@ -7,7 +7,7 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { addToLibrary, getTrackById } from '@/data/fakeData';
+import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 
 const TrackDetail = () => {
   const { trackId } = useParams();
@@ -18,21 +18,43 @@ const TrackDetail = () => {
   const [purchasing, setPurchasing] = useState(false);
 
   useEffect(() => {
-    const found = getTrackById(trackId);
-    if (!found) {
-      toast.error('Track introuvable');
-      navigate('/browse');
-      return;
-    }
-    setTrack(found);
-    setLoading(false);
+    (async () => {
+      try {
+        const { data } = await apiClient.get(`/api/tracks/${trackId}`);
+        setTrack({
+          ...data,
+          preview_url: resolveApiUrl(data?.preview_url),
+          file_url: resolveApiUrl(data?.file_url),
+          cover_url: resolveApiUrl(data?.cover_url)
+        });
+      } catch (error) {
+        toast.error('Track introuvable');
+        navigate('/browse');
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [trackId, navigate]);
 
   const handlePurchase = async () => {
     setPurchasing(true);
-    addToLibrary('track', trackId);
-    toast.success('Track ajouté à votre bibliothèque');
-    setPurchasing(false);
+    try {
+      const originUrl = window.location.origin;
+      const { data } = await apiClient.post('/api/purchases/checkout', {
+        item_type: 'track',
+        item_id: trackId,
+        origin_url: originUrl
+      });
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      toast.success('Checkout créé');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Erreur lors de l'achat");
+    } finally {
+      setPurchasing(false);
+    }
   };
 
   if (loading) {

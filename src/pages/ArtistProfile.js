@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import { toast } from 'sonner';
-import { getArtistById } from '@/data/fakeData';
+import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 
 const ArtistProfile = () => {
   const { artistId } = useParams();
@@ -15,14 +15,32 @@ const ArtistProfile = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const found = getArtistById(artistId);
-    if (!found) {
-      toast.error('Artiste introuvable');
-      setLoading(false);
-      return;
-    }
-    setArtist(found);
-    setLoading(false);
+    (async () => {
+      try {
+        const { data } = await apiClient.get(`/api/artists/${artistId}`);
+        const tracks = (data?.tracks || []).map((t) => ({
+          ...t,
+          preview_url: resolveApiUrl(t?.preview_url),
+          file_url: resolveApiUrl(t?.file_url),
+          cover_url: resolveApiUrl(t?.cover_url)
+        }));
+        const albums = (data?.albums || []).map((a) => ({
+          ...a,
+          cover_url: resolveApiUrl(a?.cover_url)
+        }));
+        setArtist({
+          ...data,
+          picture: resolveApiUrl(data?.picture),
+          tracks,
+          albums
+        });
+      } catch (error) {
+        toast.error('Artiste introuvable');
+        setArtist(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [artistId]);
 
   if (loading) {

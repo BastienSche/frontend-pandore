@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Music, Moon, Sun, User, LogOut, Home, Library, PlusCircle, Disc, GripHorizontal, X, Menu } from 'lucide-react';
+import { Music, Moon, Sun, User, LogOut, Home, Library, PlusCircle, Disc, GripHorizontal, X, Menu, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -241,6 +241,15 @@ const Navbar = () => {
                     >
                       {user.role === 'artist' ? 'Artiste' : 'User'}
                     </Badge>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => navigate('/settings')}
+                    className="rounded-xl cursor-pointer"
+                    data-testid="settings-button"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Réglages du compte
                   </DropdownMenuItem>
                   
                   <DropdownMenuSeparator className="bg-white/10 my-2" />

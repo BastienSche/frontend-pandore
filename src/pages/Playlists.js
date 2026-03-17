@@ -9,8 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { createPlaylist, deletePlaylist, getPlaylists } from '@/data/fakeData';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
+import { apiClient } from '@/lib/apiClient';
 
 const Playlists = () => {
   const navigate = useNavigate();
@@ -23,9 +23,10 @@ const Playlists = () => {
     fetchPlaylists();
   }, []);
 
-  const fetchPlaylists = () => {
+  const fetchPlaylists = async () => {
     try {
-      setPlaylists(getPlaylists());
+      const { data } = await apiClient.get('/api/playlists');
+      setPlaylists(data || []);
     } catch (error) {
       toast.error('Erreur lors du chargement');
     } finally {
@@ -36,11 +37,11 @@ const Playlists = () => {
   const handleCreatePlaylist = async (e) => {
     e.preventDefault();
     try {
-      const updated = createPlaylist(newPlaylist);
+      const { data: created } = await apiClient.post('/api/playlists', newPlaylist);
       toast.success('Playlist créée !');
       setShowCreateDialog(false);
       setNewPlaylist({ name: '', description: '' });
-      setPlaylists(updated);
+      setPlaylists((prev) => [created, ...(prev || [])]);
     } catch (error) {
       toast.error('Erreur lors de la création');
     }
@@ -50,9 +51,9 @@ const Playlists = () => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette playlist ?')) return;
     
     try {
-      const updated = deletePlaylist(playlistId);
+      await apiClient.delete(`/api/playlists/${playlistId}`);
       toast.success('Playlist supprimée');
-      setPlaylists(updated);
+      setPlaylists((prev) => (prev || []).filter((p) => p.playlist_id !== playlistId));
     } catch (error) {
       toast.error('Erreur lors de la suppression');
     }
