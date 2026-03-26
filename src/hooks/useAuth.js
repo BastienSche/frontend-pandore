@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiClient } from '@/lib/apiClient';
 
-const STORAGE_USER_KEY = 'pandore_user';
-const STORAGE_TOKEN_KEY = 'pandore_token';
+const STORAGE_USER_KEY = 'kloud_user';
+const STORAGE_TOKEN_KEY = 'kloud_token';
+const LEGACY_USER_KEY = 'pandore_user';
+const LEGACY_TOKEN_KEY = 'pandore_token';
+const AUTH_CHANGED_EVENT = 'kloud-auth-changed';
+const LEGACY_AUTH_CHANGED_EVENT = 'pandore-auth-changed';
 
 const loadStoredUser = () => {
   try {
-    const raw = window.localStorage.getItem(STORAGE_USER_KEY);
+    const raw = window.localStorage.getItem(STORAGE_USER_KEY) || window.localStorage.getItem(LEGACY_USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -16,15 +20,21 @@ const loadStoredUser = () => {
 const persistSession = ({ user, token }) => {
   if (user) window.localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
   if (token) window.localStorage.setItem(STORAGE_TOKEN_KEY, token);
+  // keep legacy keys for a short transition (safe no-op if unused)
+  if (user) window.localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(user));
+  if (token) window.localStorage.setItem(LEGACY_TOKEN_KEY, token);
 };
 
 const clearSession = () => {
   window.localStorage.removeItem(STORAGE_USER_KEY);
   window.localStorage.removeItem(STORAGE_TOKEN_KEY);
+  window.localStorage.removeItem(LEGACY_USER_KEY);
+  window.localStorage.removeItem(LEGACY_TOKEN_KEY);
 };
 
 const emitAuthChanged = () => {
-  window.dispatchEvent(new Event('pandore-auth-changed'));
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+  window.dispatchEvent(new Event(LEGACY_AUTH_CHANGED_EVENT));
 };
 
 export const useAuth = () => {
@@ -61,11 +71,13 @@ export const useAuth = () => {
     };
 
     window.addEventListener('storage', onStorage);
-    window.addEventListener('pandore-auth-changed', syncFromStorage);
+    window.addEventListener(AUTH_CHANGED_EVENT, syncFromStorage);
+    window.addEventListener(LEGACY_AUTH_CHANGED_EVENT, syncFromStorage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => {
       window.removeEventListener('storage', onStorage);
-      window.removeEventListener('pandore-auth-changed', syncFromStorage);
+      window.removeEventListener(AUTH_CHANGED_EVENT, syncFromStorage);
+      window.removeEventListener(LEGACY_AUTH_CHANGED_EVENT, syncFromStorage);
     };
   }, []);
 

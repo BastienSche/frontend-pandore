@@ -7,7 +7,7 @@ import AlbumCard from '@/components/AlbumCard';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { apiClient } from '@/lib/apiClient';
+import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -26,6 +26,11 @@ const itemVariants = {
   }
 };
 
+const isPublicItem = (item) => {
+  const status = String(item?.status || 'published').toLowerCase();
+  return status === 'published' || status === 'public';
+};
+
 const Browse = () => {
   const [tracks, setTracks] = useState([]);
   const [albums, setAlbums] = useState([]);
@@ -42,8 +47,22 @@ const Browse = () => {
         apiClient.get('/api/tracks'),
         apiClient.get('/api/albums')
       ]);
-      setTracks(tracksResp.data || []);
-      setAlbums(albumsResp.data || []);
+      const nextTracks = (tracksResp.data || [])
+        .filter(isPublicItem)
+        .map((t) => ({
+          ...t,
+          preview_url: resolveApiUrl(t?.preview_url),
+          file_url: resolveApiUrl(t?.file_url),
+          cover_url: resolveApiUrl(t?.cover_url)
+        }));
+      const nextAlbums = (albumsResp.data || [])
+        .filter(isPublicItem)
+        .map((a) => ({
+          ...a,
+          cover_url: resolveApiUrl(a?.cover_url)
+        }));
+      setTracks(nextTracks);
+      setAlbums(nextAlbums);
     } catch (error) {
       toast.error('Erreur lors du chargement');
     } finally {

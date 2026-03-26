@@ -16,11 +16,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 
-const LS_KEY = 'pandore_account_settings';
+const LS_KEY = 'kloud_account_settings';
+const LEGACY_LS_KEY = 'pandore_account_settings';
 
 const loadLocalSettings = () => {
   try {
-    const raw = window.localStorage.getItem(LS_KEY);
+    const raw = window.localStorage.getItem(LS_KEY) || window.localStorage.getItem(LEGACY_LS_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -29,6 +30,7 @@ const loadLocalSettings = () => {
 
 const saveLocalSettings = (value) => {
   window.localStorage.setItem(LS_KEY, JSON.stringify(value));
+  window.localStorage.setItem(LEGACY_LS_KEY, JSON.stringify(value));
 };
 
 const defaultListenerSettings = {

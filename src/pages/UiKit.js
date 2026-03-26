@@ -12,7 +12,7 @@ const sections = [
     id: 'app-components',
     title: 'Composants App',
     description:
-      'Composants réutilisables spécifiques à Pandore (cards, background, player).',
+      'Composants réutilisables spécifiques à Kloud (cards, background, player).',
     render: () => <AppComponentsStories />
   },
   {
@@ -39,7 +39,7 @@ export default function UiKit() {
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className="bg-cyan-500/10 text-cyan-300 border-cyan-500/20">
-                  Pandore UI Kit
+                  Kloud UI Kit
                 </Badge>
                 <Badge className="bg-white/5 border-white/10 text-muted-foreground">
                   demo interne

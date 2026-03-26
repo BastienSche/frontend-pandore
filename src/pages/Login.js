@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Music, Mail, Lock, Loader2 } from 'lucide-react';
+import { Mail, Lock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
+import KloudLogo from '@/components/KloudLogo';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -52,16 +53,16 @@ const Login = () => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.5, delay: 0.2, type: "spring" }}
-              className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center shadow-[0_0_40px_rgba(34,211,238,0.3)]"
+              className="w-24 h-24 mx-auto flex items-center justify-center"
             >
-              <Music className="w-10 h-10 text-white" />
+              <KloudLogo className="w-16 h-16 text-white drop-shadow-[0_0_18px_rgba(255,255,255,0.10)]" />
             </motion.div>
             
             <div>
               <h1 className="text-3xl font-bold tracking-tight">
                 Bienvenue sur{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
-                  Pandore
+                  Kloud
                 </span>
               </h1>
               <p className="text-muted-foreground mt-2">

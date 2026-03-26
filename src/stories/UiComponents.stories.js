@@ -33,7 +33,7 @@ export function UiComponentsStories() {
   const [checked, setChecked] = useState(true);
   const [enabled, setEnabled] = useState(true);
   const [slider, setSlider] = useState([35]);
-  const [text, setText] = useState('Pandore UI');
+  const [text, setText] = useState('Kloud UI');
   const [date, setDate] = useState(() => new Date());
 
   const tableRows = useMemo(
@@ -261,7 +261,7 @@ export function UiComponentsStories() {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-3">
                 <Avatar>
-                  <AvatarImage src="https://picsum.photos/seed/pandore-avatar/200/200" />
+                  <AvatarImage src="https://picsum.photos/seed/kloud-avatar/200/200" />
                   <AvatarFallback>PD</AvatarFallback>
                 </Avatar>
                 <div className="text-sm">
@@ -305,12 +305,12 @@ export function UiComponentsStories() {
                   </div>
                 </TabsContent>
                 <TabsContent value="select" className="mt-4">
-                  <Select defaultValue="pandore">
+                  <Select defaultValue="kloud">
                     <SelectTrigger className="bg-white/5 border-white/10">
                       <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent className="glass-heavy border-white/10">
-                      <SelectItem value="pandore">Pandore</SelectItem>
+                      <SelectItem value="kloud">Kloud</SelectItem>
                       <SelectItem value="music">Music</SelectItem>
                       <SelectItem value="artist">Artist</SelectItem>
                     </SelectContent>

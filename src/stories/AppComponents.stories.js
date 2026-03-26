@@ -11,7 +11,7 @@ import { getAlbums, getTracks } from '@/data/fakeData';
 
 function ensureDemoUser() {
   try {
-    const key = 'pandore_fake_user';
+    const key = 'kloud_fake_user';
     const existing = window.localStorage.getItem(key);
     if (existing) return;
     window.localStorage.setItem(
@@ -19,10 +19,10 @@ function ensureDemoUser() {
       JSON.stringify({
         user_id: 'artist_0',
         name: 'Demo User',
-        email: 'demo@pandore.app',
+        email: 'demo@kloud.app',
         role: 'artist',
         artist_name: 'Demo Artist',
-        picture: 'https://picsum.photos/seed/pandore-demo-user/200/200'
+        picture: 'https://picsum.photos/seed/kloud-demo-user/200/200'
       })
     );
   } catch {

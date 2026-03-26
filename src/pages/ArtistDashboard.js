@@ -453,8 +453,7 @@ const ArtistDashboard = () => {
 
   const prevStep = () => setTrackStep((s) => Math.max(s - 1, 0));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setSubmitting(true);
 
     try {
@@ -554,8 +553,7 @@ const ArtistDashboard = () => {
     }
   };
 
-  const handleSubmitAlbum = async (e) => {
-    e.preventDefault();
+  const handleSubmitAlbum = async () => {
     setSubmitting(true);
 
     try {
@@ -1067,7 +1065,7 @@ const ArtistDashboard = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+          <div className="space-y-6 mt-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>Étape {trackStep + 1}/4</span>
@@ -1386,9 +1384,10 @@ const ArtistDashboard = () => {
                 </Button>
               ) : (
                 <Button
-                  type="submit"
+                  type="button"
                   className="h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
                   disabled={submitting}
+                  onClick={handleSubmit}
                   data-testid="form-submit"
                 >
                   {submitting ? (
@@ -1405,7 +1404,7 @@ const ArtistDashboard = () => {
                 </Button>
               )}
             </div>
-          </form>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1418,7 +1417,7 @@ const ArtistDashboard = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmitAlbum} className="space-y-6 mt-4">
+          <div className="space-y-6 mt-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>Étape {albumStep + 1}/4</span>
@@ -1698,9 +1697,10 @@ const ArtistDashboard = () => {
                 </Button>
               ) : (
                 <Button
-                  type="submit"
+                  type="button"
                   className="h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
                   disabled={submitting}
+                  onClick={handleSubmitAlbum}
                   data-testid="album-form-submit"
                 >
                   {submitting ? (
@@ -1717,7 +1717,7 @@ const ArtistDashboard = () => {
                 </Button>
               )}
             </div>
-          </form>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

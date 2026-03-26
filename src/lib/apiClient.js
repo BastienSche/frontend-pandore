@@ -3,13 +3,15 @@ import axios from 'axios';
 const rawBaseUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || '';
 const baseURL = rawBaseUrl.replace(/\/+$/, '');
 
+const TOKEN_KEYS = ['kloud_token', 'pandore_token'];
+
 export const apiClient = axios.create({
   baseURL,
   withCredentials: true
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = window.localStorage.getItem('pandore_token');
+  const token = TOKEN_KEYS.map((k) => window.localStorage.getItem(k)).find(Boolean);
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;

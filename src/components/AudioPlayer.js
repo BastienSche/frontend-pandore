@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 
-const AUDIO_PLAYER_POS_KEY = 'pandore:audioPlayerPos:v1';
+const AUDIO_PLAYER_POS_KEY = 'kloud:audioPlayerPos:v1';
+const LEGACY_AUDIO_PLAYER_POS_KEY = 'pandore:audioPlayerPos:v1';
 
 const AudioPlayer = () => {
   const { currentTrack, isPlaying, currentTime, duration, playTrack, pause, seek, next, prev, volume, setVolume } = useAudioPlayer();
@@ -15,7 +16,7 @@ const AudioPlayer = () => {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(AUDIO_PLAYER_POS_KEY);
+      const raw = localStorage.getItem(AUDIO_PLAYER_POS_KEY) || localStorage.getItem(LEGACY_AUDIO_PLAYER_POS_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw);
       if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {

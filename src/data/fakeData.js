@@ -1,7 +1,7 @@
 const STORAGE_KEYS = {
-  library: 'pandore_fake_library',
-  playlists: 'pandore_fake_playlists',
-  artistTracks: 'pandore_fake_artist_tracks'
+  library: 'kloud_fake_library',
+  playlists: 'kloud_fake_playlists',
+  artistTracks: 'kloud_fake_artist_tracks'
 };
 
 const DEMO_AUDIO_URLS = [
@@ -53,10 +53,10 @@ const mulberry32 = (seed) => () => {
 };
 
 const getCoverUrl = (seed, size = 600) =>
-  `https://picsum.photos/seed/pandore-${seed}/${size}/${size}`;
+  `https://picsum.photos/seed/kloud-${seed}/${size}/${size}`;
 
 const getArtistPicture = (seed) =>
-  `https://picsum.photos/seed/pandore-artist-${seed}/400/400`;
+  `https://picsum.photos/seed/kloud-artist-${seed}/400/400`;
 
 const pick = (rng, list) => list[Math.floor(rng() * list.length)];
 
@@ -121,7 +121,7 @@ const buildFakeData = () => {
           } : null,
           splits: rng() > 0.7 ? [
             { party: artistName, percent: 70, role: 'Artiste' },
-            { party: 'Pandore', percent: 30, role: 'Plateforme' }
+            { party: 'Kloud', percent: 30, role: 'Plateforme' }
           ] : []
         };
 

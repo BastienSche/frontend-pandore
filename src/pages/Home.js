@@ -40,6 +40,11 @@ const floatVariants = {
   })
 };
 
+const isPublicItem = (item) => {
+  const status = String(item?.status || 'published').toLowerCase();
+  return status === 'published' || status === 'public';
+};
+
 const Home = () => {
   const [newReleases, setNewReleases] = useState([]);
   const [topTracks, setTopTracks] = useState([]);
@@ -59,16 +64,20 @@ const Home = () => {
         apiClient.get('/api/artists?limit=40')
       ]);
 
-      const tracks = (tracksResp.data || []).map((t) => ({
-        ...t,
-        preview_url: resolveApiUrl(t?.preview_url),
-        file_url: resolveApiUrl(t?.file_url),
-        cover_url: resolveApiUrl(t?.cover_url)
-      }));
-      const albums = (albumsResp.data || []).map((a) => ({
-        ...a,
-        cover_url: resolveApiUrl(a?.cover_url)
-      }));
+      const tracks = (tracksResp.data || [])
+        .filter(isPublicItem)
+        .map((t) => ({
+          ...t,
+          preview_url: resolveApiUrl(t?.preview_url),
+          file_url: resolveApiUrl(t?.file_url),
+          cover_url: resolveApiUrl(t?.cover_url)
+        }));
+      const albums = (albumsResp.data || [])
+        .filter(isPublicItem)
+        .map((a) => ({
+          ...a,
+          cover_url: resolveApiUrl(a?.cover_url)
+        }));
       const artists = (artistsResp.data || []).map((a) => ({
         ...a,
         picture: resolveApiUrl(a?.picture)
@@ -134,7 +143,7 @@ const Home = () => {
               className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
               data-testid="hero-description"
             >
-              Pandore réinvente l'achat de musique numérique. Achetez, téléchargez et gardez vos titres préférés pour toujours.
+              Kloud réinvente l'achat de musique numérique. Achetez, téléchargez et gardez vos titres préférés pour toujours.
             </p>
           </motion.div>
 
@@ -405,7 +414,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Why Pandore - Glass Cards */}
+      {/* Why Kloud - Glass Cards */}
       <section className="relative py-16 px-6 md:px-12">
         <div className="max-w-6xl mx-auto relative z-10">
           <motion.div
@@ -416,7 +425,7 @@ const Home = () => {
           >
             <motion.div variants={itemVariants} className="text-center mb-16">
               <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">
-                Pourquoi <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Pandore</span> ?
+                Pourquoi <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Kloud</span> ?
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 Une nouvelle approche de la musique numérique
