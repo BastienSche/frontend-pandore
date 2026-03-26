@@ -12,6 +12,7 @@ const TrackCard = ({ track }) => {
   const navigate = useNavigate();
   const isCurrentTrack = currentTrack?.track_id === track.track_id;
   const [liked, setLiked] = useState(false);
+  const [coverError, setCoverError] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -53,11 +54,13 @@ const TrackCard = ({ track }) => {
           className="relative aspect-square cursor-pointer" 
           onClick={() => navigate(`/track/${track.track_id}`)}
         >
-          {track.cover_url ? (
+          {track.cover_url && !coverError ? (
             <img
               src={track.cover_url}
               alt={track.title}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              loading="lazy"
+              onError={() => setCoverError(true)}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-cyan-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center">

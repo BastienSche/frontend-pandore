@@ -20,6 +20,15 @@ import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 import { Progress } from '@/components/ui/progress';
 
+const parsePriceEuroInput = (raw) => {
+  const v = String(raw ?? '').trim();
+  if (!v) return null;
+  const normalized = v.replace(',', '.');
+  const n = Number(normalized);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+};
+
 const StatCard = ({ title, value, subtitle, icon: Icon, color = "cyan", trend }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
@@ -74,7 +83,9 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Badge variant="secondary" className="bg-white/5 text-xs">{track.genre}</Badge>
           <span>•</span>
-          <span className="text-cyan-400 font-medium">{(track.price / 100).toFixed(2)}€</span>
+          <span className="text-cyan-400 font-medium">
+            {(track.price / 100).toFixed(2)}€
+          </span>
         </div>
       </div>
 
@@ -142,17 +153,100 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => (
   </motion.div>
 );
 
+const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
+  <motion.div
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    className="glass rounded-2xl p-4 hover:bg-white/5 transition-colors group"
+  >
+    <div className="flex items-center gap-4">
+      <div className="relative">
+        {album.cover_url ? (
+          <img src={album.cover_url} alt={album.title} className="w-16 h-16 rounded-xl object-cover" />
+        ) : (
+          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+            <Disc className="w-6 h-6 text-muted-foreground" />
+          </div>
+        )}
+        {album.status === 'draft' && (
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full border-2 border-background" />
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <h4 className="font-semibold truncate">{album.title}</h4>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Badge variant="secondary" className="bg-white/5 text-xs">ALBUM</Badge>
+          <span>•</span>
+          <span>{album.track_ids?.length || 0} titres</span>
+          <span>•</span>
+          <span className="text-purple-300 font-medium">
+            {(album.price / 100).toFixed(2)}€
+          </span>
+        </div>
+      </div>
+
+      <Badge
+        className={`${album.status === 'published'
+          ? 'bg-green-500/20 text-green-400 border-green-500/30'
+          : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+        }`}
+      >
+        {album.status === 'published' ? 'Publié' : 'Brouillon'}
+      </Badge>
+
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full w-9 h-9 hover:bg-white/10"
+          onClick={() => onTogglePublish(album)}
+          data-testid={`toggle-publish-album-${album.album_id}`}
+        >
+          {album.status === 'published' ? (
+            <EyeOff className="w-4 h-4" />
+          ) : (
+            <Eye className="w-4 h-4" />
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full w-9 h-9 hover:bg-purple-500/10 hover:text-purple-300"
+          onClick={() => onEdit(album)}
+          data-testid={`edit-album-${album.album_id}`}
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-full w-9 h-9 hover:bg-red-500/10 hover:text-red-400"
+          onClick={() => onDelete(album)}
+          data-testid={`delete-album-${album.album_id}`}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  </motion.div>
+);
+
 const ArtistDashboard = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(null);
   const [tracks, setTracks] = useState([]);
+  const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showTrackDialog, setShowTrackDialog] = useState(false);
   const [editingTrack, setEditingTrack] = useState(null);
+  const [showAlbumDialog, setShowAlbumDialog] = useState(false);
+  const [editingAlbum, setEditingAlbum] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [trackStep, setTrackStep] = useState(0);
+  const [albumStep, setAlbumStep] = useState(0);
 
   // Track form state
   const [trackForm, setTrackForm] = useState({
@@ -172,6 +266,16 @@ const ArtistDashboard = () => {
     splits: [{ party: '', percent: '', role: '' }],
     status: 'draft',
     audioFile: null,
+    coverFile: null
+  });
+
+  const [albumForm, setAlbumForm] = useState({
+    title: '',
+    price: '',
+    description: '',
+    trackIds: [],
+    albumTracks: [],
+    status: 'draft',
     coverFile: null
   });
 
@@ -195,8 +299,13 @@ const ArtistDashboard = () => {
           file_url: resolveApiUrl(t?.file_url),
           cover_url: resolveApiUrl(t?.cover_url)
         }));
+        const albumStats = (data?.album_stats || []).map((a) => ({
+          ...a,
+          cover_url: resolveApiUrl(a?.cover_url)
+        }));
         setStats(data);
         setTracks(trackStats);
+        setAlbums(albumStats);
       } catch (error) {
         toast.error(error.response?.data?.detail || "Erreur lors du chargement du dashboard");
       } finally {
@@ -213,9 +322,14 @@ const ArtistDashboard = () => {
       file_url: resolveApiUrl(t?.file_url),
       cover_url: resolveApiUrl(t?.cover_url)
     }));
+    const albumStats = (data?.album_stats || []).map((a) => ({
+      ...a,
+      cover_url: resolveApiUrl(a?.cover_url)
+    }));
     setStats(data);
     setTracks(trackStats);
-    return { stats: data, tracks: trackStats };
+    setAlbums(albumStats);
+    return { stats: data, tracks: trackStats, albums: albumStats };
   };
 
   const resetForm = () => {
@@ -239,6 +353,19 @@ const ArtistDashboard = () => {
       coverFile: null
     });
     setTrackStep(0);
+  };
+
+  const resetAlbumForm = () => {
+    setAlbumForm({
+      title: '',
+      price: '',
+      description: '',
+      trackIds: [],
+      albumTracks: [],
+      status: 'draft',
+      coverFile: null
+    });
+    setAlbumStep(0);
   };
 
   const handleEditTrack = (track) => {
@@ -272,9 +399,47 @@ const ArtistDashboard = () => {
     setTrackStep(0);
   };
 
+  const handleEditAlbum = (album) => {
+    setEditingAlbum(album);
+    setAlbumForm({
+      title: album.title,
+      price: (album.price / 100).toString(),
+      description: album.description || '',
+      trackIds: album.track_ids || [],
+      albumTracks: [],
+      status: album.status || 'draft',
+      coverFile: null
+    });
+    setAlbumStep(0);
+    setShowAlbumDialog(true);
+  };
+
+  const closeAlbumDialog = () => {
+    setShowAlbumDialog(false);
+    setEditingAlbum(null);
+    setAlbumStep(0);
+  };
+
+  const canGoNextAlbum = () => {
+    if (albumStep === 0) return !!albumForm.title?.trim();
+    if (albumStep === 1) return parsePriceEuroInput(albumForm.price) !== null;
+    if (albumStep === 2) return (albumForm.trackIds?.length || 0) > 0 || (albumForm.albumTracks?.length || 0) > 0;
+    return true;
+  };
+
+  const nextAlbumStep = () => {
+    if (!canGoNextAlbum()) {
+      toast.error('Complète les champs requis');
+      return;
+    }
+    setAlbumStep((s) => Math.min(s + 1, 3));
+  };
+
+  const prevAlbumStep = () => setAlbumStep((s) => Math.max(s - 1, 0));
+
   const canGoNext = () => {
     if (trackStep === 0) return !!trackForm.title?.trim() && !!trackForm.genre?.trim();
-    if (trackStep === 1) return !!trackForm.price && parseFloat(trackForm.price) > 0;
+    if (trackStep === 1) return parsePriceEuroInput(trackForm.price) !== null;
     return true;
   };
 
@@ -293,9 +458,14 @@ const ArtistDashboard = () => {
     setSubmitting(true);
 
     try {
+      const priceEuro = parsePriceEuroInput(trackForm.price);
+      if (priceEuro === null) {
+        toast.error('Prix invalide');
+        return;
+      }
       const trackData = {
         title: trackForm.title,
-        price: parseFloat(trackForm.price) * 100,
+        price: Math.round(priceEuro * 100),
         genre: trackForm.genre,
         description: trackForm.description,
         duration_sec: trackForm.durationSec ? parseInt(trackForm.durationSec) : null,
@@ -384,6 +554,172 @@ const ArtistDashboard = () => {
     }
   };
 
+  const handleSubmitAlbum = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const priceEuro = parsePriceEuroInput(albumForm.price);
+      if (priceEuro === null) {
+        toast.error('Prix invalide');
+        return;
+      }
+
+      // Album tracks must be created as album-only items (backend support required).
+      // Strategy: ensure we have an album_id, then create tracks under that album.
+      let albumId = editingAlbum?.album_id;
+      if (!albumId) {
+        const { data: createdAlbum } = await apiClient.post('/api/albums', {
+          title: albumForm.title,
+          price: Math.round(priceEuro * 100),
+          description: albumForm.description,
+          track_ids: [],
+          status: 'draft'
+        });
+        albumId = createdAlbum?.album_id;
+      } else {
+        await apiClient.put(`/api/albums/${albumId}`, {
+          title: albumForm.title,
+          price: Math.round(priceEuro * 100),
+          description: albumForm.description,
+          track_ids: albumForm.trackIds || [],
+          status: albumForm.status
+        });
+      }
+
+      if (!albumId) {
+        toast.error('Erreur: album non créé');
+        return;
+      }
+
+      // Create tracks defined inside album dialog (optional)
+      const createdTrackIds = [];
+      for (const [idx, t] of (albumForm.albumTracks || []).entries()) {
+        const tTitle = (t?.title || '').trim();
+        const tGenre = (t?.genre || '').trim();
+        const tPriceEuro = parsePriceEuroInput(t?.price);
+
+        if (!tTitle) {
+          toast.error(`Track #${idx + 1}: titre requis`);
+          return;
+        }
+        if (!tGenre) {
+          toast.error(`Track #${idx + 1}: genre requis`);
+          return;
+        }
+        if (tPriceEuro === null) {
+          toast.error(`Track #${idx + 1}: prix invalide`);
+          return;
+        }
+
+        const trackData = {
+          title: tTitle,
+          price: Math.round(tPriceEuro * 100),
+          genre: tGenre,
+          description: t?.description || '',
+          status: t?.status || 'draft'
+        };
+
+        let created;
+        try {
+          const res = await apiClient.post(`/api/albums/${albumId}/tracks`, trackData);
+          created = res?.data;
+        } catch (err) {
+          const status = err?.response?.status;
+          if (status === 404 || status === 405) {
+            toast.error("Le backend doit exposer `POST /api/albums/:albumId/tracks` pour créer des tracks uniquement dans un album.");
+            return;
+          }
+          throw err;
+        }
+        const trackId = created?.track_id;
+        if (!trackId) {
+          toast.error('Erreur: track non créé');
+          return;
+        }
+        createdTrackIds.push(trackId);
+
+        const update = {};
+        if (t?.audioFile) {
+          const fd = new FormData();
+          fd.append('file', t.audioFile);
+          const { data: upload } = await apiClient.post('/api/upload/audio', fd, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          update.file_url = upload?.file_url || null;
+          update.preview_url = upload?.file_url || null;
+        }
+        if (t?.coverFile) {
+          const fd = new FormData();
+          fd.append('file', t.coverFile);
+          const { data: upload } = await apiClient.post('/api/upload/cover', fd, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          update.cover_url = upload?.cover_url || null;
+        }
+        if (Object.keys(update).length) {
+          await apiClient.put(`/api/albums/${albumId}/tracks/${trackId}`, update);
+        }
+      }
+
+      const mergedTrackIds = [...new Set([...(albumForm.trackIds || []), ...createdTrackIds])];
+      if (!mergedTrackIds.length) {
+        toast.error('Ajoute au moins un track à l’album');
+        return;
+      }
+
+      const albumData = {
+        title: albumForm.title,
+        price: Math.round(priceEuro * 100),
+        description: albumForm.description,
+        track_ids: mergedTrackIds,
+        status: albumForm.status
+      };
+
+      await apiClient.put(`/api/albums/${albumId}`, albumData);
+
+      if (albumId && albumForm.coverFile) {
+        const fd = new FormData();
+        fd.append('file', albumForm.coverFile);
+        const { data: upload } = await apiClient.post('/api/upload/cover', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        await apiClient.put(`/api/albums/${albumId}`, { cover_url: upload?.cover_url || null });
+      }
+
+      await reloadStats();
+      toast.success(editingAlbum ? 'Album modifié avec succès !' : 'Album ajouté avec succès !');
+      setShowAlbumDialog(false);
+      setEditingAlbum(null);
+      resetAlbumForm();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erreur lors de l\'opération');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteAlbum = async (album) => {
+    if (!window.confirm(`Supprimer "${album.title}" ?`)) return;
+    try {
+      await apiClient.delete(`/api/albums/${album.album_id}`);
+      await reloadStats();
+      toast.success('Album supprimé');
+    } catch (error) {
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
+  const handleTogglePublishAlbum = async (album) => {
+    try {
+      await apiClient.put(`/api/artist/albums/${album.album_id}/publish`);
+      await reloadStats();
+      toast.success(album.status === 'published' ? 'Album retiré' : 'Album publié !');
+    } catch (error) {
+      toast.error('Erreur lors de la publication');
+    }
+  };
+
   // Show loading while auth is checking
   if (authLoading || loading) {
     return (
@@ -434,15 +770,27 @@ const ArtistDashboard = () => {
               </p>
             </div>
 
-            <Button
-              size="lg"
-              className="rounded-full px-8 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 border-0 shadow-[0_0_30px_rgba(139,92,246,0.3)]"
-              onClick={() => { resetForm(); setEditingTrack(null); setShowTrackDialog(true); }}
-              data-testid="new-track-button"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Nouveau track
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                size="lg"
+                className="rounded-full px-8 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 border-0 shadow-[0_0_30px_rgba(139,92,246,0.3)]"
+                onClick={() => { resetForm(); setEditingTrack(null); setShowTrackDialog(true); }}
+                data-testid="new-track-button"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Nouveau track
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="rounded-full px-8 glass border-white/15 hover:bg-white/10"
+                onClick={() => { resetAlbumForm(); setEditingAlbum(null); setShowAlbumDialog(true); }}
+                data-testid="new-album-button"
+              >
+                <Disc className="w-5 h-5 mr-2" />
+                Nouvel album
+              </Button>
+            </div>
           </motion.div>
         </div>
       </div>
@@ -466,6 +814,14 @@ const ArtistDashboard = () => {
             >
               <Music className="w-4 h-4" />
               Mes tracks ({tracks.length})
+            </TabsTrigger>
+            <TabsTrigger 
+              value="albums" 
+              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-6"
+              data-testid="tab-albums"
+            >
+              <Disc className="w-4 h-4" />
+              Mes albums ({albums.length})
             </TabsTrigger>
             <TabsTrigger 
               value="stats" 
@@ -578,6 +934,36 @@ const ArtistDashboard = () => {
             )}
           </TabsContent>
 
+          {/* Albums Tab */}
+          <TabsContent value="albums" className="space-y-4">
+            {albums.length === 0 ? (
+              <div className="glass-heavy rounded-3xl p-16 text-center">
+                <Disc className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-xl font-semibold mb-2">Aucun album</h3>
+                <p className="text-muted-foreground mb-6">Créez votre premier album</p>
+                <Button
+                  className="rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
+                  onClick={() => { resetAlbumForm(); setShowAlbumDialog(true); }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Ajouter un album
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {albums.map(album => (
+                  <AlbumRow
+                    key={album.album_id}
+                    album={album}
+                    onEdit={handleEditAlbum}
+                    onDelete={handleDeleteAlbum}
+                    onTogglePublish={handleTogglePublishAlbum}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
           {/* Stats Tab */}
           <TabsContent value="stats" className="space-y-8">
             {/* Period Stats */}
@@ -651,7 +1037,9 @@ const ArtistDashboard = () => {
                             <span className="font-medium">{track.title}</span>
                           </div>
                         </td>
-                        <td className="py-4 text-right">{((track.price || 0) / 100).toFixed(2)}€</td>
+                        <td className="py-4 text-right">
+                          {((track.price || 0) / 100).toFixed(2)}€
+                        </td>
                         <td className="py-4 text-right text-cyan-400">{track.play_count || 0}</td>
                         <td className="py-4 text-right text-purple-400">{track.sales_count || 0}</td>
                         <td className="py-4 text-right text-green-400">{((track.revenue || 0) / 100).toFixed(2)}€</td>
@@ -731,7 +1119,7 @@ const ArtistDashboard = () => {
                 <Input
                   type="number"
                   step="0.01"
-                  min="0.01"
+                  min="0"
                   value={trackForm.price}
                   onChange={(e) => setTrackForm({ ...trackForm, price: e.target.value })}
                   className="h-12 rounded-xl bg-white/5 border-white/10"
@@ -739,6 +1127,9 @@ const ArtistDashboard = () => {
                   required
                   data-testid="form-price"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Mets <span className="text-purple-300 font-medium">0</span> pour un prix gratuit
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Durée (sec)</Label>
@@ -1009,6 +1400,318 @@ const ArtistDashboard = () => {
                     <>
                       <Save className="w-4 h-4 mr-2" />
                       {editingTrack ? 'Enregistrer' : 'Ajouter le track'}
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Album Dialog */}
+      <Dialog open={showAlbumDialog} onOpenChange={(open) => { if (!open) closeAlbumDialog(); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto glass-heavy border-white/10 rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">
+              {editingAlbum ? 'Modifier l’album' : 'Nouvel album'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmitAlbum} className="space-y-6 mt-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>Étape {albumStep + 1}/4</span>
+                <span>{albumStep === 0 ? 'Infos' : albumStep === 1 ? 'Prix' : albumStep === 2 ? 'Titres' : 'Cover & statut'}</span>
+              </div>
+              <Progress value={((albumStep + 1) / 4) * 100} />
+            </div>
+
+            {/* Infos */}
+            <div className={`${albumStep !== 0 ? 'hidden' : ''} space-y-4`}>
+              <div className="space-y-2">
+                <Label>Titre *</Label>
+                <Input
+                  value={albumForm.title}
+                  onChange={(e) => setAlbumForm({ ...albumForm, title: e.target.value })}
+                  className="h-12 rounded-xl bg-white/5 border-white/10"
+                  required
+                  data-testid="album-form-title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Textarea
+                  value={albumForm.description}
+                  onChange={(e) => setAlbumForm({ ...albumForm, description: e.target.value })}
+                  className="rounded-xl bg-white/5 border-white/10"
+                  rows={3}
+                  data-testid="album-form-description"
+                />
+              </div>
+            </div>
+
+            {/* Prix */}
+            <div className={`${albumStep !== 1 ? 'hidden' : ''} space-y-2`}>
+              <Label>Prix (€) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={albumForm.price}
+                onChange={(e) => setAlbumForm({ ...albumForm, price: e.target.value })}
+                className="h-12 rounded-xl bg-white/5 border-white/10"
+                placeholder="9.99"
+                required
+                data-testid="album-form-price"
+              />
+              <p className="text-xs text-muted-foreground">
+                Mets <span className="text-purple-300 font-medium">0</span> pour un prix gratuit
+              </p>
+            </div>
+
+            {/* Tracks */}
+            <div className={`${albumStep !== 2 ? 'hidden' : ''} space-y-3`}>
+              <Label>Titres de l’album *</Label>
+              {(albumForm.trackIds?.length || 0) > 0 ? (
+                <div className="glass rounded-2xl p-4 text-sm text-muted-foreground">
+                  Tracks déjà dans l’album: <span className="text-foreground font-medium">{albumForm.trackIds.length}</span>
+                </div>
+              ) : null}
+
+              <div className="glass rounded-2xl p-4 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm text-muted-foreground">
+                    Ajoute un ou plusieurs tracks à cet album (titre + description, et les champs requis).
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => {
+                      const next = [
+                        ...(albumForm.albumTracks || []),
+                        {
+                          title: '',
+                          description: '',
+                          genre: '',
+                          price: albumForm.price || '0',
+                          status: 'draft',
+                          audioFile: null,
+                          coverFile: null
+                        }
+                      ];
+                      setAlbumForm({ ...albumForm, albumTracks: next });
+                    }}
+                    data-testid="album-add-track"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Ajouter un track
+                  </Button>
+                </div>
+
+                {(albumForm.albumTracks || []).length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Aucun track ajouté. Clique sur “Ajouter un track”.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {(albumForm.albumTracks || []).map((t, idx) => (
+                      <div key={idx} className="glass rounded-2xl p-4 space-y-4 border border-white/10">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium">Track #{idx + 1}</div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full hover:bg-red-500/10 hover:text-red-400"
+                            onClick={() => {
+                              const next = (albumForm.albumTracks || []).filter((_, i) => i !== idx);
+                              setAlbumForm({ ...albumForm, albumTracks: next });
+                            }}
+                            data-testid={`album-remove-track-${idx}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Titre *</Label>
+                            <Input
+                              value={t.title}
+                              onChange={(e) => {
+                                const next = [...(albumForm.albumTracks || [])];
+                                next[idx] = { ...next[idx], title: e.target.value };
+                                setAlbumForm({ ...albumForm, albumTracks: next });
+                              }}
+                              className="h-12 rounded-xl bg-white/5 border-white/10"
+                              placeholder="Titre du track"
+                              data-testid={`album-track-title-${idx}`}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Genre *</Label>
+                            <Input
+                              value={t.genre}
+                              onChange={(e) => {
+                                const next = [...(albumForm.albumTracks || [])];
+                                next[idx] = { ...next[idx], genre: e.target.value };
+                                setAlbumForm({ ...albumForm, albumTracks: next });
+                              }}
+                              className="h-12 rounded-xl bg-white/5 border-white/10"
+                              placeholder="Hip-Hop, Electronic..."
+                              data-testid={`album-track-genre-${idx}`}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Description</Label>
+                          <Textarea
+                            value={t.description}
+                            onChange={(e) => {
+                              const next = [...(albumForm.albumTracks || [])];
+                              next[idx] = { ...next[idx], description: e.target.value };
+                              setAlbumForm({ ...albumForm, albumTracks: next });
+                            }}
+                            className="rounded-xl bg-white/5 border-white/10"
+                            rows={3}
+                            data-testid={`album-track-description-${idx}`}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label>Prix (€) *</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={t.price}
+                              onChange={(e) => {
+                                const next = [...(albumForm.albumTracks || [])];
+                                next[idx] = { ...next[idx], price: e.target.value };
+                                setAlbumForm({ ...albumForm, albumTracks: next });
+                              }}
+                              className="h-12 rounded-xl bg-white/5 border-white/10"
+                              placeholder="0"
+                              data-testid={`album-track-price-${idx}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                              <FileAudio className="w-4 h-4 text-cyan-400" />
+                              Audio (optionnel)
+                            </Label>
+                            <Input
+                              type="file"
+                              accept="audio/*"
+                              onChange={(e) => {
+                                const next = [...(albumForm.albumTracks || [])];
+                                next[idx] = { ...next[idx], audioFile: e.target.files?.[0] || null };
+                                setAlbumForm({ ...albumForm, albumTracks: next });
+                              }}
+                              className="rounded-xl bg-white/5 border-white/10"
+                              data-testid={`album-track-audio-${idx}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                              <Image className="w-4 h-4 text-purple-400" />
+                              Cover (optionnel)
+                            </Label>
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const next = [...(albumForm.albumTracks || [])];
+                                next[idx] = { ...next[idx], coverFile: e.target.files?.[0] || null };
+                                setAlbumForm({ ...albumForm, albumTracks: next });
+                              }}
+                              className="rounded-xl bg-white/5 border-white/10"
+                              data-testid={`album-track-cover-${idx}`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Cover & status */}
+            <div className={`${albumStep !== 3 ? 'hidden' : ''} grid grid-cols-1 md:grid-cols-2 gap-4`}>
+              <div className="glass rounded-2xl p-4 space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Image className="w-4 h-4 text-purple-400" />
+                  Cover (image)
+                </Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setAlbumForm({ ...albumForm, coverFile: e.target.files[0] })}
+                  className="rounded-xl bg-white/5 border-white/10"
+                  data-testid="album-form-cover"
+                />
+                {editingAlbum?.cover_url && !albumForm.coverFile && (
+                  <p className="text-xs text-green-400">✓ Cover actuelle conservée</p>
+                )}
+              </div>
+              <div className="glass rounded-2xl p-4 space-y-3">
+                <Label>Statut</Label>
+                <select
+                  value={albumForm.status}
+                  onChange={(e) => setAlbumForm({ ...albumForm, status: e.target.value })}
+                  className="w-full h-12 rounded-xl bg-white/5 border border-white/10 px-4"
+                >
+                  <option value="draft">Brouillon (non visible)</option>
+                  <option value="published">Publié (visible par tous)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Stepper actions */}
+            <div className="flex gap-3 pt-4">
+              <Button type="button" variant="outline" className="h-12 rounded-full" onClick={closeAlbumDialog}>
+                Annuler
+              </Button>
+              <div className="flex-1" />
+
+              {albumStep > 0 && (
+                <Button type="button" variant="outline" className="h-12 rounded-full" onClick={prevAlbumStep}>
+                  Retour
+                </Button>
+              )}
+
+              {albumStep < 3 ? (
+                <Button
+                  type="button"
+                  className="h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 border-0"
+                  onClick={nextAlbumStep}
+                  disabled={!canGoNextAlbum()}
+                >
+                  Continuer
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  className="h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
+                  disabled={submitting}
+                  data-testid="album-form-submit"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {editingAlbum ? 'Modification...' : 'Ajout...'}
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      {editingAlbum ? 'Enregistrer' : 'Ajouter l’album'}
                     </>
                   )}
                 </Button>

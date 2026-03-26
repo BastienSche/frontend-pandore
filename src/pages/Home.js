@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
-import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
+import { MusicNoteBubbleBackground, GlowOrb, BubbleBackground} from '@/components/BubbleCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 
@@ -87,7 +87,8 @@ const Home = () => {
     <div className="min-h-screen relative overflow-hidden">
       {/* Animated Background */}
       <BubbleBackground />
-      
+
+
       {/* Glow Orbs */}
       <GlowOrb color="cyan" size={600} x="20%" y="30%" blur={150} />
       <GlowOrb color="purple" size={500} x="80%" y="60%" blur={120} />

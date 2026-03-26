@@ -9,6 +9,7 @@ import { fetchLikeState, like, unlike } from '@/lib/likes';
 const AlbumCard = ({ album }) => {
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
+  const [coverError, setCoverError] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -50,11 +51,13 @@ const AlbumCard = ({ album }) => {
           className="relative aspect-square cursor-pointer" 
           onClick={() => navigate(`/album/${album.album_id}`)}
         >
-          {album.cover_url ? (
+          {album.cover_url && !coverError ? (
             <img
               src={album.cover_url}
               alt={album.title}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              loading="lazy"
+              onError={() => setCoverError(true)}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 flex items-center justify-center">

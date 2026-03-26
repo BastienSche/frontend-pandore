@@ -223,9 +223,11 @@ const AlbumDetail = () => {
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Prix de l'album</p>
                   <p className="text-4xl font-bold" data-testid="album-price">{priceDisplay}€</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {((album.price / 100) / tracks.length).toFixed(2)}€ par titre
-                  </p>
+                  {tracks.length > 0 ? (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {((album.price / 100) / tracks.length).toFixed(2)}€ par titre
+                    </p>
+                  ) : null}
                 </div>
 
                 <Button
