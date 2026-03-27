@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Play, Pause, Heart, ShoppingCart, Music, Loader2, Clock, User, Check } from 'lucide-react';
+import { Play, Pause, Heart, ShoppingCart, Music, Loader2, Clock, User, Check, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
@@ -9,6 +9,8 @@ import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
+import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
+import { heartIconActiveClass } from '@/lib/heartIconClass';
 
 const AlbumDetail = () => {
   const { albumId } = useParams();
@@ -85,6 +87,16 @@ const AlbumDetail = () => {
   const handlePurchase = async () => {
     setPurchasing(true);
     try {
+      const isFree = isFreePrice(album?.price);
+      if (isFree) {
+        await apiClient.post('/api/purchases/library', {
+          item_type: 'album',
+          item_id: albumId
+        });
+        toast.success('Album ajouté à la bibliothèque');
+        return;
+      }
+
       const originUrl = window.location.origin;
       const { data } = await apiClient.post('/api/purchases/checkout', {
         item_type: 'album',
@@ -93,9 +105,9 @@ const AlbumDetail = () => {
       });
       if (data?.url) {
         window.location.href = data.url;
-        return;
+      } else {
+        toast.success('Checkout créé');
       }
-      toast.success('Checkout créé');
     } catch (error) {
       toast.error(error.response?.data?.detail || "Erreur lors de l'achat");
     } finally {
@@ -119,11 +131,12 @@ const AlbumDetail = () => {
 
   if (!album) return null;
 
-  const priceDisplay = (album.price / 100).toFixed(2);
+  const priceDisplay = formatPriceLabel(album.price);
   const totalDuration = tracks.reduce((sum, track) => sum + (track.duration || 0), 0);
   const hours = Math.floor(totalDuration / 3600);
   const minutes = Math.floor((totalDuration % 3600) / 60);
   const firstTrack = tracks?.[0];
+  const isFree = isFreePrice(album?.price);
 
   return (
     <div className="min-h-screen pb-32 relative overflow-hidden">
@@ -217,7 +230,7 @@ const AlbumDetail = () => {
                     className="rounded-full px-7 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0 shadow-[0_0_30px_rgba(34,211,238,0.25)]"
                     onClick={() => {
                       if (tracks?.length) setQueue(tracks, 0);
-                      else if (firstTrack) playTrack(firstTrack);
+                      else if (firstTrack) playTrack(firstTrack, { mode: 'preview' });
                     }}
                     disabled={!tracks?.length}
                     data-testid="album-hero-play"
@@ -233,7 +246,7 @@ const AlbumDetail = () => {
                     onClick={toggleLike}
                     data-testid="album-like-button"
                   >
-                    <Heart className={`w-5 h-5 mr-2 ${liked ? 'fill-pink-400 text-pink-400' : ''}`} />
+                    <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(liked)}`} />
                     {liked ? 'En favoris' : 'Favoris'}
                   </Button>
                 </div>
@@ -280,7 +293,7 @@ const AlbumDetail = () => {
                       key={track.track_id}
                       type="button"
                       className="w-full text-left flex items-center gap-4 p-3 rounded-2xl bg-white/0 hover:bg-white/5 border border-white/0 hover:border-white/10 transition-colors group"
-                      onClick={() => playTrack(track)}
+                      onClick={() => playTrack(track, { mode: 'preview' })}
                       data-testid={`album-track-${index}`}
                     >
                       <span className="text-sm text-muted-foreground w-8 text-right tabular-nums">
@@ -329,7 +342,7 @@ const AlbumDetail = () => {
                   className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
                   data-testid="album-price"
                 >
-                  {priceDisplay}€
+                  {priceDisplay}
                 </p>
                 {tracks.length > 0 ? (
                   <p className="text-xs text-muted-foreground mt-2">
@@ -351,8 +364,17 @@ const AlbumDetail = () => {
                   </>
                 ) : (
                   <>
-                    <ShoppingCart className="w-5 h-5 mr-2" />
-                    Acheter l’album
+                    {isFree ? (
+                      <>
+                        <Library className="w-5 h-5 mr-2" />
+                        Ajouter à la bibliothèque
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        Acheter l’album
+                      </>
+                    )}
                   </>
                 )}
               </Button>
@@ -363,7 +385,7 @@ const AlbumDetail = () => {
                 onClick={toggleLike}
                 data-testid="album-like-button-secondary"
               >
-                <Heart className={`w-5 h-5 mr-2 ${liked ? 'fill-pink-400 text-pink-400' : ''}`} />
+                <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(liked)}`} />
                 {liked ? 'Retirer des favoris' : 'Ajouter aux favoris'}
               </Button>
 

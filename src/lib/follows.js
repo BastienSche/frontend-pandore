@@ -18,3 +18,9 @@ export async function unfollowArtist(artistId) {
   return data;
 }
 
+/** Liste des artistes suivis (`GET /api/follows`). */
+export async function fetchMyFollows(limit = 200) {
+  const { data } = await apiClient.get('/api/follows', { params: { limit } });
+  return Array.isArray(data) ? data : [];
+}
+

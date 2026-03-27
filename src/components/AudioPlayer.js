@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
-import { Play, Pause, SkipBack, SkipForward, Volume2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
@@ -9,7 +9,7 @@ const AUDIO_PLAYER_POS_KEY = 'kloud:audioPlayerPos:v1';
 const LEGACY_AUDIO_PLAYER_POS_KEY = 'pandore:audioPlayerPos:v1';
 
 const AudioPlayer = () => {
-  const { currentTrack, isPlaying, currentTime, duration, playTrack, pause, seek, next, prev, volume, setVolume } = useAudioPlayer();
+  const { currentTrack, isPlaying, currentTime, duration, playTrack, pause, seek, next, prev, volume, setVolume, playbackMode } = useAudioPlayer();
   const constraintsRef = useRef(null);
   const [savedPos, setSavedPos] = useState({ x: 0, y: 0 });
   const dragControls = useDragControls();
@@ -115,6 +115,12 @@ const AudioPlayer = () => {
                 >
                   {currentTrack.artist_name}
                 </p>
+                {playbackMode === 'library' && (
+                  <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-400/90" data-testid="player-library-mode">
+                    <Library className="w-3 h-3" />
+                    Fichier complet
+                  </span>
+                )}
               </div>
             </div>
 
@@ -135,7 +141,7 @@ const AudioPlayer = () => {
                   variant="default"
                   size="icon"
                   className="rounded-full w-14 h-14 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0 shadow-[0_0_25px_rgba(34,211,238,0.4)]"
-                  onClick={() => isPlaying ? pause() : playTrack(currentTrack)}
+                  onClick={() => (isPlaying ? pause() : playTrack(currentTrack))}
                   data-testid="player-play-pause-button"
                 >
                   {isPlaying ? (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Music, Play, Edit, Trash2, Lock, Globe } from 'lucide-react';
+import { Plus, Music, Play, Edit, Trash2, Lock, Globe, Heart, User, Disc } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -7,14 +7,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient } from '@/lib/apiClient';
+import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { fetchLikesSummary } from '@/lib/likes';
+import { fetchMyFollows } from '@/lib/follows';
 
 const Playlists = () => {
   const navigate = useNavigate();
   const [playlists, setPlaylists] = useState([]);
+  const [likedTracks, setLikedTracks] = useState([]);
+  const [likedAlbums, setLikedAlbums] = useState([]);
+  const [followedArtists, setFollowedArtists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newPlaylist, setNewPlaylist] = useState({ name: '', description: '' });
@@ -27,8 +33,41 @@ const Playlists = () => {
 
   const fetchPlaylists = async () => {
     try {
-      const { data } = await apiClient.get('/api/playlists');
-      setPlaylists(data || []);
+      const [{ data: playlistData }, likes, followed] = await Promise.all([
+        apiClient.get('/api/playlists'),
+        fetchLikesSummary(120),
+        fetchMyFollows(120)
+      ]);
+      setPlaylists(playlistData || []);
+      setLikedTracks(
+        (likes.tracks || []).map((t) => ({
+          ...t,
+          cover_url: resolveApiUrl(t?.cover_url),
+          preview_url: resolveApiUrl(t?.preview_url)
+        }))
+      );
+      setLikedAlbums(
+        (likes.albums || []).map((a) => ({
+          ...a,
+          cover_url: resolveApiUrl(a?.cover_url)
+        }))
+      );
+      const likedFromApi = (likes.artists || []).map((a) => ({
+        ...a,
+        picture: resolveApiUrl(a?.picture)
+      }));
+      const followedResolved = followed.map((a) => ({
+        ...a,
+        picture: resolveApiUrl(a?.picture)
+      }));
+      const byId = new Map();
+      for (const a of followedResolved) {
+        if (a?.user_id) byId.set(a.user_id, a);
+      }
+      for (const a of likedFromApi) {
+        if (a?.user_id && !byId.has(a.user_id)) byId.set(a.user_id, a);
+      }
+      setFollowedArtists(Array.from(byId.values()));
     } catch (error) {
       toast.error('Erreur lors du chargement');
     } finally {
@@ -258,6 +297,149 @@ const Playlists = () => {
             ))}
           </div>
         )}
+
+        <div className="mt-16 md:mt-20 space-y-14 md:space-y-16 border-t border-white/10 pt-14 md:pt-16">
+          <section data-testid="playlists-liked-tracks">
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              <Heart className="w-5 h-5 text-pink-400 fill-pink-400 shrink-0" aria-hidden />
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Titres likés</h2>
+              <Badge variant="secondary" className="bg-white/10 border-white/10">
+                {likedTracks.length}
+              </Badge>
+            </div>
+            {likedTracks.length === 0 ? (
+              <p className="text-sm text-muted-foreground glass-heavy rounded-2xl border border-white/10 px-6 py-8 text-center">
+                Aucun titre liké pour le moment. Explore le catalogue et clique sur le cœur d’un morceau.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {likedTracks.map((track) => (
+                  <button
+                    key={track.track_id}
+                    type="button"
+                    onClick={() => navigate(`/track/${track.track_id}`)}
+                    className="group text-left rounded-2xl overflow-hidden glass-heavy border border-white/10 hover:border-cyan-500/30 transition-colors"
+                    data-testid={`liked-track-${track.track_id}`}
+                  >
+                    <div className="aspect-square bg-white/5 relative">
+                      {track.cover_url ? (
+                        <img
+                          src={track.cover_url}
+                          alt=""
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Music className="w-12 h-12 text-white/20" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="font-medium truncate text-sm group-hover:text-cyan-300 transition-colors">
+                        {track.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{track.artist_name}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section data-testid="playlists-liked-albums">
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              <Disc className="w-5 h-5 text-violet-400 shrink-0" aria-hidden />
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Albums likés</h2>
+              <Badge variant="secondary" className="bg-white/10 border-white/10">
+                {likedAlbums.length}
+              </Badge>
+            </div>
+            {likedAlbums.length === 0 ? (
+              <p className="text-sm text-muted-foreground glass-heavy rounded-2xl border border-white/10 px-6 py-8 text-center">
+                Aucun album liké pour le moment. Ouvre une page album et clique sur le cœur.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {likedAlbums.map((album) => (
+                  <button
+                    key={album.album_id}
+                    type="button"
+                    onClick={() => navigate(`/album/${album.album_id}`)}
+                    className="group text-left rounded-2xl overflow-hidden glass-heavy border border-white/10 hover:border-violet-500/30 transition-colors"
+                    data-testid={`liked-album-${album.album_id}`}
+                  >
+                    <div className="aspect-square bg-white/5 relative">
+                      {album.cover_url ? (
+                        <img
+                          src={album.cover_url}
+                          alt=""
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Disc className="w-12 h-12 text-white/20" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="font-medium truncate text-sm group-hover:text-violet-300 transition-colors">
+                        {album.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {album.artist_name || album.artist_display_name || ''}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section data-testid="playlists-liked-artists">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <User className="w-5 h-5 text-cyan-400 shrink-0" aria-hidden />
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Artistes likés</h2>
+              <Badge variant="secondary" className="bg-white/10 border-white/10">
+                {followedArtists.length}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6 max-w-2xl">
+              Suivis depuis la fiche artiste (cœur), ou likés si disponible.
+            </p>
+            {followedArtists.length === 0 ? (
+              <p className="text-sm text-muted-foreground glass-heavy rounded-2xl border border-white/10 px-6 py-8 text-center">
+                Aucun artiste pour le moment. Ouvre une fiche artiste et clique sur Suivre.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {followedArtists.map((artist) => {
+                  const label = artist.artist_name || artist.name || 'Artiste';
+                  return (
+                    <button
+                      key={artist.user_id}
+                      type="button"
+                      onClick={() => navigate(`/artist/${artist.user_id}`)}
+                      className="group flex flex-col items-center text-center rounded-2xl glass-heavy border border-white/10 hover:border-purple-500/30 px-4 py-6 transition-colors"
+                      data-testid={`liked-artist-${artist.user_id}`}
+                    >
+                      <Avatar className="w-20 h-20 border-2 border-white/10 shadow-lg mb-3 group-hover:border-purple-500/40 transition-colors">
+                        <AvatarImage src={artist.picture} alt="" />
+                        <AvatarFallback className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-lg font-semibold">
+                          {label.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <p className="font-medium text-sm truncate w-full group-hover:text-purple-300 transition-colors">
+                        {label}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
 
       <Dialog open={!!editingPlaylist} onOpenChange={(open) => !open && setEditingPlaylist(null)}>

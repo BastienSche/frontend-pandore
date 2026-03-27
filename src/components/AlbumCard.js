@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
+import { formatPriceLabel } from '@/lib/pricing';
+import { heartIconActiveClass } from '@/lib/heartIconClass';
 
 const AlbumCard = ({ album }) => {
   const navigate = useNavigate();
@@ -106,7 +108,7 @@ const AlbumCard = ({ album }) => {
               className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400"
               data-testid={`album-price-${album.album_id}`}
             >
-              {(album.price / 100).toFixed(2)}€
+              {formatPriceLabel(album.price)}
             </span>
             
             <Button 
@@ -116,7 +118,7 @@ const AlbumCard = ({ album }) => {
               data-testid={`album-like-button-${album.album_id}`}
               onClick={toggleLike}
             >
-              <Heart className={`w-4 h-4 ${liked ? 'fill-pink-400 text-pink-400' : ''}`} />
+              <Heart className={`w-4 h-4 ${heartIconActiveClass(liked)}`} />
             </Button>
           </div>
         </div>

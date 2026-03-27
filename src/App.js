@@ -11,6 +11,8 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Browse from '@/pages/Browse';
 import Library from '@/pages/Library';
+import LibraryTrackOwned from '@/pages/LibraryTrackOwned';
+import LibraryAlbumOwned from '@/pages/LibraryAlbumOwned';
 import ArtistDashboard from '@/pages/ArtistDashboard';
 import TrackDetail from '@/pages/TrackDetail';
 import ArtistProfile from '@/pages/ArtistProfile';
@@ -52,6 +54,22 @@ function AppRouter() {
           element={
             <ProtectedRoute>
               <Library />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/library/tracks/:trackId"
+          element={
+            <ProtectedRoute>
+              <LibraryTrackOwned />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/library/albums/:albumId"
+          element={
+            <ProtectedRoute>
+              <LibraryAlbumOwned />
             </ProtectedRoute>
           }
         />
@@ -105,7 +123,7 @@ function App() {
           <BrowserRouter>
             <AppRouter />
           </BrowserRouter>
-          <Toaster position="top-center" />
+          <Toaster />
         </div>
       </AudioPlayerProvider>
     </ThemeProvider>

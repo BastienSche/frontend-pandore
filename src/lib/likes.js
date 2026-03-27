@@ -18,3 +18,9 @@ export async function unlike(itemType, itemId) {
   return data;
 }
 
+/** Réponse `GET /api/likes/summary` : titres, albums et artistes likés (détails expandus). */
+export async function fetchLikesSummary(limit = 200) {
+  const { data } = await apiClient.get('/api/likes/summary', { params: { limit } });
+  return data || { tracks: [], albums: [], artists: [] };
+}
+

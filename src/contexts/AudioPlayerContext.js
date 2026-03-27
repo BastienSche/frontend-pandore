@@ -2,6 +2,18 @@ import React, { createContext, useContext, useState, useRef, useEffect } from 'r
 
 const AudioPlayerContext = createContext();
 
+/** @typedef {'preview' | 'library'} PlaybackMode */
+
+const resolveAudioUrl = (track, mode) => {
+  if (mode === 'library' && track?.file_url) return track.file_url;
+  return track?.preview_url;
+};
+
+const resolveStartTime = (track, mode) => {
+  if (mode === 'library') return 0;
+  return track?.preview_start_time || 0;
+};
+
 export const AudioPlayerProvider = ({ children }) => {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -9,6 +21,8 @@ export const AudioPlayerProvider = ({ children }) => {
   const [duration, setDuration] = useState(0);
   const [queue, setQueueState] = useState([]);
   const [queueIndex, setQueueIndex] = useState(0);
+  /** Lecture extraite (browse) ou fichier complet (bibliothèque possédée) */
+  const [playbackMode, setPlaybackMode] = useState('preview');
   const [volume, setVolume] = useState(0.9);
   const audioRef = useRef(new Audio());
 
@@ -18,16 +32,20 @@ export const AudioPlayerProvider = ({ children }) => {
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
     const handleLoadedMetadata = () => setDuration(audio.duration);
     const handleEnded = () => {
-      // auto-advance if queue is set
       if (queue.length && queueIndex < queue.length - 1) {
         const nextIndex = queueIndex + 1;
         setQueueIndex(nextIndex);
         const nextTrack = queue[nextIndex];
         if (nextTrack) {
+          const url = resolveAudioUrl(nextTrack, playbackMode);
+          if (!url) {
+            setIsPlaying(false);
+            return;
+          }
           setCurrentTrack(nextTrack);
-          audio.src = nextTrack.preview_url;
-          audio.currentTime = nextTrack.preview_start_time || 0;
-          audio.play();
+          audio.src = url;
+          audio.currentTime = resolveStartTime(nextTrack, playbackMode);
+          audio.play().catch(() => setIsPlaying(false));
           setIsPlaying(true);
           return;
         }
@@ -44,36 +62,62 @@ export const AudioPlayerProvider = ({ children }) => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [queue, queueIndex]);
+  }, [queue, queueIndex, playbackMode]);
 
   useEffect(() => {
     audioRef.current.volume = volume;
   }, [volume]);
 
-  const playTrack = (track) => {
+  const playTrack = (track, options = {}) => {
     const audio = audioRef.current;
-    
-    if (currentTrack?.track_id === track.track_id && isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
-    } else {
-      if (currentTrack?.track_id !== track.track_id) {
-        setCurrentTrack(track);
-        audio.src = track.preview_url;
-        audio.currentTime = track.preview_start_time || 0;
+    if (!track) return;
+
+    const sameTrack = currentTrack?.track_id === track.track_id;
+    const explicitMode = options.mode !== undefined;
+
+    if (sameTrack && !explicitMode) {
+      if (isPlaying) {
+        audio.pause();
+        setIsPlaying(false);
+      } else {
+        audio.play().catch(() => setIsPlaying(false));
+        setIsPlaying(true);
       }
-      audio.play();
-      setIsPlaying(true);
+      return;
     }
+
+    const mode = explicitMode ? (options.mode ?? 'preview') : 'preview';
+    const url = resolveAudioUrl(track, mode);
+    if (!url) return;
+
+    if (sameTrack && explicitMode) {
+      const needReload = playbackMode !== mode || audio.src !== url;
+      if (needReload) {
+        setPlaybackMode(mode);
+        audio.src = url;
+        audio.currentTime = resolveStartTime(track, mode);
+      }
+      audio.play().catch(() => setIsPlaying(false));
+      setIsPlaying(true);
+      return;
+    }
+
+    setPlaybackMode(mode);
+    setCurrentTrack(track);
+    audio.src = url;
+    audio.currentTime = resolveStartTime(track, mode);
+    audio.play().catch(() => setIsPlaying(false));
+    setIsPlaying(true);
   };
 
-  const setQueue = (tracks, startIndex = 0) => {
+  const setQueue = (tracks, startIndex = 0, options = {}) => {
     const nextQueue = Array.isArray(tracks) ? tracks : [];
     const idx = Math.max(0, Math.min(startIndex, Math.max(0, nextQueue.length - 1)));
+    const mode = options.mode ?? 'preview';
     setQueueState(nextQueue);
     setQueueIndex(idx);
     const startTrack = nextQueue[idx];
-    if (startTrack) playTrack(startTrack);
+    if (startTrack) playTrack(startTrack, { mode });
   };
 
   const next = () => {
@@ -82,7 +126,7 @@ export const AudioPlayerProvider = ({ children }) => {
     if (nextIndex === queueIndex) return;
     setQueueIndex(nextIndex);
     const t = queue[nextIndex];
-    if (t) playTrack(t);
+    if (t) playTrack(t, { mode: playbackMode });
   };
 
   const prev = () => {
@@ -91,7 +135,7 @@ export const AudioPlayerProvider = ({ children }) => {
     if (prevIndex === queueIndex) return;
     setQueueIndex(prevIndex);
     const t = queue[prevIndex];
-    if (t) playTrack(t);
+    if (t) playTrack(t, { mode: playbackMode });
   };
 
   const pause = () => {
@@ -112,6 +156,7 @@ export const AudioPlayerProvider = ({ children }) => {
       duration,
       queue,
       queueIndex,
+      playbackMode,
       playTrack,
       pause,
       seek,

@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
+import { formatPriceLabel } from '@/lib/pricing';
+import { heartIconActiveClass } from '@/lib/heartIconClass';
 
 const TrackCard = ({ track }) => {
   const { currentTrack, isPlaying, playTrack } = useAudioPlayer();
@@ -88,7 +90,7 @@ const TrackCard = ({ track }) => {
               className="rounded-full w-12 h-12 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0 shadow-[0_0_20px_rgba(34,211,238,0.4)]"
               onClick={(e) => {
                 e.stopPropagation();
-                playTrack(track);
+                playTrack(track, { mode: 'preview' });
               }}
               data-testid={`track-play-button-${track.track_id}`}
             >
@@ -143,7 +145,7 @@ const TrackCard = ({ track }) => {
                 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
                 data-testid={`track-price-${track.track_id}`}
               >
-                {(track.price / 100).toFixed(2)}€
+                {formatPriceLabel(track.price)}
               </span>
             </div>
             
@@ -154,7 +156,7 @@ const TrackCard = ({ track }) => {
               data-testid={`track-like-button-${track.track_id}`}
               onClick={toggleLike}
             >
-              <Heart className={`w-4 h-4 ${liked ? 'fill-pink-400 text-pink-400' : ''}`} />
+              <Heart className={`w-4 h-4 ${heartIconActiveClass(liked)}`} />
             </Button>
           </div>
         </div>

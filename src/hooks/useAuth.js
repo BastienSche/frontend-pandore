@@ -112,7 +112,8 @@ export const useAuth = () => {
 
   const switchRole = async (artistName = null) => {
     const params = new URLSearchParams();
-    const newRole = artistName || user?.artist_name ? 'artist' : 'user';
+    // Uniquement le paramètre explicite : si null/"" → auditeur, même si un nom d'artiste est déjà enregistré.
+    const newRole = artistName ? 'artist' : 'user';
     params.set('new_role', newRole);
     if (artistName) params.set('artist_name', artistName);
     const { data } = await apiClient.put(`/api/auth/role?${params.toString()}`);

@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 import { Progress } from '@/components/ui/progress';
+import { formatPriceLabel } from '@/lib/pricing';
 
 const parsePriceEuroInput = (raw) => {
   const v = String(raw ?? '').trim();
@@ -84,7 +85,7 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => (
           <Badge variant="secondary" className="bg-white/5 text-xs">{track.genre}</Badge>
           <span>•</span>
           <span className="text-cyan-400 font-medium">
-            {(track.price / 100).toFixed(2)}€
+            {formatPriceLabel(track.price)}
           </span>
         </div>
       </div>
@@ -181,7 +182,7 @@ const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
           <span>{album.track_ids?.length || 0} titres</span>
           <span>•</span>
           <span className="text-purple-300 font-medium">
-            {(album.price / 100).toFixed(2)}€
+            {formatPriceLabel(album.price)}
           </span>
         </div>
       </div>
@@ -303,7 +304,18 @@ const ArtistDashboard = () => {
           ...a,
           cover_url: resolveApiUrl(a?.cover_url)
         }));
-        setStats(data);
+        const topTracks = (data?.top_tracks || []).map((t) => ({
+          ...t,
+          preview_url: resolveApiUrl(t?.preview_url),
+          file_url: resolveApiUrl(t?.file_url),
+          cover_url: resolveApiUrl(t?.cover_url)
+        }));
+        setStats({
+          ...data,
+          track_stats: trackStats,
+          album_stats: albumStats,
+          top_tracks: topTracks
+        });
         setTracks(trackStats);
         setAlbums(albumStats);
       } catch (error) {
@@ -326,10 +338,22 @@ const ArtistDashboard = () => {
       ...a,
       cover_url: resolveApiUrl(a?.cover_url)
     }));
-    setStats(data);
+    const topTracks = (data?.top_tracks || []).map((t) => ({
+      ...t,
+      preview_url: resolveApiUrl(t?.preview_url),
+      file_url: resolveApiUrl(t?.file_url),
+      cover_url: resolveApiUrl(t?.cover_url)
+    }));
+    const mergedStats = {
+      ...data,
+      track_stats: trackStats,
+      album_stats: albumStats,
+      top_tracks: topTracks
+    };
+    setStats(mergedStats);
     setTracks(trackStats);
     setAlbums(albumStats);
-    return { stats: data, tracks: trackStats, albums: albumStats };
+    return { stats: mergedStats, tracks: trackStats, albums: albumStats };
   };
 
   const resetForm = () => {
@@ -1036,7 +1060,7 @@ const ArtistDashboard = () => {
                           </div>
                         </td>
                         <td className="py-4 text-right">
-                          {((track.price || 0) / 100).toFixed(2)}€
+                          {formatPriceLabel(track.price || 0)}
                         </td>
                         <td className="py-4 text-right text-cyan-400">{track.play_count || 0}</td>
                         <td className="py-4 text-right text-purple-400">{track.sales_count || 0}</td>

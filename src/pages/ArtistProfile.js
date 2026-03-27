@@ -9,6 +9,7 @@ import AlbumCard from '@/components/AlbumCard';
 import { toast } from 'sonner';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 import { fetchFollowState, followArtist, unfollowArtist } from '@/lib/follows';
+import { heartIconActiveClass } from '@/lib/heartIconClass';
 
 const ArtistProfile = () => {
   const { artistId } = useParams();
@@ -120,7 +121,7 @@ const ArtistProfile = () => {
               data-testid="follow-artist-button"
               onClick={toggleFollow}
             >
-              <Heart className="w-5 h-5 mr-2" />
+              <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(following)}`} />
               {following ? 'Suivi' : 'Suivre'}
             </Button>
           </div>
