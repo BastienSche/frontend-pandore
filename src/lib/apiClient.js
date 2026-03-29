@@ -1,7 +1,30 @@
 import axios from 'axios';
 
+/**
+ * If REACT_APP_API_URL has no scheme (e.g. `api.example.com`), axios treats it as a **path**
+ * on the current origin → requests hit Netlify instead of your API.
+ */
+function normalizeApiBaseUrl(raw) {
+  let s = String(raw || '').trim().replace(/\/+$/, '');
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  const isLocal =
+    /^(localhost|127\.0\.0\.1|\[::1\])/i.test(s) ||
+    /^192\.168\./.test(s) ||
+    /^10\./.test(s);
+  return `${isLocal ? 'http' : 'https'}://${s}`;
+}
+
 const rawBaseUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || '';
-const baseURL = rawBaseUrl.replace(/\/+$/, '');
+const baseURL = normalizeApiBaseUrl(rawBaseUrl);
+
+if (typeof window !== 'undefined' && baseURL && /\.internal(\/|$)/i.test(baseURL)) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[Kloud] REACT_APP_API_URL pointe vers un hôte .internal : le navigateur ne peut pas y accéder. ' +
+      'Utilise l’URL HTTPS publique Railway (dashboard → Networking → domaine public).'
+  );
+}
 
 const TOKEN_KEYS = ['kloud_token', 'pandore_token'];
 
