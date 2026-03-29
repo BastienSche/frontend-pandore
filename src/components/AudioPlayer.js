@@ -41,33 +41,35 @@ const AudioPlayer = () => {
   return (
     <AnimatePresence>
       <div ref={constraintsRef} className="fixed inset-0 z-50 pointer-events-none">
-        <motion.div
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 40, opacity: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          className="pointer-events-auto fixed bottom-6 left-1/2 w-[95%] max-w-4xl -translate-x-1/2"
-          data-testid="audio-player"
-          drag
-          dragListener={false}
-          dragControls={dragControls}
-          dragConstraints={constraintsRef}
-          dragMomentum={false}
-          dragElastic={0.08}
-          dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
-          style={{ x: savedPos.x, y: savedPos.y }}
-          onDragEnd={(_, info) => {
-            try {
-              setSavedPos((prev) => {
-                const nextPos = { x: prev.x + info.offset.x, y: prev.y + info.offset.y };
-                localStorage.setItem(AUDIO_PLAYER_POS_KEY, JSON.stringify(nextPos));
-                return nextPos;
-              });
-            } catch {
-              // ignore
-            }
-          }}
-        >
+        {/* Center with flex so Framer `x`/`y` drag offsets do not replace Tailwind’s -translate-x-1/2 (which skewed the bar right). */}
+        <div className="pointer-events-none fixed bottom-6 left-0 right-0 z-50 flex justify-center px-3 sm:px-4">
+          <motion.div
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 40, opacity: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="pointer-events-auto w-full max-w-4xl"
+            data-testid="audio-player"
+            drag
+            dragListener={false}
+            dragControls={dragControls}
+            dragConstraints={constraintsRef}
+            dragMomentum={false}
+            dragElastic={0.08}
+            dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
+            style={{ x: savedPos.x, y: savedPos.y }}
+            onDragEnd={(_, info) => {
+              try {
+                setSavedPos((prev) => {
+                  const nextPos = { x: prev.x + info.offset.x, y: prev.y + info.offset.y };
+                  localStorage.setItem(AUDIO_PLAYER_POS_KEY, JSON.stringify(nextPos));
+                  return nextPos;
+                });
+              } catch {
+                // ignore
+              }
+            }}
+          >
           <div className="glass-heavy rounded-3xl p-4 md:p-5 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
             <div
               className="absolute left-0 right-0 top-0 h-6 cursor-grab active:cursor-grabbing"
@@ -211,7 +213,8 @@ const AudioPlayer = () => {
             <span>{formatTime(duration)}</span>
           </div>
         </div>
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
     </AnimatePresence>
   );
