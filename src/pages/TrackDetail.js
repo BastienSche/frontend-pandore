@@ -35,11 +35,21 @@ const TrackDetail = () => {
     (async () => {
       try {
         const { data } = await apiClient.get(`/api/tracks/${trackId}`);
+        // Normalisation : certaines routes/retours API n'incluent pas exactement les mêmes champs.
+        // On force surtout `track_id` pour que `AudioPlayerContext` puisse identifier le titre courant,
+        // et on met un fallback de `preview_url` sur `file_url` si la preview manque.
         setTrack({
           ...data,
-          preview_url: resolveApiUrl(data?.preview_url),
-          file_url: resolveApiUrl(data?.file_url),
-          cover_url: resolveApiUrl(data?.cover_url)
+          track_id: data?.track_id ?? data?.id ?? trackId,
+          preview_start_time: data?.preview_start_time ?? data?.preview_start_sec ?? 0,
+          preview_duration_sec: data?.preview_duration_sec ?? data?.preview_length_sec ?? null,
+          preview_url: data?.preview_url
+            ? resolveApiUrl(data?.preview_url)
+            : data?.file_url
+              ? resolveApiUrl(data?.file_url)
+              : null,
+          file_url: data?.file_url ? resolveApiUrl(data?.file_url) : null,
+          cover_url: data?.cover_url ? resolveApiUrl(data?.cover_url) : null
         });
       } catch (error) {
         toast.error('Track introuvable');
@@ -170,6 +180,12 @@ const TrackDetail = () => {
   const isCurrentTrack = currentTrack?.track_id === track.track_id;
   const priceDisplay = formatPriceLabel(track.price);
   const isFree = isFreePrice(track?.price);
+  const previewDurationSec =
+    track.preview_duration_sec != null &&
+    Number.isFinite(Number(track.preview_duration_sec)) &&
+    Number(track.preview_duration_sec) > 0
+      ? Number(track.preview_duration_sec)
+      : 15;
 
   return (
     <div className="min-h-screen pb-32 relative overflow-hidden">
@@ -296,7 +312,7 @@ const TrackDetail = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="lg:col-span-2 space-y-6"
+            className="lg:col-span-2 space-y-6 min-w-0"
           >
             {/* Preview Player */}
             <div className="glass-heavy rounded-3xl p-6">
@@ -316,17 +332,24 @@ const TrackDetail = () => {
                   </Button>
                 </motion.div>
                 <div>
-                  <p className="font-medium">Preview 15 secondes</p>
-                  <p className="text-sm text-muted-foreground">Commence à {track.preview_start_time}s</p>
+                  <p className="font-medium">Preview {previewDurationSec} secondes</p>
+                  <p className="text-sm text-muted-foreground">
+                    De {track.preview_start_time ?? 0}s à {Math.round(
+                      (Number(track.preview_start_time) || 0) + previewDurationSec
+                    )}
+                    s (hors bibliothèque)
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Description */}
             {track.description && (
-              <div className="glass-heavy rounded-3xl p-6 space-y-3">
+              <div className="glass-heavy rounded-3xl p-6 space-y-3 min-w-0 max-w-full overflow-hidden">
                 <h3 className="font-semibold text-lg">Description</h3>
-                <p className="text-muted-foreground leading-relaxed">{track.description}</p>
+                <p className="text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
+                  {track.description}
+                </p>
               </div>
             )}
 

@@ -62,12 +62,13 @@ const LibraryAlbumCard = ({ album, onPlayAlbum, playingAlbumId }) => {
             <Disc className="w-16 h-16 text-white/25" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-80" />
         <div className="absolute bottom-3 left-3 right-3 flex flex-col gap-2">
-          <p className="font-semibold text-white text-sm md:text-base line-clamp-2 drop-shadow-md">
+          <p className="font-semibold text-white text-sm md:text-base line-clamp-2 [text-shadow:0_1px_3px_rgba(0,0,0,0.95),0_0_12px_rgba(0,0,0,0.6)]">
             {album.title}
           </p>
-          <p className="text-xs text-white/75 line-clamp-1">{album.artist_name}</p>
+          <p className="text-xs text-white/90 line-clamp-1 [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+            {album.artist_name}
+          </p>
         </div>
         <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur-sm px-2.5 py-1 text-[11px] text-white/95 border border-white/10">
           <ListMusic className="w-3.5 h-3.5" />

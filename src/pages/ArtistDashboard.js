@@ -30,6 +30,67 @@ const parsePriceEuroInput = (raw) => {
   return n;
 };
 
+/** Stats list payloads often omit description / mastering / splits; full track from GET /api/tracks/:id has them. */
+const normalizeReleaseDateForInput = (d) => {
+  if (d == null || d === '') return '';
+  const s = String(d);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : s.slice(0, 10);
+};
+
+const buildTrackFormFromApiTrack = (track) => {
+  const priceCents = track?.price;
+  const priceStr =
+    priceCents != null && Number.isFinite(Number(priceCents))
+      ? (Number(priceCents) / 100).toString()
+      : '';
+
+  const dur = track?.duration_sec ?? track?.duration;
+  const durationSec = dur != null && dur !== '' ? String(dur) : '';
+
+  const previewRaw = track?.preview_start_time ?? track?.preview_start_sec ?? 0;
+  const previewStartSec = Number.isFinite(Number(previewRaw))
+    ? Number(previewRaw)
+    : parseInt(String(previewRaw), 10) || 0;
+
+  const previewDurRaw = track?.preview_duration_sec ?? track?.preview_length_sec;
+  const previewDurationSec =
+    previewDurRaw != null && previewDurRaw !== '' && Number.isFinite(Number(previewDurRaw)) && Number(previewDurRaw) > 0
+      ? String(Number(previewDurRaw))
+      : '15';
+
+  const splits =
+    track?.splits?.length > 0
+      ? track.splits.map((s) => ({
+          party: s.party ?? '',
+          role: s.role ?? '',
+          percent: s.percent != null && s.percent !== '' ? String(s.percent) : ''
+        }))
+      : [{ party: '', percent: '', role: '' }];
+
+  const m = track?.mastering;
+  return {
+    title: track?.title ?? '',
+    price: priceStr,
+    genre: track?.genre ?? '',
+    description: track?.description ?? '',
+    durationSec,
+    previewStartSec,
+    previewDurationSec,
+    masteringEngineer: m?.engineer ?? '',
+    masteringDetails: m?.details ?? '',
+    masteringStudio: m?.studio ?? '',
+    bpm: track?.bpm != null && track?.bpm !== '' ? String(track.bpm) : '',
+    key: track?.key ?? '',
+    isrc: track?.isrc ?? '',
+    releaseDate: normalizeReleaseDateForInput(track?.release_date),
+    splits,
+    status: track?.status || 'draft',
+    audioFile: null,
+    coverFile: null
+  };
+};
+
 const StatCard = ({ title, value, subtitle, icon: Icon, color = "cyan", trend }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
@@ -257,6 +318,7 @@ const ArtistDashboard = () => {
     description: '',
     durationSec: '',
     previewStartSec: 0,
+    previewDurationSec: '15',
     masteringEngineer: '',
     masteringDetails: '',
     masteringStudio: '',
@@ -364,6 +426,7 @@ const ArtistDashboard = () => {
       description: '',
       durationSec: '',
       previewStartSec: 0,
+      previewDurationSec: '15',
       masteringEngineer: '',
       masteringDetails: '',
       masteringStudio: '',
@@ -392,28 +455,23 @@ const ArtistDashboard = () => {
     setAlbumStep(0);
   };
 
-  const handleEditTrack = (track) => {
-    setEditingTrack(track);
-    setTrackForm({
-      title: track.title,
-      price: (track.price / 100).toString(),
-      genre: track.genre || '',
-      description: track.description || '',
-      durationSec: track.duration?.toString() || '',
-      previewStartSec: track.preview_start_time || 0,
-      masteringEngineer: track.mastering?.engineer || '',
-      masteringDetails: track.mastering?.details || '',
-      masteringStudio: track.mastering?.studio || '',
-      bpm: track.bpm?.toString() || '',
-      key: track.key || '',
-      isrc: track.isrc || '',
-      releaseDate: track.release_date || '',
-      splits: track.splits?.length > 0 ? track.splits : [{ party: '', percent: '', role: '' }],
-      status: track.status || 'draft',
-      audioFile: null,
-      coverFile: null
-    });
+  const handleEditTrack = async (track) => {
     setTrackStep(0);
+    let merged = { ...track };
+    try {
+      const { data } = await apiClient.get(`/api/tracks/${track.track_id}`);
+      merged = { ...track, ...data };
+    } catch {
+      // Liste dashboard sans tous les champs : on garde la ligne stats
+    }
+    merged = {
+      ...merged,
+      preview_url: resolveApiUrl(merged.preview_url),
+      file_url: resolveApiUrl(merged.file_url),
+      cover_url: resolveApiUrl(merged.cover_url)
+    };
+    setEditingTrack(merged);
+    setTrackForm(buildTrackFormFromApiTrack(merged));
     setShowTrackDialog(true);
   };
 
@@ -492,7 +550,8 @@ const ArtistDashboard = () => {
         genre: trackForm.genre,
         description: trackForm.description,
         duration_sec: trackForm.durationSec ? parseInt(trackForm.durationSec) : null,
-        preview_start_time: parseInt(trackForm.previewStartSec) || 0,
+        preview_start_time: parseInt(trackForm.previewStartSec, 10) || 0,
+        preview_duration_sec: Math.max(1, parseInt(trackForm.previewDurationSec, 10) || 15),
         mastering: trackForm.masteringEngineer ? {
           engineer: trackForm.masteringEngineer,
           details: trackForm.masteringDetails,
@@ -1185,7 +1244,7 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Preview & Release */}
-            <div className={`grid grid-cols-2 md:grid-cols-3 gap-4 ${trackStep !== 1 ? 'hidden' : ''}`}>
+            <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 ${trackStep !== 1 ? 'hidden' : ''}`}>
               <div className="space-y-2">
                 <Label>Preview début (sec)</Label>
                 <Input
@@ -1195,6 +1254,18 @@ const ArtistDashboard = () => {
                   onChange={(e) => setTrackForm({ ...trackForm, previewStartSec: e.target.value })}
                   className="h-12 rounded-xl bg-white/5 border-white/10"
                   placeholder="30"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Durée preview (sec)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="600"
+                  value={trackForm.previewDurationSec}
+                  onChange={(e) => setTrackForm({ ...trackForm, previewDurationSec: e.target.value })}
+                  className="h-12 rounded-xl bg-white/5 border-white/10"
+                  placeholder="15"
                 />
               </div>
               <div className="space-y-2">

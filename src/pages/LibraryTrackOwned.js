@@ -333,7 +333,7 @@ const LibraryTrackOwned = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="lg:col-span-2 space-y-6"
+            className="lg:col-span-2 space-y-6 min-w-0"
           >
             <div className="glass-heavy rounded-3xl p-6">
               <div className="flex items-center gap-4">
@@ -364,9 +364,11 @@ const LibraryTrackOwned = () => {
             </div>
 
             {track.description && (
-              <div className="glass-heavy rounded-3xl p-6 space-y-3">
+              <div className="glass-heavy rounded-3xl p-6 space-y-3 min-w-0 max-w-full overflow-hidden">
                 <h3 className="font-semibold text-lg">Description</h3>
-                <p className="text-muted-foreground leading-relaxed">{track.description}</p>
+                <p className="text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
+                  {track.description}
+                </p>
               </div>
             )}
 

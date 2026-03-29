@@ -11,7 +11,14 @@ const resolveAudioUrl = (track, mode) => {
 
 const resolveStartTime = (track, mode) => {
   if (mode === 'library') return 0;
-  return track?.preview_start_time || 0;
+  return track?.preview_start_time ?? track?.preview_start_sec ?? 0;
+};
+
+/** Fenêtre d’écoute en mode browse (même URL que le fichier complet). */
+const resolvePreviewDurationSec = (track) => {
+  const v = track?.preview_duration_sec ?? track?.preview_length_sec ?? track?.preview_seconds;
+  if (v != null && Number.isFinite(Number(v)) && Number(v) > 0) return Number(v);
+  return 15;
 };
 
 export const AudioPlayerProvider = ({ children }) => {
@@ -25,11 +32,40 @@ export const AudioPlayerProvider = ({ children }) => {
   const [playbackMode, setPlaybackMode] = useState('preview');
   const [volume, setVolume] = useState(0.9);
   const audioRef = useRef(new Audio());
+  const currentTrackRef = useRef(null);
+  const playbackModeRef = useRef('preview');
+
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
+
+  useEffect(() => {
+    playbackModeRef.current = playbackMode;
+  }, [playbackMode]);
 
   useEffect(() => {
     const audio = audioRef.current;
 
-    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const handleTimeUpdate = () => {
+      const t = audio.currentTime;
+      setCurrentTime(t);
+
+      const mode = playbackModeRef.current;
+      const tr = currentTrackRef.current;
+      if (mode === 'preview' && tr) {
+        const start = resolveStartTime(tr, 'preview');
+        const windowSec = resolvePreviewDurationSec(tr);
+        const endUncapped = start + windowSec;
+        const dur = audio.duration;
+        const end =
+          Number.isFinite(dur) && dur > 0 ? Math.min(endUncapped, dur) : endUncapped;
+        if (t >= end - 0.05) {
+          audio.pause();
+          audio.currentTime = start;
+          setIsPlaying(false);
+        }
+      }
+    };
     const handleLoadedMetadata = () => setDuration(audio.duration);
     const handleEnded = () => {
       if (queue.length && queueIndex < queue.length - 1) {
@@ -91,14 +127,22 @@ export const AudioPlayerProvider = ({ children }) => {
     if (!url) return;
 
     if (sameTrack && explicitMode) {
-      const needReload = playbackMode !== mode || audio.src !== url;
+      const needReload = playbackMode !== mode || !audio.src;
       if (needReload) {
         setPlaybackMode(mode);
         audio.src = url;
         audio.currentTime = resolveStartTime(track, mode);
+        audio.play().catch(() => setIsPlaying(false));
+        setIsPlaying(true);
+        return;
       }
-      audio.play().catch(() => setIsPlaying(false));
-      setIsPlaying(true);
+      if (isPlaying) {
+        audio.pause();
+        setIsPlaying(false);
+      } else {
+        audio.play().catch(() => setIsPlaying(false));
+        setIsPlaying(true);
+      }
       return;
     }
 

@@ -315,12 +315,14 @@ const LibraryAlbumOwned = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="lg:col-span-2 space-y-6"
+            className="lg:col-span-2 space-y-6 min-w-0"
           >
             {album.description && (
-              <div className="glass-heavy rounded-3xl p-6 space-y-3">
+              <div className="glass-heavy rounded-3xl p-6 space-y-3 min-w-0 max-w-full overflow-hidden">
                 <h3 className="font-semibold text-lg">À propos de l’album</h3>
-                <p className="text-muted-foreground leading-relaxed">{album.description}</p>
+                <p className="text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">
+                  {album.description}
+                </p>
               </div>
             )}
 

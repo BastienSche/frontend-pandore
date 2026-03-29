@@ -66,15 +66,7 @@ const AlbumCard = ({ album }) => {
               <Disc className="w-16 h-16 text-white/30" />
             </div>
           )}
-          
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
-          
-          {/* Glow effect on hover */}
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-            <div className="absolute inset-0 bg-gradient-to-t from-purple-500/20 to-transparent" />
-          </div>
-          
+
           {/* Track Count Badge */}
           <Badge 
             className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm border border-white/20 text-white"
