@@ -16,6 +16,12 @@ import { Badge } from '@/components/ui/badge';
 import { motion, useDragControls } from 'framer-motion';
 import KloudLogo from '@/components/KloudLogo';
 
+const userInitial = (u) => {
+  if (!u) return '?';
+  const s = String(u.name || u.email || u.artist_name || '').trim();
+  return s ? s.charAt(0).toUpperCase() : '?';
+};
+
 const Navbar = () => {
   const { user, logout, switchRole } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -196,7 +202,7 @@ const Navbar = () => {
                     <Avatar className="w-8 h-8">
                       <AvatarImage src={user.picture} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-sm">
-                        {user.name[0]}
+                        {userInitial(user)}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -209,11 +215,11 @@ const Navbar = () => {
                     <Avatar className="w-10 h-10">
                       <AvatarImage src={user.picture} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
-                        {user.name[0]}
+                        {userInitial(user)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col min-w-0">
-                      <span className="font-medium text-sm truncate">{user.name}</span>
+                      <span className="font-medium text-sm truncate">{user.name || user.email || 'Utilisateur'}</span>
                       <span className="text-xs text-muted-foreground truncate">
                         {user.email}
                       </span>

@@ -27,3 +27,17 @@ export function resolveApiUrl(pathOrUrl) {
   return `${baseURL}${path}`;
 }
 
+/** List endpoints may return a raw array or `{ items, results, data, ... }` depending on environment. */
+export function normalizeApiList(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === 'object') {
+    if (Array.isArray(payload.items)) return payload.items;
+    if (Array.isArray(payload.results)) return payload.results;
+    if (Array.isArray(payload.data)) return payload.data;
+    if (Array.isArray(payload.tracks)) return payload.tracks;
+    if (Array.isArray(payload.albums)) return payload.albums;
+    if (Array.isArray(payload.artists)) return payload.artists;
+  }
+  return [];
+}
+

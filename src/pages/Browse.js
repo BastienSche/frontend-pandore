@@ -7,7 +7,7 @@ import AlbumCard from '@/components/AlbumCard';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -47,7 +47,7 @@ const Browse = () => {
         apiClient.get('/api/tracks'),
         apiClient.get('/api/albums')
       ]);
-      const nextTracks = (tracksResp.data || [])
+      const nextTracks = normalizeApiList(tracksResp.data)
         .filter(isPublicItem)
         .map((t) => ({
           ...t,
@@ -55,7 +55,7 @@ const Browse = () => {
           file_url: resolveApiUrl(t?.file_url),
           cover_url: resolveApiUrl(t?.cover_url)
         }));
-      const nextAlbums = (albumsResp.data || [])
+      const nextAlbums = normalizeApiList(albumsResp.data)
         .filter(isPublicItem)
         .map((a) => ({
           ...a,

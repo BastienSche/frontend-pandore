@@ -8,7 +8,7 @@ import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import { MusicNoteBubbleBackground, GlowOrb, BubbleBackground} from '@/components/BubbleCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -64,7 +64,7 @@ const Home = () => {
         apiClient.get('/api/artists?limit=40')
       ]);
 
-      const tracks = (tracksResp.data || [])
+      const tracks = normalizeApiList(tracksResp.data)
         .filter(isPublicItem)
         .map((t) => ({
           ...t,
@@ -72,13 +72,13 @@ const Home = () => {
           file_url: resolveApiUrl(t?.file_url),
           cover_url: resolveApiUrl(t?.cover_url)
         }));
-      const albums = (albumsResp.data || [])
+      const albums = normalizeApiList(albumsResp.data)
         .filter(isPublicItem)
         .map((a) => ({
           ...a,
           cover_url: resolveApiUrl(a?.cover_url)
         }));
-      const artists = (artistsResp.data || []).map((a) => ({
+      const artists = normalizeApiList(artistsResp.data).map((a) => ({
         ...a,
         picture: resolveApiUrl(a?.picture)
       }));
