@@ -1,0 +1,2 @@
+# SPA (React Router) : toutes les routes servent index.html pour que le client gère l’URL.
+/*    /index.html   200
