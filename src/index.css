@@ -9,7 +9,8 @@
 html {
   width: 100%;
   overflow-x: hidden;
-  font-size: 100%;
+  /* Global “dezoom” (Tailwind sizes are rem-based) */
+  font-size: 87.5%;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
