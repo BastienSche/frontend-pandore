@@ -3,6 +3,7 @@ import AlbumCard from '@/components/AlbumCard';
 import TrackCard from '@/components/TrackCard';
 import BubbleCard, { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import AudioPlayer from '@/components/AudioPlayer';
+import HeroRouletteBand from '@/components/HeroRouletteBand';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -143,6 +144,14 @@ export function AppComponentsStories() {
               Lance une preview depuis une TrackCard, le player apparaît en bas.
             </div>
             <AudioPlayer />
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xl font-semibold">HeroRouletteBand</div>
+            <div className="text-sm text-muted-foreground">
+              Bandeau “roulette” (démo). Utilise l’API si dispo, sinon il affiche un fallback.
+            </div>
+            <HeroRouletteBand />
           </div>
         </div>
       </div>
