@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Music, Play, TrendingUp, Sparkles, ArrowRight, Disc, Star, Headphones } from 'lucide-react';
+import { Music, Play, TrendingUp, Sparkles, ArrowRight, Users, Headphones, Disc, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
@@ -51,6 +51,7 @@ const Home = () => {
   const [featuredArtists, setFeaturedArtists] = useState([]);
   const [featuredAlbums, setFeaturedAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [publicStats, setPublicStats] = useState(null);
 
   useEffect(() => {
     fetchHomeData();
@@ -58,11 +59,28 @@ const Home = () => {
 
   const fetchHomeData = async () => {
     try {
-      const [tracksResp, albumsResp, artistsResp] = await Promise.all([
+      const [tracksResp, albumsResp, artistsResp, statsResp] = await Promise.all([
         apiClient.get('/api/tracks?limit=60'),
         apiClient.get('/api/albums?limit=40'),
-        apiClient.get('/api/artists?limit=40')
+        apiClient.get('/api/artists?limit=40'),
+        apiClient.get('/api/public/stats').catch(() => ({ data: null }))
       ]);
+
+      const getTotalFromResp = (payload, fallback = 0) => {
+        const p = payload;
+        const candidates = [
+          p?.total,
+          p?.count,
+          p?.total_count,
+          p?.totalCount,
+          p?.meta?.total,
+          p?.meta?.count,
+          p?.pagination?.total,
+          p?.pagination?.count
+        ];
+        const n = candidates.map((v) => Number(v)).find((v) => Number.isFinite(v) && v >= 0);
+        return Number.isFinite(n) ? n : fallback;
+      };
 
       const tracks = normalizeApiList(tracksResp.data)
         .filter(isPublicItem)
@@ -87,6 +105,22 @@ const Home = () => {
       setTopTracks([...tracks].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0)).slice(0, 6));
       setFeaturedAlbums(albums.slice(0, 8));
       setFeaturedArtists(artists.slice(0, 8));
+
+      // Prefer backend aggregated stats, but fall back to list endpoint totals when available.
+      const apiStats = statsResp?.data && typeof statsResp.data === 'object' ? statsResp.data : {};
+      const fallbackTracks = getTotalFromResp(tracksResp.data, tracks.length);
+      const fallbackArtists = getTotalFromResp(artistsResp.data, artists.length);
+      const fallbackUsers =
+        Number(apiStats?.users_count) ||
+        Number(apiStats?.users) ||
+        0;
+
+      setPublicStats({
+        ...apiStats,
+        tracks_count: Number(apiStats?.tracks_count ?? apiStats?.tracks) || fallbackTracks,
+        artists_count: Number(apiStats?.artists_count ?? apiStats?.artists) || fallbackArtists,
+        users_count: Number(apiStats?.users_count ?? apiStats?.users) || fallbackUsers
+      });
     } finally {
       setLoading(false);
     }
@@ -177,31 +211,75 @@ const Home = () => {
             </Link>
           </motion.div>
 
-          {/* Floating Stats */}
+          {/* Public stats */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex justify-center gap-8 md:gap-16 pt-12"
+            className="pt-10"
+            data-testid="hero-stats"
           >
-            {[
-              { value: "500+", label: "Titres", delay: 0 },
-              { value: "50+", label: "Artistes", delay: 1 },
-              { value: "75+", label: "Albums", delay: 2 }
-            ].map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                custom={stat.delay}
-                variants={floatVariants}
-                animate="animate"
-                className="text-center glass-bubble rounded-2xl px-6 py-4"
-              >
-                <div className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
-              </motion.div>
-            ))}
+            <div className="flex items-center justify-center gap-5 sm:gap-6 flex-wrap">
+              {(() => {
+                const nf = new Intl.NumberFormat('fr-FR');
+                const artistsCount =
+                  Number(publicStats?.artists_count) ||
+                  Number(publicStats?.artists) || 0;
+                const tracksCount =
+                  Number(publicStats?.tracks_count) ||
+                  Number(publicStats?.tracks) || 0;
+                const usersCount =
+                  Number(publicStats?.users_count) ||
+                  Number(publicStats?.users) || 0;
+
+                const cards = [
+                  {
+                    id: 'stat-tracks',
+                    value: nf.format(tracksCount),
+                    label: 'Tracks',
+                    Icon: Music,
+                    gradient: 'from-cyan-400 to-purple-400'
+                  },
+                  {
+                    id: 'stat-artists',
+                    value: nf.format(artistsCount),
+                    label: 'Artistes',
+                    Icon: TrendingUp,
+                    gradient: 'from-purple-400 to-pink-400'
+                  },
+                  {
+                    id: 'stat-users',
+                    value: nf.format(usersCount),
+                    label: 'Users',
+                    Icon: Users,
+                    gradient: 'from-pink-400 to-cyan-400'
+                  }
+                ];
+
+                return cards.map((card, idx) => (
+                  <motion.div
+                    key={card.id}
+                    custom={idx}
+                    variants={floatVariants}
+                    animate="animate"
+                    className="group relative rounded-2xl px-6 py-4 text-center min-w-[156px] bg-white/[0.04] border border-white/10 backdrop-blur-md shadow-[0_0_30px_rgba(0,0,0,0.28)]"
+                  >
+                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-b from-white/[0.06] to-transparent" />
+                    <div className="relative flex items-center justify-center gap-2.5">
+                      <span className={`inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${card.gradient} opacity-90`}>
+                        <card.Icon className="w-4 h-4 text-black/80" />
+                      </span>
+                      <div className={`text-3xl md:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r ${card.gradient}`}>
+                        {card.value}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
+                      {card.label}
+                    </div>
+                  </motion.div>
+                ));
+              })()}
+            </div>
           </motion.div>
         </div>
 
