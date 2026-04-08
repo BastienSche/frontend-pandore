@@ -20,6 +20,7 @@ import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 import { Progress } from '@/components/ui/progress';
 import { formatPriceLabel } from '@/lib/pricing';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const parsePriceEuroInput = (raw) => {
   const v = String(raw ?? '').trim();
@@ -43,6 +44,11 @@ const buildTrackFormFromApiTrack = (track) => {
   const priceStr =
     priceCents != null && Number.isFinite(Number(priceCents))
       ? (Number(priceCents) / 100).toString()
+      : '';
+  const minPriceCents = track?.min_price;
+  const minPriceStr =
+    minPriceCents != null && minPriceCents !== '' && Number.isFinite(Number(minPriceCents))
+      ? (Number(minPriceCents) / 100).toString()
       : '';
 
   const dur = track?.duration_sec ?? track?.duration;
@@ -72,6 +78,8 @@ const buildTrackFormFromApiTrack = (track) => {
   return {
     title: track?.title ?? '',
     price: priceStr,
+    isFreePrice: !!track?.is_free_price,
+    minPrice: minPriceStr,
     genre: track?.genre ?? '',
     description: track?.description ?? '',
     durationSec,
@@ -314,6 +322,8 @@ const ArtistDashboard = () => {
   const [trackForm, setTrackForm] = useState({
     title: '',
     price: '',
+    isFreePrice: false,
+    minPrice: '',
     genre: '',
     description: '',
     durationSec: '',
@@ -335,6 +345,8 @@ const ArtistDashboard = () => {
   const [albumForm, setAlbumForm] = useState({
     title: '',
     price: '',
+    isFreePrice: false,
+    minPrice: '',
     description: '',
     trackIds: [],
     albumTracks: [],
@@ -422,6 +434,8 @@ const ArtistDashboard = () => {
     setTrackForm({
       title: '',
       price: '',
+      isFreePrice: false,
+      minPrice: '',
       genre: '',
       description: '',
       durationSec: '',
@@ -446,6 +460,8 @@ const ArtistDashboard = () => {
     setAlbumForm({
       title: '',
       price: '',
+      isFreePrice: false,
+      minPrice: '',
       description: '',
       trackIds: [],
       albumTracks: [],
@@ -486,6 +502,10 @@ const ArtistDashboard = () => {
     setAlbumForm({
       title: album.title,
       price: (album.price / 100).toString(),
+      isFreePrice: !!album?.is_free_price,
+      minPrice: album?.min_price != null && Number.isFinite(Number(album?.min_price))
+        ? (Number(album.min_price) / 100).toString()
+        : '',
       description: album.description || '',
       trackIds: album.track_ids || [],
       albumTracks: [],
@@ -504,7 +524,13 @@ const ArtistDashboard = () => {
 
   const canGoNextAlbum = () => {
     if (albumStep === 0) return !!albumForm.title?.trim();
-    if (albumStep === 1) return parsePriceEuroInput(albumForm.price) !== null;
+    if (albumStep === 1) {
+      if (albumForm.isFreePrice) {
+        const min = parsePriceEuroInput(albumForm.minPrice);
+        return min === null || min >= 0;
+      }
+      return parsePriceEuroInput(albumForm.price) !== null;
+    }
     if (albumStep === 2) return (albumForm.trackIds?.length || 0) > 0 || (albumForm.albumTracks?.length || 0) > 0;
     return true;
   };
@@ -521,7 +547,13 @@ const ArtistDashboard = () => {
 
   const canGoNext = () => {
     if (trackStep === 0) return !!trackForm.title?.trim() && !!trackForm.genre?.trim();
-    if (trackStep === 1) return parsePriceEuroInput(trackForm.price) !== null;
+    if (trackStep === 1) {
+      if (trackForm.isFreePrice) {
+        const min = parsePriceEuroInput(trackForm.minPrice);
+        return min === null || min >= 0;
+      }
+      return parsePriceEuroInput(trackForm.price) !== null;
+    }
     return true;
   };
 
@@ -539,14 +571,23 @@ const ArtistDashboard = () => {
     setSubmitting(true);
 
     try {
-      const priceEuro = parsePriceEuroInput(trackForm.price);
-      if (priceEuro === null) {
+      const priceEuro = trackForm.isFreePrice ? 0 : parsePriceEuroInput(trackForm.price);
+      if (!trackForm.isFreePrice && priceEuro === null) {
         toast.error('Prix invalide');
+        return;
+      }
+      const minPriceEuro = parsePriceEuroInput(trackForm.minPrice);
+      if (trackForm.isFreePrice && minPriceEuro !== null && minPriceEuro < 0) {
+        toast.error('Minimum invalide');
         return;
       }
       const trackData = {
         title: trackForm.title,
-        price: Math.round(priceEuro * 100),
+        price: Math.round((priceEuro || 0) * 100),
+        is_free_price: !!trackForm.isFreePrice,
+        min_price: trackForm.isFreePrice
+          ? (minPriceEuro === null ? null : Math.round(minPriceEuro * 100))
+          : null,
         genre: trackForm.genre,
         description: trackForm.description,
         duration_sec: trackForm.durationSec ? parseInt(trackForm.durationSec) : null,
@@ -640,9 +681,14 @@ const ArtistDashboard = () => {
     setSubmitting(true);
 
     try {
-      const priceEuro = parsePriceEuroInput(albumForm.price);
-      if (priceEuro === null) {
+      const priceEuro = albumForm.isFreePrice ? 0 : parsePriceEuroInput(albumForm.price);
+      if (!albumForm.isFreePrice && priceEuro === null) {
         toast.error('Prix invalide');
+        return;
+      }
+      const minPriceEuro = parsePriceEuroInput(albumForm.minPrice);
+      if (albumForm.isFreePrice && minPriceEuro !== null && minPriceEuro < 0) {
+        toast.error('Minimum invalide');
         return;
       }
 
@@ -652,7 +698,11 @@ const ArtistDashboard = () => {
       if (!albumId) {
         const { data: createdAlbum } = await apiClient.post('/api/albums', {
           title: albumForm.title,
-          price: Math.round(priceEuro * 100),
+          price: Math.round((priceEuro || 0) * 100),
+          is_free_price: !!albumForm.isFreePrice,
+          min_price: albumForm.isFreePrice
+            ? (minPriceEuro === null ? null : Math.round(minPriceEuro * 100))
+            : null,
           description: albumForm.description,
           track_ids: [],
           status: 'draft'
@@ -661,7 +711,11 @@ const ArtistDashboard = () => {
       } else {
         await apiClient.put(`/api/albums/${albumId}`, {
           title: albumForm.title,
-          price: Math.round(priceEuro * 100),
+          price: Math.round((priceEuro || 0) * 100),
+          is_free_price: !!albumForm.isFreePrice,
+          min_price: albumForm.isFreePrice
+            ? (minPriceEuro === null ? null : Math.round(minPriceEuro * 100))
+            : null,
           description: albumForm.description,
           track_ids: albumForm.trackIds || [],
           status: albumForm.status
@@ -678,7 +732,9 @@ const ArtistDashboard = () => {
       for (const [idx, t] of (albumForm.albumTracks || []).entries()) {
         const tTitle = (t?.title || '').trim();
         const tGenre = (t?.genre || '').trim();
-        const tPriceEuro = parsePriceEuroInput(t?.price);
+        const tIsFreePrice = !!t?.isFreePrice;
+        const tPriceEuro = tIsFreePrice ? 0 : parsePriceEuroInput(t?.price);
+        const tMinPriceEuro = parsePriceEuroInput(t?.minPrice);
 
         if (!tTitle) {
           toast.error(`Track #${idx + 1}: titre requis`);
@@ -688,14 +744,22 @@ const ArtistDashboard = () => {
           toast.error(`Track #${idx + 1}: genre requis`);
           return;
         }
-        if (tPriceEuro === null) {
+        if (!tIsFreePrice && tPriceEuro === null) {
           toast.error(`Track #${idx + 1}: prix invalide`);
+          return;
+        }
+        if (tIsFreePrice && tMinPriceEuro !== null && tMinPriceEuro < 0) {
+          toast.error(`Track #${idx + 1}: minimum invalide`);
           return;
         }
 
         const trackData = {
           title: tTitle,
-          price: Math.round(tPriceEuro * 100),
+          price: Math.round((tPriceEuro || 0) * 100),
+          is_free_price: !!tIsFreePrice,
+          min_price: tIsFreePrice
+            ? (tMinPriceEuro === null ? null : Math.round(tMinPriceEuro * 100))
+            : null,
           genre: tGenre,
           description: t?.description || '',
           status: t?.status || 'draft'
@@ -751,7 +815,11 @@ const ArtistDashboard = () => {
 
       const albumData = {
         title: albumForm.title,
-        price: Math.round(priceEuro * 100),
+        price: Math.round((priceEuro || 0) * 100),
+        is_free_price: !!albumForm.isFreePrice,
+        min_price: albumForm.isFreePrice
+          ? (minPriceEuro === null ? null : Math.round(minPriceEuro * 100))
+          : null,
         description: albumForm.description,
         track_ids: mergedTrackIds,
         status: albumForm.status
@@ -1205,12 +1273,47 @@ const ArtistDashboard = () => {
                   onChange={(e) => setTrackForm({ ...trackForm, price: e.target.value })}
                   className="h-12 rounded-xl bg-white/5 border-white/10"
                   placeholder="1.99"
-                  required
+                  required={!trackForm.isFreePrice}
+                  disabled={trackForm.isFreePrice}
                   data-testid="form-price"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Mets <span className="text-purple-300 font-medium">0</span> pour un prix gratuit
+                  Ou active <span className="text-purple-300 font-medium">Prix libre</span> juste en dessous
                 </p>
+              </div>
+              <div className="space-y-2 col-span-2 md:col-span-2">
+                <Label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={trackForm.isFreePrice}
+                    onCheckedChange={(v) => {
+                      const next = !!v;
+                      setTrackForm({
+                        ...trackForm,
+                        isFreePrice: next,
+                        price: next ? '0' : trackForm.price
+                      });
+                    }}
+                    data-testid="form-free-price"
+                  />
+                  Prix libre (l’utilisateur choisit le prix)
+                </Label>
+                <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${!trackForm.isFreePrice ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="space-y-1.5">
+                    <Label>Minimum (optionnel)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={trackForm.minPrice}
+                      onChange={(e) => setTrackForm({ ...trackForm, minPrice: e.target.value })}
+                      className="h-12 rounded-xl bg-white/5 border-white/10"
+                      placeholder="0"
+                      disabled={!trackForm.isFreePrice}
+                      data-testid="form-free-price-min"
+                    />
+                    <p className="text-xs text-muted-foreground">Laisse vide pour “pas de minimum”.</p>
+                  </div>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Durée (sec)</Label>
@@ -1556,12 +1659,47 @@ const ArtistDashboard = () => {
                 onChange={(e) => setAlbumForm({ ...albumForm, price: e.target.value })}
                 className="h-12 rounded-xl bg-white/5 border-white/10"
                 placeholder="9.99"
-                required
+                required={!albumForm.isFreePrice}
+                disabled={albumForm.isFreePrice}
                 data-testid="album-form-price"
               />
               <p className="text-xs text-muted-foreground">
-                Mets <span className="text-purple-300 font-medium">0</span> pour un prix gratuit
+                Ou active <span className="text-purple-300 font-medium">Prix libre</span> juste en dessous
               </p>
+              <div className="pt-2 space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={albumForm.isFreePrice}
+                    onCheckedChange={(v) => {
+                      const next = !!v;
+                      setAlbumForm({
+                        ...albumForm,
+                        isFreePrice: next,
+                        price: next ? '0' : albumForm.price
+                      });
+                    }}
+                    data-testid="album-form-free-price"
+                  />
+                  Prix libre (l’utilisateur choisit le prix)
+                </Label>
+                <div className={`${!albumForm.isFreePrice ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="space-y-2">
+                    <Label>Minimum (optionnel)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={albumForm.minPrice}
+                      onChange={(e) => setAlbumForm({ ...albumForm, minPrice: e.target.value })}
+                      className="h-12 rounded-xl bg-white/5 border-white/10"
+                      placeholder="0"
+                      disabled={!albumForm.isFreePrice}
+                      data-testid="album-form-free-price-min"
+                    />
+                    <p className="text-xs text-muted-foreground">Laisse vide pour “pas de minimum”.</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Tracks */}
@@ -1590,6 +1728,8 @@ const ArtistDashboard = () => {
                           description: '',
                           genre: '',
                           price: albumForm.price || '0',
+                          isFreePrice: albumForm.isFreePrice || false,
+                          minPrice: albumForm.minPrice || '',
                           status: 'draft',
                           audioFile: null,
                           coverFile: null
@@ -1690,8 +1830,42 @@ const ArtistDashboard = () => {
                               }}
                               className="h-12 rounded-xl bg-white/5 border-white/10"
                               placeholder="0"
+                              required={!t.isFreePrice}
+                              disabled={!!t.isFreePrice}
                               data-testid={`album-track-price-${idx}`}
                             />
+                            <div className="pt-2 space-y-2">
+                              <Label className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={!!t.isFreePrice}
+                                  onCheckedChange={(v) => {
+                                    const nextTracks = [...(albumForm.albumTracks || [])];
+                                    nextTracks[idx] = { ...nextTracks[idx], isFreePrice: !!v, price: v ? '0' : nextTracks[idx].price };
+                                    setAlbumForm({ ...albumForm, albumTracks: nextTracks });
+                                  }}
+                                  data-testid={`album-track-free-price-${idx}`}
+                                />
+                                Prix libre
+                              </Label>
+                              <div className={`${!t.isFreePrice ? 'opacity-50 pointer-events-none' : ''}`}>
+                                <Label>Minimum (optionnel)</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={t.minPrice || ''}
+                                  onChange={(e) => {
+                                    const next = [...(albumForm.albumTracks || [])];
+                                    next[idx] = { ...next[idx], minPrice: e.target.value };
+                                    setAlbumForm({ ...albumForm, albumTracks: next });
+                                  }}
+                                  className="h-12 rounded-xl bg-white/5 border-white/10 mt-2"
+                                  placeholder="0"
+                                  disabled={!t.isFreePrice}
+                                  data-testid={`album-track-free-price-min-${idx}`}
+                                />
+                              </div>
+                            </div>
                           </div>
 
                           <div className="space-y-2">

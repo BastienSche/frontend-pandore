@@ -30,6 +30,7 @@ const TrackDetail = () => {
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [newPlaylistDescription, setNewPlaylistDescription] = useState('');
   const [addingToPlaylist, setAddingToPlaylist] = useState(false);
+  const [payWhatYouWantEuro, setPayWhatYouWantEuro] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -91,12 +92,42 @@ const TrackDetail = () => {
   const handlePurchase = async () => {
     setPurchasing(true);
     try {
+      const isPayWhatYouWant = !!track?.is_free_price;
+      const minCents = track?.min_price != null ? Number(track.min_price) : null;
+      const minEuro = minCents != null && Number.isFinite(minCents) ? minCents / 100 : null;
+
+      if (isPayWhatYouWant) {
+        const raw = String(payWhatYouWantEuro ?? '').trim().replace(',', '.');
+        const n = raw === '' ? NaN : Number(raw);
+        if (!Number.isFinite(n) || n < 0) {
+          toast.error('Entre un prix valide');
+          return;
+        }
+        if (minEuro != null && n < minEuro) {
+          toast.error(`Minimum: ${minEuro.toFixed(2)}€`);
+          return;
+        }
+        const amountCents = Math.round(n * 100);
+        if (amountCents === 0) {
+          await apiClient.post('/api/purchases/library', { item_type: 'track', item_id: trackId });
+          toast.success('Titre ajouté à la bibliothèque');
+          return;
+        }
+        const originUrl = window.location.origin;
+        const { data } = await apiClient.post('/api/purchases/checkout', {
+          item_type: 'track',
+          item_id: trackId,
+          origin_url: originUrl,
+          amount_cents: amountCents
+        });
+        if (data?.url) window.location.href = data.url;
+        else toast.success('Checkout créé');
+        return;
+      }
+
       const isFree = isFreePrice(track?.price);
       if (isFree) {
-        await apiClient.post('/api/purchases/library', {
-          item_type: 'track',
-          item_id: trackId
-        });
+        await apiClient.post('/api/purchases/library', { item_type: 'track', item_id: trackId });
         toast.success('Titre ajouté à la bibliothèque');
         return;
       }
@@ -180,6 +211,9 @@ const TrackDetail = () => {
   const isCurrentTrack = currentTrack?.track_id === track.track_id;
   const priceDisplay = formatPriceLabel(track.price);
   const isFree = isFreePrice(track?.price);
+  const isPayWhatYouWant = !!track?.is_free_price;
+  const minCents = track?.min_price != null ? Number(track.min_price) : null;
+  const minEuro = minCents != null && Number.isFinite(minCents) ? minCents / 100 : null;
   const previewDurationSec =
     track.preview_duration_sec != null &&
     Number.isFinite(Number(track.preview_duration_sec)) &&
@@ -400,8 +434,26 @@ const TrackDetail = () => {
                   className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
                   data-testid="track-price"
                 >
-                  {priceDisplay}
+                  {isPayWhatYouWant ? 'Prix libre' : priceDisplay}
                 </p>
+                {isPayWhatYouWant && (
+                  <div className="mt-3 space-y-2">
+                    <Label>Ton prix (€){minEuro != null ? ` (min ${minEuro.toFixed(2)}€)` : ''}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={payWhatYouWantEuro}
+                      onChange={(e) => setPayWhatYouWantEuro(e.target.value)}
+                      className="h-12 rounded-xl bg-white/5 border-white/10"
+                      placeholder={minEuro != null ? minEuro.toFixed(2) : '0.00'}
+                      data-testid="pay-what-you-want-input"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {minEuro != null ? 'Tu peux payer plus si tu veux.' : 'Tu peux mettre 0€ si tu veux.'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Purchase Button */}
@@ -426,7 +478,7 @@ const TrackDetail = () => {
                     ) : (
                       <>
                         <ShoppingCart className="w-5 h-5 mr-2" />
-                        Acheter
+                        {isPayWhatYouWant ? 'Continuer' : 'Acheter'}
                       </>
                     )}
                   </>

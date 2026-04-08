@@ -11,6 +11,8 @@ import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 const AlbumDetail = () => {
   const { albumId } = useParams();
@@ -21,6 +23,7 @@ const AlbumDetail = () => {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [liked, setLiked] = useState(false);
+  const [payWhatYouWantEuro, setPayWhatYouWantEuro] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -87,12 +90,42 @@ const AlbumDetail = () => {
   const handlePurchase = async () => {
     setPurchasing(true);
     try {
+      const isPayWhatYouWant = !!album?.is_free_price;
+      const minCents = album?.min_price != null ? Number(album.min_price) : null;
+      const minEuro = minCents != null && Number.isFinite(minCents) ? minCents / 100 : null;
+
+      if (isPayWhatYouWant) {
+        const raw = String(payWhatYouWantEuro ?? '').trim().replace(',', '.');
+        const n = raw === '' ? NaN : Number(raw);
+        if (!Number.isFinite(n) || n < 0) {
+          toast.error('Entre un prix valide');
+          return;
+        }
+        if (minEuro != null && n < minEuro) {
+          toast.error(`Minimum: ${minEuro.toFixed(2)}€`);
+          return;
+        }
+        const amountCents = Math.round(n * 100);
+        if (amountCents === 0) {
+          await apiClient.post('/api/purchases/library', { item_type: 'album', item_id: albumId });
+          toast.success('Album ajouté à la bibliothèque');
+          return;
+        }
+        const originUrl = window.location.origin;
+        const { data } = await apiClient.post('/api/purchases/checkout', {
+          item_type: 'album',
+          item_id: albumId,
+          origin_url: originUrl,
+          amount_cents: amountCents
+        });
+        if (data?.url) window.location.href = data.url;
+        else toast.success('Checkout créé');
+        return;
+      }
+
       const isFree = isFreePrice(album?.price);
       if (isFree) {
-        await apiClient.post('/api/purchases/library', {
-          item_type: 'album',
-          item_id: albumId
-        });
+        await apiClient.post('/api/purchases/library', { item_type: 'album', item_id: albumId });
         toast.success('Album ajouté à la bibliothèque');
         return;
       }
@@ -137,6 +170,9 @@ const AlbumDetail = () => {
   const minutes = Math.floor((totalDuration % 3600) / 60);
   const firstTrack = tracks?.[0];
   const isFree = isFreePrice(album?.price);
+  const isPayWhatYouWant = !!album?.is_free_price;
+  const minCents = album?.min_price != null ? Number(album.min_price) : null;
+  const minEuro = minCents != null && Number.isFinite(minCents) ? minCents / 100 : null;
 
   return (
     <div className="min-h-screen pb-32 relative overflow-hidden">
@@ -344,13 +380,31 @@ const AlbumDetail = () => {
                   className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
                   data-testid="album-price"
                 >
-                  {priceDisplay}
+                  {isPayWhatYouWant ? 'Prix libre' : priceDisplay}
                 </p>
                 {tracks.length > 0 ? (
                   <p className="text-xs text-muted-foreground mt-2">
                     {((album.price / 100) / tracks.length).toFixed(2)}€ par titre
                   </p>
                 ) : null}
+                {isPayWhatYouWant && (
+                  <div className="mt-3 space-y-2">
+                    <Label>Ton prix (€){minEuro != null ? ` (min ${minEuro.toFixed(2)}€)` : ''}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={payWhatYouWantEuro}
+                      onChange={(e) => setPayWhatYouWantEuro(e.target.value)}
+                      className="h-12 rounded-xl bg-white/5 border-white/10"
+                      placeholder={minEuro != null ? minEuro.toFixed(2) : '0.00'}
+                      data-testid="album-pay-what-you-want-input"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {minEuro != null ? 'Tu peux payer plus si tu veux.' : 'Tu peux mettre 0€ si tu veux.'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <Button
@@ -374,7 +428,7 @@ const AlbumDetail = () => {
                     ) : (
                       <>
                         <ShoppingCart className="w-5 h-5 mr-2" />
-                        Acheter l’album
+                        {isPayWhatYouWant ? 'Continuer' : 'Acheter l’album'}
                       </>
                     )}
                   </>
