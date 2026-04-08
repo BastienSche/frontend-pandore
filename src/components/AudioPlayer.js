@@ -13,6 +13,8 @@ const AudioPlayer = () => {
   const constraintsRef = useRef(null);
   const [savedPos, setSavedPos] = useState({ x: 0, y: 0 });
   const dragControls = useDragControls();
+  const topBarRef = useRef(null);
+  const scrubbingRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -26,6 +28,30 @@ const AudioPlayer = () => {
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    const handlePointerMove = (e) => {
+      if (!scrubbingRef.current) return;
+      if (!topBarRef.current) return;
+      if (!duration || duration <= 0) return;
+      const rect = topBarRef.current.getBoundingClientRect();
+      const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+      const ratio = rect.width > 0 ? x / rect.width : 0;
+      seek(ratio * duration);
+    };
+    const handlePointerUp = () => {
+      if (!scrubbingRef.current) return;
+      scrubbingRef.current = false;
+    };
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [duration, seek]);
 
   if (!currentTrack) return null;
 
@@ -77,12 +103,50 @@ const AudioPlayer = () => {
               aria-hidden="true"
             />
           {/* Progress Bar - Top */}
-          <div className="absolute top-0 left-6 right-6 h-1 bg-white/5 rounded-full overflow-hidden">
+          <div
+            ref={topBarRef}
+            className="absolute top-0 left-6 right-6 h-2 -translate-y-0.5 cursor-pointer"
+            onPointerDown={(e) => {
+              if (!duration || duration <= 0) return;
+              if (!topBarRef.current) return;
+              scrubbingRef.current = true;
+              try {
+                e.currentTarget.setPointerCapture?.(e.pointerId);
+              } catch {
+                // ignore
+              }
+              const rect = topBarRef.current.getBoundingClientRect();
+              const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+              const ratio = rect.width > 0 ? x / rect.width : 0;
+              seek(ratio * duration);
+            }}
+            role="slider"
+            aria-label="Progression"
+            aria-valuemin={0}
+            aria-valuemax={duration || 0}
+            aria-valuenow={currentTime}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (!duration || duration <= 0) return;
+              const stepSec = e.shiftKey ? 10 : 5;
+              if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                seek(Math.max(0, currentTime - stepSec));
+              }
+              if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                seek(Math.min(duration, currentTime + stepSec));
+              }
+            }}
+            data-testid="player-top-progress-bar"
+          >
+            <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 bg-white/5 rounded-full overflow-hidden">
             <motion.div
               className="h-full bg-gradient-to-r from-cyan-500 to-purple-500"
               style={{ width: `${progress}%` }}
               transition={{ duration: 0.1 }}
             />
+            </div>
           </div>
 
           <div className="flex items-center gap-4 md:gap-6">
