@@ -5,7 +5,7 @@ import {
   Upload, Music, Disc, Plus, Edit, Trash2, Loader2, 
   TrendingUp, DollarSign, Play, Clock, Eye, EyeOff,
   BarChart3, PieChart, Users, Heart, ChevronRight,
-  FileAudio, Image, Save, X
+  FileAudio, Image, Save, X, Library
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,9 @@ import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 import { Progress } from '@/components/ui/progress';
 import { formatPriceLabel } from '@/lib/pricing';
+import { splitGenreTags } from '@/lib/genreTags';
+import { fieldFocusRingSelect, fieldInnerSurface, fieldRing } from '@/lib/fieldStyles';
+import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const parsePriceEuroInput = (raw) => {
@@ -29,6 +32,34 @@ const parsePriceEuroInput = (raw) => {
   const n = Number(normalized);
   if (!Number.isFinite(n) || n < 0) return null;
   return n;
+};
+
+/** Aligne les libellés (prix / prix libre / durée, etc.) sur une même ligne de base. */
+const priceStepLabelRow = 'min-h-[2.75rem] flex items-end shrink-0';
+
+/** Durée du fichier audio en secondes (`duration` / `duration_sec`). */
+const trackAudioDurationSec = (track) => {
+  const v = track?.duration ?? track?.duration_sec;
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/** Durée du morceau affichée (ex. 3:24). */
+const formatTrackLengthClock = (track) => {
+  const sec = trackAudioDurationSec(track);
+  if (sec == null) return '—';
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+/** Temps d'écoute cumulé (stats) : secondes → minutes ou heures. */
+const formatCumulativeListenTime = (playDurationSec) => {
+  const v = Number(playDurationSec);
+  if (!Number.isFinite(v) || v <= 0) return '—';
+  if (v < 3600) return `${(v / 60).toFixed(1)} min`;
+  return `${(v / 3600).toFixed(1)} h`;
 };
 
 /** Stats list payloads often omit description / mastering / splits; full track from GET /api/tracks/:id has them. */
@@ -99,34 +130,105 @@ const buildTrackFormFromApiTrack = (track) => {
   };
 };
 
-const StatCard = ({ title, value, subtitle, icon: Icon, color = "cyan", trend }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="glass-heavy rounded-3xl p-6 hover:scale-[1.02] transition-transform"
-  >
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-sm text-muted-foreground mb-1">{title}</p>
-        <p className={`text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-${color}-400 to-purple-400`}>
-          {value}
-        </p>
-        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
-        {trend && (
-          <div className={`flex items-center gap-1 mt-2 text-xs ${trend > 0 ? 'text-green-400' : 'text-red-400'}`}>
-            <TrendingUp className={`w-3 h-3 ${trend < 0 ? 'rotate-180' : ''}`} />
-            {Math.abs(trend)}% vs mois dernier
-          </div>
-        )}
-      </div>
-      <div className={`w-12 h-12 rounded-2xl bg-${color}-500/10 flex items-center justify-center border border-${color}-500/30`}>
-        <Icon className={`w-6 h-6 text-${color}-400`} />
-      </div>
-    </div>
-  </motion.div>
-);
+/** Gradients / surfaces / icônes en classes statiques (obligatoire pour Tailwind JIT). */
+const STAT_CARD_STYLES = {
+  cyan: {
+    value: 'from-cyan-400 to-sky-400',
+    iconWrap: 'border-cyan-400/35 bg-cyan-500/[0.12]',
+    icon: 'text-cyan-200',
+    panel:
+      'border-cyan-200/50 bg-gradient-to-br from-cyan-50/90 via-white to-slate-50/60 dark:border-cyan-500/20 dark:bg-gradient-to-br dark:from-cyan-950/40 dark:via-zinc-900/80 dark:to-zinc-950',
+  },
+  green: {
+    value: 'from-emerald-400 to-green-400',
+    iconWrap: 'border-emerald-400/35 bg-emerald-500/[0.12]',
+    icon: 'text-emerald-200',
+    panel:
+      'border-emerald-200/50 bg-gradient-to-br from-emerald-50/90 via-white to-slate-50/60 dark:border-emerald-500/20 dark:bg-gradient-to-br dark:from-emerald-950/35 dark:via-zinc-900/80 dark:to-zinc-950',
+  },
+  orange: {
+    value: 'from-orange-400 to-amber-400',
+    iconWrap: 'border-orange-400/35 bg-orange-500/[0.12]',
+    icon: 'text-orange-200',
+    panel:
+      'border-orange-200/50 bg-gradient-to-br from-orange-50/90 via-white to-slate-50/60 dark:border-orange-500/20 dark:bg-gradient-to-br dark:from-orange-950/35 dark:via-zinc-900/80 dark:to-zinc-950',
+  },
+  purple: {
+    value: 'from-fuchsia-400 to-purple-400',
+    iconWrap: 'border-purple-400/35 bg-purple-500/[0.12]',
+    icon: 'text-purple-200',
+    panel:
+      'border-purple-200/50 bg-gradient-to-br from-purple-50/90 via-white to-slate-50/60 dark:border-purple-500/20 dark:bg-gradient-to-br dark:from-purple-950/40 dark:via-zinc-900/80 dark:to-zinc-950',
+  },
+  pink: {
+    value: 'from-pink-400 to-rose-400',
+    iconWrap: 'border-pink-400/35 bg-pink-500/[0.12]',
+    icon: 'text-pink-200',
+    panel:
+      'border-pink-200/50 bg-gradient-to-br from-pink-50/90 via-white to-slate-50/60 dark:border-pink-500/20 dark:bg-gradient-to-br dark:from-pink-950/35 dark:via-zinc-900/80 dark:to-zinc-950',
+  },
+  violet: {
+    value: 'from-violet-400 to-fuchsia-400',
+    iconWrap: 'border-violet-400/35 bg-violet-500/[0.12]',
+    icon: 'text-violet-200',
+    panel:
+      'border-violet-200/50 bg-gradient-to-br from-violet-50/90 via-white to-slate-50/60 dark:border-violet-500/20 dark:bg-gradient-to-br dark:from-violet-950/40 dark:via-zinc-900/80 dark:to-zinc-950',
+  },
+};
 
-const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => (
+const StatCard = ({ title, value, subtitle, icon: Icon, color = 'cyan', trend }) => {
+  const s = STAT_CARD_STYLES[color] || STAT_CARD_STYLES.cyan;
+  const displayValue = value === undefined || value === null ? '—' : value;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      title={typeof title === 'string' ? title : undefined}
+      className={cn(
+        'flex min-h-0 w-full min-w-0 gap-2.5 overflow-hidden rounded-xl border p-3 shadow-sm transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-md dark:shadow-black/25',
+        s.panel
+      )}
+    >
+      <div className="flex w-full min-w-0 items-center gap-2.5">
+        <div
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border shadow-inner',
+            s.iconWrap
+          )}
+          aria-hidden
+        >
+          <Icon className={cn('h-4 w-4', s.icon)} strokeWidth={2} />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+          <p className="line-clamp-1 text-[10px] font-semibold uppercase leading-tight tracking-[0.1em] text-muted-foreground">
+            {title}
+          </p>
+          <p
+            className={cn(
+              'truncate text-xl font-bold tabular-nums leading-none tracking-tight text-transparent bg-clip-text bg-gradient-to-r',
+              s.value
+            )}
+          >
+            {displayValue}
+          </p>
+          {subtitle ? (
+            <p className="line-clamp-2 break-words text-[11px] leading-snug text-muted-foreground">{subtitle}</p>
+          ) : null}
+          {trend ? (
+            <div className={cn('flex items-center gap-1 text-[11px]', trend > 0 ? 'text-green-400' : 'text-red-400')}>
+              <TrendingUp className={cn('h-3 w-3 shrink-0', trend < 0 ? 'rotate-180' : '')} />
+              {Math.abs(trend)}% vs mois dernier
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => {
+  const genreTags = splitGenreTags(track.genre);
+  return (
   <motion.div
     initial={{ opacity: 0, x: -20 }}
     animate={{ opacity: 1, x: 0 }}
@@ -150,9 +252,13 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => (
       {/* Info */}
       <div className="flex-1 min-w-0">
         <h4 className="font-semibold truncate">{track.title}</h4>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Badge variant="secondary" className="bg-white/5 text-xs">{track.genre}</Badge>
-          <span>•</span>
+        <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+          {genreTags.map((g, i) => (
+            <Badge key={`dash-genre-${track.track_id}-${i}`} variant="secondary" className="bg-white/5 text-xs whitespace-nowrap max-w-[10rem] truncate" title={g}>
+              {g}
+            </Badge>
+          ))}
+          {genreTags.length > 0 && <span className="text-muted-foreground/60">•</span>}
           <span className="text-cyan-400 font-medium">
             {formatPriceLabel(track.price)}
           </span>
@@ -160,20 +266,32 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => (
       </div>
 
       {/* Stats */}
-      <div className="hidden md:flex items-center gap-6 text-sm">
-        <div className="text-center">
+      <div className="hidden md:flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-sm">
+        <div className="text-center min-w-[3.25rem]">
           <p className="font-semibold text-cyan-400">{track.play_count || 0}</p>
           <p className="text-xs text-muted-foreground">Écoutes</p>
         </div>
-        <div className="text-center">
+        <div className="text-center min-w-[3.25rem]">
+          <p className="font-semibold text-sky-400 tabular-nums">{formatTrackLengthClock(track)}</p>
+          <p className="text-xs text-muted-foreground">Durée</p>
+        </div>
+        <div className="text-center min-w-[4rem]">
+          <p className="font-semibold text-teal-400 tabular-nums">{formatCumulativeListenTime(track.play_duration_sec)}</p>
+          <p className="text-xs text-muted-foreground">Écouté</p>
+        </div>
+        <div className="text-center min-w-[3.25rem]">
           <p className="font-semibold text-purple-400">{track.sales_count || 0}</p>
           <p className="text-xs text-muted-foreground">Ventes</p>
         </div>
-        <div className="text-center">
+        <div className="text-center min-w-[3.5rem]">
           <p className="font-semibold text-green-400">{((track.revenue || 0) / 100).toFixed(2)}€</p>
           <p className="text-xs text-muted-foreground">Revenus</p>
         </div>
       </div>
+      <p className="md:hidden text-xs text-muted-foreground mt-1.5">
+        {track.play_count || 0} écoutes · {formatTrackLengthClock(track)} morceau ·{' '}
+        {formatCumulativeListenTime(track.play_duration_sec)} écouté
+      </p>
 
       {/* Status Badge */}
       <Badge 
@@ -221,7 +339,8 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => (
       </div>
     </div>
   </motion.div>
-);
+  );
+};
 
 const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
   <motion.div
@@ -245,7 +364,7 @@ const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
 
       <div className="flex-1 min-w-0">
         <h4 className="font-semibold truncate">{album.title}</h4>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Badge variant="secondary" className="bg-white/5 text-xs">ALBUM</Badge>
           <span>•</span>
           <span>{album.track_ids?.length || 0} titres</span>
@@ -253,6 +372,18 @@ const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
           <span className="text-purple-300 font-medium">
             {formatPriceLabel(album.price)}
           </span>
+          {album.play_count != null && album.play_count > 0 && (
+            <>
+              <span>•</span>
+              <span>{album.play_count} écoutes</span>
+            </>
+          )}
+          {album.likes_count != null && album.likes_count > 0 && (
+            <>
+              <span>•</span>
+              <span>{album.likes_count} likes</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -886,9 +1017,13 @@ const ArtistDashboard = () => {
     published_tracks: tracks.filter(t => t.status === 'published').length,
     draft_tracks: tracks.filter(t => t.status !== 'published').length,
     total_sales: 0,
+    total_library_adds: 0,
     total_revenue: 0,
     total_play_count: 0,
-    total_play_duration_hours: 0
+    total_play_duration_sec: 0,
+    total_play_duration_hours: 0,
+    total_likes_tracks: 0,
+    total_likes_albums: 0
   };
 
   return (
@@ -947,7 +1082,7 @@ const ArtistDashboard = () => {
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-8 bg-white/5 border border-white/10 rounded-full p-1.5">
+          <TabsList className="mb-8 bg-slate-50 border border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none rounded-full p-1.5">
             <TabsTrigger 
               value="overview" 
               className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-6"
@@ -985,32 +1120,56 @@ const ArtistDashboard = () => {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-8">
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 lg:gap-3">
               <StatCard
                 title="Tracks"
                 value={overview.total_tracks}
-                subtitle={`${overview.published_tracks} publiés`}
+                subtitle={`${overview.published_tracks} publié(s)`}
                 icon={Music}
                 color="cyan"
               />
               <StatCard
                 title="Ventes"
-                value={overview.total_sales}
+                value={overview.total_sales ?? 0}
+                subtitle="Achats confirmés"
                 icon={DollarSign}
                 color="green"
               />
               <StatCard
+                title="Bibliothèque"
+                value={overview.total_library_adds ?? 0}
+                subtitle="Ajouts gratuits"
+                icon={Library}
+                color="orange"
+              />
+              <StatCard
                 title="Revenus"
-                value={`${(overview.total_revenue / 100).toFixed(2)}€`}
+                value={`${(Number(overview.total_revenue) / 100).toFixed(2)} €`}
+                subtitle="Achats payants"
                 icon={TrendingUp}
                 color="purple"
               />
               <StatCard
                 title="Écoutes"
-                value={overview.total_play_count}
-                subtitle={`${overview.total_play_duration_hours}h au total`}
+                value={overview.total_play_count ?? 0}
+                subtitle={(() => {
+                  const sec = Number(overview.total_play_duration_sec);
+                  const h = Number(overview.total_play_duration_hours);
+                  if (Number.isFinite(sec) && sec > 0) {
+                    const min = Math.round(sec / 60);
+                    return `${min} min cumulées${Number.isFinite(h) && h > 0 ? ` (${h} h)` : ''}`;
+                  }
+                  return `${Number.isFinite(h) ? h : 0} h cumulées`;
+                })()}
                 icon={Play}
                 color="pink"
+              />
+              <StatCard
+                title="Likes"
+                value={(overview.total_likes_tracks ?? 0) + (overview.total_likes_albums ?? 0)}
+                subtitle="Tracks & albums"
+                icon={Heart}
+                color="violet"
               />
             </div>
 
@@ -1037,9 +1196,15 @@ const ArtistDashboard = () => {
                       <p className="font-medium">{track.title}</p>
                       <p className="text-sm text-muted-foreground">{track.genre}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right space-y-0.5">
                       <p className="font-semibold text-green-400">{((track.revenue || 0) / 100).toFixed(2)}€</p>
-                      <p className="text-xs text-muted-foreground">{track.sales_count || 0} ventes</p>
+                      <p className="text-xs text-muted-foreground">
+                        {track.play_count || 0} écoutes · {formatTrackLengthClock(track)} ·{' '}
+                        {formatCumulativeListenTime(track.play_duration_sec)} écouté
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {track.sales_count || 0} ventes · {track.library_adds_count ?? 0} biblio
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -1122,10 +1287,14 @@ const ArtistDashboard = () => {
                   <Clock className="w-5 h-5 text-cyan-400" />
                   7 derniers jours
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <p className="text-3xl font-bold text-cyan-400">{stats?.period_stats?.last_7_days?.sales || 0}</p>
-                    <p className="text-sm text-muted-foreground">Ventes</p>
+                    <p className="text-sm text-muted-foreground">Ventes (payant)</p>
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold text-orange-400">{stats?.period_stats?.last_7_days?.library_adds ?? 0}</p>
+                    <p className="text-sm text-muted-foreground">Biblio (7 j)</p>
                   </div>
                   <div>
                     <p className="text-3xl font-bold text-green-400">
@@ -1141,10 +1310,14 @@ const ArtistDashboard = () => {
                   <BarChart3 className="w-5 h-5 text-purple-400" />
                   30 derniers jours
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <p className="text-3xl font-bold text-purple-400">{stats?.period_stats?.last_30_days?.sales || 0}</p>
-                    <p className="text-sm text-muted-foreground">Ventes</p>
+                    <p className="text-sm text-muted-foreground">Ventes (payant)</p>
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold text-orange-400">{stats?.period_stats?.last_30_days?.library_adds ?? 0}</p>
+                    <p className="text-sm text-muted-foreground">Biblio (30 j)</p>
                   </div>
                   <div>
                     <p className="text-3xl font-bold text-pink-400">
@@ -1166,7 +1339,11 @@ const ArtistDashboard = () => {
                       <th className="pb-4">Track</th>
                       <th className="pb-4 text-right">Prix</th>
                       <th className="pb-4 text-right">Écoutes</th>
+                      <th className="pb-4 text-right">Durée</th>
+                      <th className="pb-4 text-right">Temps écouté</th>
                       <th className="pb-4 text-right">Ventes</th>
+                      <th className="pb-4 text-right">Biblio</th>
+                      <th className="pb-4 text-right">Likes</th>
                       <th className="pb-4 text-right">Revenus</th>
                       <th className="pb-4 text-right">Statut</th>
                     </tr>
@@ -1189,8 +1366,12 @@ const ArtistDashboard = () => {
                         <td className="py-4 text-right">
                           {formatPriceLabel(track.price || 0)}
                         </td>
-                        <td className="py-4 text-right text-cyan-400">{track.play_count || 0}</td>
+                        <td className="py-4 text-right text-cyan-400 tabular-nums">{track.play_count || 0}</td>
+                        <td className="py-4 text-right text-sky-400 tabular-nums text-sm">{formatTrackLengthClock(track)}</td>
+                        <td className="py-4 text-right text-teal-400 tabular-nums text-sm">{formatCumulativeListenTime(track.play_duration_sec)}</td>
                         <td className="py-4 text-right text-purple-400">{track.sales_count || 0}</td>
+                        <td className="py-4 text-right text-orange-400">{track.library_adds_count ?? 0}</td>
+                        <td className="py-4 text-right text-pink-400">{track.likes_count ?? 0}</td>
                         <td className="py-4 text-right text-green-400">{((track.revenue || 0) / 100).toFixed(2)}€</td>
                         <td className="py-4 text-right">
                           <Badge className={track.status === 'published' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}>
@@ -1232,7 +1413,7 @@ const ArtistDashboard = () => {
                 <Input
                   value={trackForm.title}
                   onChange={(e) => setTrackForm({ ...trackForm, title: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
+                  className="h-12 rounded-[10px]"
                   required
                   data-testid="form-title"
                 />
@@ -1242,7 +1423,7 @@ const ArtistDashboard = () => {
                 <Input
                   value={trackForm.genre}
                   onChange={(e) => setTrackForm({ ...trackForm, genre: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
+                  className="h-12 rounded-[10px]"
                   placeholder="Hip-Hop, Electronic, Rock..."
                   required
                   data-testid="form-genre"
@@ -1255,94 +1436,109 @@ const ArtistDashboard = () => {
               <Textarea
                 value={trackForm.description}
                 onChange={(e) => setTrackForm({ ...trackForm, description: e.target.value })}
-                className="rounded-xl bg-white/5 border-white/10"
+                className="min-h-[88px] rounded-[10px]"
                 rows={3}
                 data-testid="form-description"
               />
             </div>
 
             {/* Price & Duration */}
-            <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 ${trackStep !== 1 ? 'hidden' : ''}`}>
-              <div className="space-y-2">
-                <Label>Prix (€) *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={trackForm.price}
-                  onChange={(e) => setTrackForm({ ...trackForm, price: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
-                  placeholder="1.99"
-                  required={!trackForm.isFreePrice}
-                  disabled={trackForm.isFreePrice}
-                  data-testid="form-price"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Ou active <span className="text-purple-300 font-medium">Prix libre</span> juste en dessous
-                </p>
-              </div>
-              <div className="space-y-2 col-span-2 md:col-span-2">
-                <Label className="flex items-center gap-2">
-                  <Checkbox
-                    checked={trackForm.isFreePrice}
-                    onCheckedChange={(v) => {
-                      const next = !!v;
-                      setTrackForm({
-                        ...trackForm,
-                        isFreePrice: next,
-                        price: next ? '0' : trackForm.price
-                      });
-                    }}
-                    data-testid="form-free-price"
-                  />
-                  Prix libre (l’utilisateur choisit le prix)
-                </Label>
-                <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${!trackForm.isFreePrice ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <div className="space-y-1.5">
-                    <Label>Minimum (optionnel)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={trackForm.minPrice}
-                      onChange={(e) => setTrackForm({ ...trackForm, minPrice: e.target.value })}
-                      className="h-12 rounded-xl bg-white/5 border-white/10"
-                      placeholder="0"
-                      disabled={!trackForm.isFreePrice}
-                      data-testid="form-free-price-min"
-                    />
-                    <p className="text-xs text-muted-foreground">Laisse vide pour “pas de minimum”.</p>
+            <div className={`space-y-4 ${trackStep !== 1 ? 'hidden' : ''}`}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-2">
+                  <div className={priceStepLabelRow}>
+                    <Label htmlFor="track-form-price">Prix (€) *</Label>
                   </div>
+                  <Input
+                    id="track-form-price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={trackForm.price}
+                    onChange={(e) => setTrackForm({ ...trackForm, price: e.target.value })}
+                    className="h-12 rounded-[10px]"
+                    placeholder="1.99"
+                    required={!trackForm.isFreePrice}
+                    disabled={trackForm.isFreePrice}
+                    data-testid="form-price"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ou active <span className="text-purple-300 font-medium">Prix libre</span> au centre
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className={priceStepLabelRow}>
+                    <Label className="flex items-center gap-2 font-normal cursor-pointer leading-snug">
+                      <Checkbox
+                        checked={trackForm.isFreePrice}
+                        onCheckedChange={(v) => {
+                          const next = !!v;
+                          setTrackForm({
+                            ...trackForm,
+                            isFreePrice: next,
+                            price: next ? '0' : trackForm.price
+                          });
+                        }}
+                        data-testid="form-free-price"
+                      />
+                      Prix libre (l’utilisateur choisit le prix)
+                    </Label>
+                  </div>
+                  <Input
+                    id="track-form-free-price-min"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={trackForm.minPrice}
+                    onChange={(e) => setTrackForm({ ...trackForm, minPrice: e.target.value })}
+                    className={`h-12 rounded-[10px] ${!trackForm.isFreePrice ? 'opacity-50 pointer-events-none' : ''}`}
+                    placeholder="Minimum (optionnel)"
+                    aria-label="Minimum (optionnel)"
+                    disabled={!trackForm.isFreePrice}
+                    data-testid="form-free-price-min"
+                  />
+                  <p className="text-xs text-muted-foreground">Laisse vide pour “pas de minimum”.</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className={priceStepLabelRow}>
+                    <Label htmlFor="track-form-duration">Durée (sec)</Label>
+                  </div>
+                  <Input
+                    id="track-form-duration"
+                    type="number"
+                    value={trackForm.durationSec}
+                    onChange={(e) => setTrackForm({ ...trackForm, durationSec: e.target.value })}
+                    className="h-12 rounded-[10px]"
+                    placeholder="180"
+                  />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Durée (sec)</Label>
-                <Input
-                  type="number"
-                  value={trackForm.durationSec}
-                  onChange={(e) => setTrackForm({ ...trackForm, durationSec: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
-                  placeholder="180"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>BPM</Label>
-                <Input
-                  type="number"
-                  value={trackForm.bpm}
-                  onChange={(e) => setTrackForm({ ...trackForm, bpm: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
-                  placeholder="120"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Tonalité</Label>
-                <Input
-                  value={trackForm.key}
-                  onChange={(e) => setTrackForm({ ...trackForm, key: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
-                  placeholder="C Major"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <div className={priceStepLabelRow}>
+                    <Label htmlFor="track-form-bpm">BPM</Label>
+                  </div>
+                  <Input
+                    id="track-form-bpm"
+                    type="number"
+                    value={trackForm.bpm}
+                    onChange={(e) => setTrackForm({ ...trackForm, bpm: e.target.value })}
+                    className="h-12 rounded-[10px]"
+                    placeholder="120"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className={priceStepLabelRow}>
+                    <Label htmlFor="track-form-key">Tonalité</Label>
+                  </div>
+                  <Input
+                    id="track-form-key"
+                    value={trackForm.key}
+                    onChange={(e) => setTrackForm({ ...trackForm, key: e.target.value })}
+                    className="h-12 rounded-[10px]"
+                    placeholder="C Major"
+                  />
+                </div>
               </div>
             </div>
 
@@ -1355,7 +1551,7 @@ const ArtistDashboard = () => {
                   min="0"
                   value={trackForm.previewStartSec}
                   onChange={(e) => setTrackForm({ ...trackForm, previewStartSec: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
+                  className="h-12 rounded-[10px]"
                   placeholder="30"
                 />
               </div>
@@ -1367,7 +1563,7 @@ const ArtistDashboard = () => {
                   max="600"
                   value={trackForm.previewDurationSec}
                   onChange={(e) => setTrackForm({ ...trackForm, previewDurationSec: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
+                  className="h-12 rounded-[10px]"
                   placeholder="15"
                 />
               </div>
@@ -1376,7 +1572,7 @@ const ArtistDashboard = () => {
                 <Input
                   value={trackForm.isrc}
                   onChange={(e) => setTrackForm({ ...trackForm, isrc: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
+                  className="h-12 rounded-[10px]"
                   placeholder="USRC12345678"
                 />
               </div>
@@ -1386,7 +1582,7 @@ const ArtistDashboard = () => {
                   type="date"
                   value={trackForm.releaseDate}
                   onChange={(e) => setTrackForm({ ...trackForm, releaseDate: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
+                  className="h-12 rounded-[10px]"
                 />
               </div>
             </div>
@@ -1403,7 +1599,7 @@ const ArtistDashboard = () => {
                   <Input
                     value={trackForm.masteringEngineer}
                     onChange={(e) => setTrackForm({ ...trackForm, masteringEngineer: e.target.value })}
-                    className="h-12 rounded-xl bg-white/5 border-white/10"
+                    className="h-12 rounded-[10px]"
                     placeholder="Nom de l'ingénieur"
                   />
                 </div>
@@ -1412,7 +1608,7 @@ const ArtistDashboard = () => {
                   <Input
                     value={trackForm.masteringStudio}
                     onChange={(e) => setTrackForm({ ...trackForm, masteringStudio: e.target.value })}
-                    className="h-12 rounded-xl bg-white/5 border-white/10"
+                    className="h-12 rounded-[10px]"
                     placeholder="Abbey Road Studios"
                   />
                 </div>
@@ -1421,7 +1617,7 @@ const ArtistDashboard = () => {
                   <Input
                     value={trackForm.masteringDetails}
                     onChange={(e) => setTrackForm({ ...trackForm, masteringDetails: e.target.value })}
-                    className="h-12 rounded-xl bg-white/5 border-white/10"
+                    className="h-12 rounded-[10px]"
                     placeholder="24-bit, 96kHz..."
                   />
                 </div>
@@ -1450,45 +1646,54 @@ const ArtistDashboard = () => {
               </div>
               <div className="space-y-3">
                 {trackForm.splits.map((split, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2">
-                    <Input
-                      className="col-span-4 h-10 rounded-xl bg-white/5 border-white/10"
-                      placeholder="Nom"
-                      value={split.party}
-                      onChange={(e) => {
-                        const newSplits = [...trackForm.splits];
-                        newSplits[idx].party = e.target.value;
-                        setTrackForm({ ...trackForm, splits: newSplits });
-                      }}
-                    />
-                    <Input
-                      className="col-span-3 h-10 rounded-xl bg-white/5 border-white/10"
-                      placeholder="Rôle"
-                      value={split.role}
-                      onChange={(e) => {
-                        const newSplits = [...trackForm.splits];
-                        newSplits[idx].role = e.target.value;
-                        setTrackForm({ ...trackForm, splits: newSplits });
-                      }}
-                    />
-                    <Input
-                      type="number"
-                      className="col-span-3 h-10 rounded-xl bg-white/5 border-white/10"
-                      placeholder="%"
-                      min="0"
-                      max="100"
-                      value={split.percent}
-                      onChange={(e) => {
-                        const newSplits = [...trackForm.splits];
-                        newSplits[idx].percent = e.target.value;
-                        setTrackForm({ ...trackForm, splits: newSplits });
-                      }}
-                    />
+                  <div
+                    key={idx}
+                    className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <Input
+                        className="h-10 rounded-[10px]"
+                        placeholder="Nom"
+                        value={split.party}
+                        onChange={(e) => {
+                          const newSplits = [...trackForm.splits];
+                          newSplits[idx].party = e.target.value;
+                          setTrackForm({ ...trackForm, splits: newSplits });
+                        }}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Input
+                        className="h-10 rounded-[10px]"
+                        placeholder="Rôle"
+                        value={split.role}
+                        onChange={(e) => {
+                          const newSplits = [...trackForm.splits];
+                          newSplits[idx].role = e.target.value;
+                          setTrackForm({ ...trackForm, splits: newSplits });
+                        }}
+                      />
+                    </div>
+                    <div className="min-w-0 w-full sm:w-[5.5rem] sm:flex-none sm:shrink-0">
+                      <Input
+                        type="number"
+                        className="h-10 rounded-[10px]"
+                        placeholder="%"
+                        min="0"
+                        max="100"
+                        value={split.percent}
+                        onChange={(e) => {
+                          const newSplits = [...trackForm.splits];
+                          newSplits[idx].percent = e.target.value;
+                          setTrackForm({ ...trackForm, splits: newSplits });
+                        }}
+                      />
+                    </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="col-span-2 h-10 rounded-xl hover:bg-red-500/10 hover:text-red-400"
+                      className="h-10 w-10 shrink-0 self-end sm:self-auto rounded-xl hover:bg-red-500/10 hover:text-red-400"
                       onClick={() => {
                         if (trackForm.splits.length > 1) {
                           setTrackForm({ ...trackForm, splits: trackForm.splits.filter((_, i) => i !== idx) });
@@ -1505,19 +1710,25 @@ const ArtistDashboard = () => {
             {/* Status */}
             <div className={`space-y-2 ${trackStep !== 3 ? 'hidden' : ''}`}>
               <Label>Statut</Label>
-              <select
-                value={trackForm.status}
-                onChange={(e) => setTrackForm({ ...trackForm, status: e.target.value })}
-                className="w-full h-12 rounded-xl bg-white/5 border border-white/10 px-4"
-              >
-                <option value="draft">Brouillon (non visible)</option>
-                <option value="published">Publié (visible par tous)</option>
-              </select>
+              <div className={fieldRing}>
+                <select
+                  value={trackForm.status}
+                  onChange={(e) => setTrackForm({ ...trackForm, status: e.target.value })}
+                  className={cn(
+                    'h-12 w-full rounded-[10px] px-4 py-2.5 text-sm',
+                    fieldInnerSurface,
+                    fieldFocusRingSelect
+                  )}
+                >
+                  <option value="draft">Brouillon (non visible)</option>
+                  <option value="published">Publié (visible par tous)</option>
+                </select>
+              </div>
             </div>
 
             {/* Files */}
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${trackStep !== 2 ? 'hidden' : ''}`}>
-              <div className="glass rounded-2xl p-4 space-y-3">
+            <div className={`grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 ${trackStep !== 2 ? 'hidden' : ''}`}>
+              <div className="glass min-w-0 space-y-3 rounded-2xl p-4">
                 <Label className="flex items-center gap-2">
                   <FileAudio className="w-4 h-4 text-cyan-400" />
                   Fichier audio {!editingTrack && '*'}
@@ -1526,7 +1737,7 @@ const ArtistDashboard = () => {
                   type="file"
                   accept="audio/*"
                   onChange={(e) => setTrackForm({ ...trackForm, audioFile: e.target.files[0] })}
-                  className="rounded-xl bg-white/5 border-white/10"
+                  className="w-full max-w-full rounded-[10px]"
                   required={!editingTrack}
                   data-testid="form-audio"
                 />
@@ -1535,7 +1746,7 @@ const ArtistDashboard = () => {
                 )}
               </div>
 
-              <div className="glass rounded-2xl p-4 space-y-3">
+              <div className="glass min-w-0 space-y-3 rounded-2xl p-4">
                 <Label className="flex items-center gap-2">
                   <Image className="w-4 h-4 text-purple-400" />
                   Cover (image)
@@ -1544,7 +1755,7 @@ const ArtistDashboard = () => {
                   type="file"
                   accept="image/*"
                   onChange={(e) => setTrackForm({ ...trackForm, coverFile: e.target.files[0] })}
-                  className="rounded-xl bg-white/5 border-white/10"
+                  className="w-full max-w-full rounded-[10px]"
                   data-testid="form-cover"
                 />
                 {editingTrack?.cover_url && !trackForm.coverFile && (
@@ -1631,7 +1842,7 @@ const ArtistDashboard = () => {
                 <Input
                   value={albumForm.title}
                   onChange={(e) => setAlbumForm({ ...albumForm, title: e.target.value })}
-                  className="h-12 rounded-xl bg-white/5 border-white/10"
+                  className="h-12 rounded-[10px]"
                   required
                   data-testid="album-form-title"
                 />
@@ -1641,7 +1852,7 @@ const ArtistDashboard = () => {
                 <Textarea
                   value={albumForm.description}
                   onChange={(e) => setAlbumForm({ ...albumForm, description: e.target.value })}
-                  className="rounded-xl bg-white/5 border-white/10"
+                  className="min-h-[88px] rounded-[10px]"
                   rows={3}
                   data-testid="album-form-description"
                 />
@@ -1649,56 +1860,60 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Prix */}
-            <div className={`${albumStep !== 1 ? 'hidden' : ''} space-y-2`}>
-              <Label>Prix (€) *</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={albumForm.price}
-                onChange={(e) => setAlbumForm({ ...albumForm, price: e.target.value })}
-                className="h-12 rounded-xl bg-white/5 border-white/10"
-                placeholder="9.99"
-                required={!albumForm.isFreePrice}
-                disabled={albumForm.isFreePrice}
-                data-testid="album-form-price"
-              />
-              <p className="text-xs text-muted-foreground">
-                Ou active <span className="text-purple-300 font-medium">Prix libre</span> juste en dessous
-              </p>
-              <div className="pt-2 space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Checkbox
-                    checked={albumForm.isFreePrice}
-                    onCheckedChange={(v) => {
-                      const next = !!v;
-                      setAlbumForm({
-                        ...albumForm,
-                        isFreePrice: next,
-                        price: next ? '0' : albumForm.price
-                      });
-                    }}
-                    data-testid="album-form-free-price"
-                  />
-                  Prix libre (l’utilisateur choisit le prix)
-                </Label>
-                <div className={`${!albumForm.isFreePrice ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <div className="space-y-2">
-                    <Label>Minimum (optionnel)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={albumForm.minPrice}
-                      onChange={(e) => setAlbumForm({ ...albumForm, minPrice: e.target.value })}
-                      className="h-12 rounded-xl bg-white/5 border-white/10"
-                      placeholder="0"
-                      disabled={!albumForm.isFreePrice}
-                      data-testid="album-form-free-price-min"
-                    />
-                    <p className="text-xs text-muted-foreground">Laisse vide pour “pas de minimum”.</p>
-                  </div>
+            <div className={`${albumStep !== 1 ? 'hidden' : ''} grid grid-cols-1 md:grid-cols-2 gap-4`}>
+              <div className="flex flex-col gap-2">
+                <div className={priceStepLabelRow}>
+                  <Label htmlFor="album-form-price">Prix (€) *</Label>
                 </div>
+                <Input
+                  id="album-form-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={albumForm.price}
+                  onChange={(e) => setAlbumForm({ ...albumForm, price: e.target.value })}
+                  className="h-12 rounded-[10px]"
+                  placeholder="9.99"
+                  required={!albumForm.isFreePrice}
+                  disabled={albumForm.isFreePrice}
+                  data-testid="album-form-price"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Ou active <span className="text-purple-300 font-medium">Prix libre</span> à droite
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <div className={priceStepLabelRow}>
+                  <Label className="flex items-center gap-2 font-normal cursor-pointer leading-snug">
+                    <Checkbox
+                      checked={albumForm.isFreePrice}
+                      onCheckedChange={(v) => {
+                        const next = !!v;
+                        setAlbumForm({
+                          ...albumForm,
+                          isFreePrice: next,
+                          price: next ? '0' : albumForm.price
+                        });
+                      }}
+                      data-testid="album-form-free-price"
+                    />
+                    Prix libre (l’utilisateur choisit le prix)
+                  </Label>
+                </div>
+                <Input
+                  id="album-form-free-price-min"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={albumForm.minPrice}
+                  onChange={(e) => setAlbumForm({ ...albumForm, minPrice: e.target.value })}
+                  className={`h-12 rounded-[10px] ${!albumForm.isFreePrice ? 'opacity-50 pointer-events-none' : ''}`}
+                  placeholder="Minimum (optionnel)"
+                  aria-label="Minimum (optionnel)"
+                  disabled={!albumForm.isFreePrice}
+                  data-testid="album-form-free-price-min"
+                />
+                <p className="text-xs text-muted-foreground">Laisse vide pour “pas de minimum”.</p>
               </div>
             </div>
 
@@ -1779,7 +1994,7 @@ const ArtistDashboard = () => {
                                 next[idx] = { ...next[idx], title: e.target.value };
                                 setAlbumForm({ ...albumForm, albumTracks: next });
                               }}
-                              className="h-12 rounded-xl bg-white/5 border-white/10"
+                              className="h-12 rounded-[10px]"
                               placeholder="Titre du track"
                               data-testid={`album-track-title-${idx}`}
                             />
@@ -1793,7 +2008,7 @@ const ArtistDashboard = () => {
                                 next[idx] = { ...next[idx], genre: e.target.value };
                                 setAlbumForm({ ...albumForm, albumTracks: next });
                               }}
-                              className="h-12 rounded-xl bg-white/5 border-white/10"
+                              className="h-12 rounded-[10px]"
                               placeholder="Hip-Hop, Electronic..."
                               data-testid={`album-track-genre-${idx}`}
                             />
@@ -1809,16 +2024,19 @@ const ArtistDashboard = () => {
                               next[idx] = { ...next[idx], description: e.target.value };
                               setAlbumForm({ ...albumForm, albumTracks: next });
                             }}
-                            className="rounded-xl bg-white/5 border-white/10"
+                            className="min-h-[88px] rounded-[10px]"
                             rows={3}
                             data-testid={`album-track-description-${idx}`}
                           />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="space-y-2">
-                            <Label>Prix (€) *</Label>
+                        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-3">
+                          <div className="flex min-w-0 flex-col gap-2">
+                            <div className={priceStepLabelRow}>
+                              <Label htmlFor={`album-track-price-${idx}`}>Prix (€) *</Label>
+                            </div>
                             <Input
+                              id={`album-track-price-${idx}`}
                               type="number"
                               step="0.01"
                               min="0"
@@ -1828,52 +2046,52 @@ const ArtistDashboard = () => {
                                 next[idx] = { ...next[idx], price: e.target.value };
                                 setAlbumForm({ ...albumForm, albumTracks: next });
                               }}
-                              className="h-12 rounded-xl bg-white/5 border-white/10"
+                              className="h-12 rounded-[10px]"
                               placeholder="0"
                               required={!t.isFreePrice}
                               disabled={!!t.isFreePrice}
                               data-testid={`album-track-price-${idx}`}
                             />
-                            <div className="pt-2 space-y-2">
-                              <Label className="flex items-center gap-2">
-                                <Checkbox
-                                  checked={!!t.isFreePrice}
-                                  onCheckedChange={(v) => {
-                                    const nextTracks = [...(albumForm.albumTracks || [])];
-                                    nextTracks[idx] = { ...nextTracks[idx], isFreePrice: !!v, price: v ? '0' : nextTracks[idx].price };
-                                    setAlbumForm({ ...albumForm, albumTracks: nextTracks });
-                                  }}
-                                  data-testid={`album-track-free-price-${idx}`}
-                                />
-                                Prix libre
-                              </Label>
-                              <div className={`${!t.isFreePrice ? 'opacity-50 pointer-events-none' : ''}`}>
-                                <Label>Minimum (optionnel)</Label>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={t.minPrice || ''}
-                                  onChange={(e) => {
-                                    const next = [...(albumForm.albumTracks || [])];
-                                    next[idx] = { ...next[idx], minPrice: e.target.value };
-                                    setAlbumForm({ ...albumForm, albumTracks: next });
-                                  }}
-                                  className="h-12 rounded-xl bg-white/5 border-white/10 mt-2"
-                                  placeholder="0"
-                                  disabled={!t.isFreePrice}
-                                  data-testid={`album-track-free-price-min-${idx}`}
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label className="flex items-center gap-2">
-                              <FileAudio className="w-4 h-4 text-cyan-400" />
-                              Audio (optionnel)
+                            <Label className="flex items-center gap-2 font-normal cursor-pointer leading-snug pt-1">
+                              <Checkbox
+                                checked={!!t.isFreePrice}
+                                onCheckedChange={(v) => {
+                                  const nextTracks = [...(albumForm.albumTracks || [])];
+                                  nextTracks[idx] = { ...nextTracks[idx], isFreePrice: !!v, price: v ? '0' : nextTracks[idx].price };
+                                  setAlbumForm({ ...albumForm, albumTracks: nextTracks });
+                                }}
+                                data-testid={`album-track-free-price-${idx}`}
+                              />
+                              Prix libre
                             </Label>
                             <Input
+                              id={`album-track-free-price-min-${idx}`}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={t.minPrice || ''}
+                              onChange={(e) => {
+                                const next = [...(albumForm.albumTracks || [])];
+                                next[idx] = { ...next[idx], minPrice: e.target.value };
+                                setAlbumForm({ ...albumForm, albumTracks: next });
+                              }}
+                              className={`h-12 rounded-[10px] ${!t.isFreePrice ? 'opacity-50 pointer-events-none' : ''}`}
+                              placeholder="Minimum (optionnel)"
+                              aria-label="Minimum (optionnel)"
+                              disabled={!t.isFreePrice}
+                              data-testid={`album-track-free-price-min-${idx}`}
+                            />
+                          </div>
+
+                          <div className="flex min-w-0 flex-col gap-2">
+                            <div className={priceStepLabelRow}>
+                              <Label htmlFor={`album-track-audio-${idx}`} className="flex items-center gap-2 font-normal">
+                                <FileAudio className="w-4 h-4 shrink-0 text-cyan-400" />
+                                Audio (optionnel)
+                              </Label>
+                            </div>
+                            <Input
+                              id={`album-track-audio-${idx}`}
                               type="file"
                               accept="audio/*"
                               onChange={(e) => {
@@ -1881,17 +2099,20 @@ const ArtistDashboard = () => {
                                 next[idx] = { ...next[idx], audioFile: e.target.files?.[0] || null };
                                 setAlbumForm({ ...albumForm, albumTracks: next });
                               }}
-                              className="rounded-xl bg-white/5 border-white/10"
+                              className="w-full max-w-full rounded-[10px]"
                               data-testid={`album-track-audio-${idx}`}
                             />
                           </div>
 
-                          <div className="space-y-2">
-                            <Label className="flex items-center gap-2">
-                              <Image className="w-4 h-4 text-purple-400" />
-                              Cover (optionnel)
-                            </Label>
+                          <div className="flex min-w-0 flex-col gap-2">
+                            <div className={priceStepLabelRow}>
+                              <Label htmlFor={`album-track-cover-${idx}`} className="flex items-center gap-2 font-normal">
+                                <Image className="w-4 h-4 shrink-0 text-purple-400" />
+                                Cover (optionnel)
+                              </Label>
+                            </div>
                             <Input
+                              id={`album-track-cover-${idx}`}
                               type="file"
                               accept="image/*"
                               onChange={(e) => {
@@ -1899,7 +2120,7 @@ const ArtistDashboard = () => {
                                 next[idx] = { ...next[idx], coverFile: e.target.files?.[0] || null };
                                 setAlbumForm({ ...albumForm, albumTracks: next });
                               }}
-                              className="rounded-xl bg-white/5 border-white/10"
+                              className="w-full max-w-full rounded-[10px]"
                               data-testid={`album-track-cover-${idx}`}
                             />
                           </div>
@@ -1912,8 +2133,8 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Cover & status */}
-            <div className={`${albumStep !== 3 ? 'hidden' : ''} grid grid-cols-1 md:grid-cols-2 gap-4`}>
-              <div className="glass rounded-2xl p-4 space-y-3">
+            <div className={`${albumStep !== 3 ? 'hidden' : ''} grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2`}>
+              <div className="glass min-w-0 space-y-3 rounded-2xl p-4">
                 <Label className="flex items-center gap-2">
                   <Image className="w-4 h-4 text-purple-400" />
                   Cover (image)
@@ -1922,7 +2143,7 @@ const ArtistDashboard = () => {
                   type="file"
                   accept="image/*"
                   onChange={(e) => setAlbumForm({ ...albumForm, coverFile: e.target.files[0] })}
-                  className="rounded-xl bg-white/5 border-white/10"
+                  className="w-full max-w-full rounded-[10px]"
                   data-testid="album-form-cover"
                 />
                 {editingAlbum?.cover_url && !albumForm.coverFile && (
@@ -1931,14 +2152,20 @@ const ArtistDashboard = () => {
               </div>
               <div className="glass rounded-2xl p-4 space-y-3">
                 <Label>Statut</Label>
-                <select
-                  value={albumForm.status}
-                  onChange={(e) => setAlbumForm({ ...albumForm, status: e.target.value })}
-                  className="w-full h-12 rounded-xl bg-white/5 border border-white/10 px-4"
-                >
-                  <option value="draft">Brouillon (non visible)</option>
-                  <option value="published">Publié (visible par tous)</option>
-                </select>
+                <div className={fieldRing}>
+                  <select
+                    value={albumForm.status}
+                    onChange={(e) => setAlbumForm({ ...albumForm, status: e.target.value })}
+                    className={cn(
+                      'h-12 w-full rounded-[10px] px-4 py-2.5 text-sm',
+                      fieldInnerSurface,
+                      fieldFocusRingSelect
+                    )}
+                  >
+                    <option value="draft">Brouillon (non visible)</option>
+                    <option value="published">Publié (visible par tous)</option>
+                  </select>
+                </div>
               </div>
             </div>
 

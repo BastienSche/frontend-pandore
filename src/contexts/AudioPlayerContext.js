@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import { recordTrackPlay } from '@/lib/recordPlay';
 
 const AudioPlayerContext = createContext();
 
@@ -34,6 +35,7 @@ export const AudioPlayerProvider = ({ children }) => {
   const audioRef = useRef(new Audio());
   const currentTrackRef = useRef(null);
   const playbackModeRef = useRef('preview');
+  const playRecordedForTrackRef = useRef(new Set());
 
   useEffect(() => {
     currentTrackRef.current = currentTrack;
@@ -103,6 +105,31 @@ export const AudioPlayerProvider = ({ children }) => {
   useEffect(() => {
     audioRef.current.volume = volume;
   }, [volume]);
+
+  useEffect(() => {
+    const tid = currentTrack?.track_id;
+    if (!tid || !isPlaying) return;
+    if (playRecordedForTrackRef.current.has(tid)) return;
+    const audio = audioRef.current;
+    const onPlaying = () => {
+      if (playRecordedForTrackRef.current.has(tid)) return;
+      playRecordedForTrackRef.current.add(tid);
+      const mode = playbackModeRef.current;
+      const tr = currentTrackRef.current;
+      let durationSec = 15;
+      if (mode === 'library') {
+        const dur = audio.duration;
+        durationSec =
+          Number.isFinite(dur) && dur > 0 ? Math.min(7200, Math.round(dur)) : 180;
+      } else if (tr) {
+        durationSec = resolvePreviewDurationSec(tr);
+      }
+      recordTrackPlay(tid, durationSec);
+      audio.removeEventListener('playing', onPlaying);
+    };
+    audio.addEventListener('playing', onPlaying);
+    return () => audio.removeEventListener('playing', onPlaying);
+  }, [currentTrack?.track_id, isPlaying]);
 
   const playTrack = (track, options = {}) => {
     const audio = audioRef.current;

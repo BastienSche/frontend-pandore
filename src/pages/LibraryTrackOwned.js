@@ -25,6 +25,7 @@ import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
 import { formatTrackDuration } from '@/lib/libraryCollection';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { splitGenreTags } from '@/lib/genreTags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -250,14 +251,16 @@ const LibraryTrackOwned = () => {
               </motion.div>
 
               <div className="flex-1 min-w-0 space-y-5">
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/25 gap-1">
                     <Library className="w-3.5 h-3.5" />
                     Ma collection
                   </Badge>
-                  <Badge variant="secondary" className="bg-white/5 border-white/10">
-                    {track.genre}
-                  </Badge>
+                  {splitGenreTags(track.genre).map((g, i) => (
+                    <Badge key={`lib-genre-${i}`} variant="secondary" className="bg-white/5 border-white/10 whitespace-nowrap max-w-[min(100%,14rem)] truncate" title={g}>
+                      {g}
+                    </Badge>
+                  ))}
                   {track.duration != null && (
                     <span className="text-sm text-muted-foreground flex items-center gap-1.5">
                       <Clock className="w-4 h-4" />

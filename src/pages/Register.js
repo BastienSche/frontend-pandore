@@ -59,7 +59,7 @@ const Register = () => {
               transition={{ duration: 0.5, delay: 0.2, type: "spring" }}
               className="w-24 h-24 mx-auto flex items-center justify-center"
             >
-              <KloudLogo className="w-16 h-16 text-white drop-shadow-[0_0_18px_rgba(255,255,255,0.10)]" />
+              <KloudLogo className="w-16 h-16 text-zinc-900 dark:text-white drop-shadow-sm dark:drop-shadow-[0_0_18px_rgba(255,255,255,0.10)]" />
             </motion.div>
             
             <div>

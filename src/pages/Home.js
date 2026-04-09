@@ -47,6 +47,7 @@ const isPublicItem = (item) => {
 
 const Home = () => {
   const [newReleases, setNewReleases] = useState([]);
+  const [newAlbumsThisWeek, setNewAlbumsThisWeek] = useState([]);
   const [topTracks, setTopTracks] = useState([]);
   const [featuredArtists, setFeaturedArtists] = useState([]);
   const [featuredAlbums, setFeaturedAlbums] = useState([]);
@@ -101,9 +102,38 @@ const Home = () => {
         picture: resolveApiUrl(a?.picture)
       }));
 
-      setNewReleases(tracks.slice(0, 6));
-      setTopTracks([...tracks].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0)).slice(0, 6));
-      setFeaturedAlbums(albums.slice(0, 8));
+      const weekMs = 7 * 24 * 60 * 60 * 1000;
+      const weekCutoff = Date.now() - weekMs;
+      const createdMs = (iso) => {
+        if (!iso) return 0;
+        const t = Date.parse(iso);
+        return Number.isFinite(t) ? t : 0;
+      };
+
+      const tracksThisWeek = tracks
+        .filter((t) => createdMs(t.created_at) >= weekCutoff)
+        .sort((a, b) => createdMs(b.created_at) - createdMs(a.created_at))
+        .slice(0, 6);
+      setNewReleases(tracksThisWeek);
+
+      setTopTracks(
+        [...tracks].sort((a, b) => (b.play_count || 0) - (a.play_count || 0)).slice(0, 6)
+      );
+
+      const albumsWeek = albums
+        .filter((a) => createdMs(a.created_at) >= weekCutoff)
+        .sort((a, b) => createdMs(b.created_at) - createdMs(a.created_at))
+        .slice(0, 8);
+      setNewAlbumsThisWeek(albumsWeek);
+
+      const playsForAlbum = (albumId) =>
+        tracks
+          .filter((t) => t.album_id === albumId)
+          .reduce((s, t) => s + (Number(t.play_count) || 0), 0);
+
+      setFeaturedAlbums(
+        [...albums].sort((a, b) => playsForAlbum(b.album_id) - playsForAlbum(a.album_id)).slice(0, 8)
+      );
       setFeaturedArtists(artists.slice(0, 8));
 
       // Prefer backend aggregated stats, but fall back to list endpoint totals when available.
@@ -262,18 +292,18 @@ const Home = () => {
                     custom={idx}
                     variants={floatVariants}
                     animate="animate"
-                    className="group relative rounded-2xl px-6 py-4 text-center min-w-[156px] bg-white/[0.04] border border-white/10 backdrop-blur-md shadow-[0_0_30px_rgba(0,0,0,0.28)]"
+                    className="group relative rounded-2xl px-6 py-4 text-center min-w-[156px] border backdrop-blur-md bg-white/95 border-slate-200/90 shadow-md shadow-slate-900/5 dark:bg-white/[0.04] dark:border-white/10 dark:shadow-[0_0_30px_rgba(0,0,0,0.28)]"
                   >
-                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-b from-white/[0.06] to-transparent" />
+                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-b from-slate-100/80 to-transparent dark:from-white/[0.06] dark:to-transparent" />
                     <div className="relative flex items-center justify-center gap-2.5">
                       <span className={`inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${card.gradient} opacity-90`}>
-                        <card.Icon className="w-4 h-4 text-black/80" />
+                        <card.Icon className="w-4 h-4 text-zinc-900/90 dark:text-black/80" />
                       </span>
                       <div className={`text-3xl md:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r ${card.gradient}`}>
                         {card.value}
                       </div>
                     </div>
-                    <div className="mt-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
+                    <div className="mt-1 text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:text-white/55">
                       {card.label}
                     </div>
                   </motion.div>
@@ -314,7 +344,9 @@ const Home = () => {
                 <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
                   Nouveautés
                 </h2>
-                <p className="text-muted-foreground mt-2 text-lg">Les dernières sorties des artistes</p>
+                <p className="text-muted-foreground mt-2 text-lg">
+                  Sorties des 7 derniers jours (tracks)
+                </p>
               </div>
               <Link to="/browse">
                 <Button variant="ghost" className="rounded-full glass hover:bg-white/10">
@@ -329,6 +361,8 @@ const Home = () => {
                   <div key={i} className="aspect-square rounded-3xl glass animate-pulse" />
                 ))}
               </div>
+            ) : newReleases.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Aucune sortie cette semaine pour l’instant.</p>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                 {newReleases.map((track, index) => (
@@ -343,6 +377,20 @@ const Home = () => {
                   </motion.div>
                 ))}
               </div>
+            )}
+            {!loading && newAlbumsThisWeek.length > 0 && (
+              <>
+                <motion.h3 variants={itemVariants} className="text-2xl font-bold mt-14 mb-6">
+                  Albums de la semaine
+                </motion.h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                  {newAlbumsThisWeek.map((album, index) => (
+                    <motion.div key={album.album_id} variants={itemVariants} className={`animate-float-slow stagger-${(index % 4) + 1}`}>
+                      <AlbumCard album={album} />
+                    </motion.div>
+                  ))}
+                </div>
+              </>
             )}
           </motion.div>
         </div>
@@ -367,7 +415,7 @@ const Home = () => {
                 <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
                   Top du moment
                 </h2>
-                <p className="text-muted-foreground text-lg">Les tracks les plus aimés</p>
+                <p className="text-muted-foreground text-lg">Classés par nombre d’écoutes</p>
               </div>
             </motion.div>
 
@@ -410,7 +458,7 @@ const Home = () => {
                 <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
                   Albums
                 </h2>
-                <p className="text-muted-foreground text-lg">Collections complètes à découvrir</p>
+                <p className="text-muted-foreground text-lg">Les plus écoutés (somme des écoutes des titres)</p>
               </div>
             </motion.div>
 

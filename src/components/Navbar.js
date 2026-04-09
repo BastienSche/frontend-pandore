@@ -137,9 +137,9 @@ const Navbar = () => {
               data-testid="navbar-logo-link"
             >
               <motion.div whileHover={{ rotate: 8 }} transition={{ duration: 0.25 }}>
-                <KloudLogo className="w-8 h-8 text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.12)]" />
+                <KloudLogo className="w-8 h-8 shrink-0 text-zinc-900 dark:text-white drop-shadow-sm dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.12)]" />
               </motion.div>
-              <span className="text-lg font-bold tracking-tight hidden sm:block">
+              <span className="text-lg font-bold tracking-tight text-foreground hidden sm:block">
                 Kloud
               </span>
             </Link>

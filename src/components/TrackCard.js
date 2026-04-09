@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { formatPriceLabel } from '@/lib/pricing';
+import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 
 const TrackCard = ({ track }) => {
@@ -125,31 +126,36 @@ const TrackCard = ({ track }) => {
             </p>
           </div>
           
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge 
-                variant="secondary" 
-                className="text-xs bg-white/5 border border-white/10 text-muted-foreground"
-              >
-                {track.genre}
-              </Badge>
-              <span 
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap content-center gap-1.5">
+              {splitGenreTags(track.genre).map((g, i) => (
+                <Badge
+                  key={`${track.track_id}-genre-${i}`}
+                  variant="secondary"
+                  className="shrink-0 whitespace-nowrap text-xs leading-tight bg-white/5 border border-white/10 text-muted-foreground max-w-[min(100%,11rem)] truncate"
+                  title={g}
+                >
+                  {g}
+                </Badge>
+              ))}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span
                 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
                 data-testid={`track-price-${track.track_id}`}
               >
                 {formatPriceLabel(track.price)}
               </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full w-8 h-8 hover:bg-pink-500/10 hover:text-pink-400 transition-colors"
+                data-testid={`track-like-button-${track.track_id}`}
+                onClick={toggleLike}
+              >
+                <Heart className={`w-4 h-4 ${heartIconActiveClass(liked)}`} />
+              </Button>
             </div>
-            
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="rounded-full w-8 h-8 hover:bg-pink-500/10 hover:text-pink-400 transition-colors"
-              data-testid={`track-like-button-${track.track_id}`}
-              onClick={toggleLike}
-            >
-              <Heart className={`w-4 h-4 ${heartIconActiveClass(liked)}`} />
-            </Button>
           </div>
         </div>
       </div>

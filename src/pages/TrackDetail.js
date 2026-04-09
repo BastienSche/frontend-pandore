@@ -10,6 +10,7 @@ import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
+import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -274,11 +275,13 @@ const TrackDetail = () => {
 
               {/* Meta */}
               <div className="flex-1 min-w-0 space-y-5">
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge className="bg-cyan-500/15 text-cyan-300 border-cyan-500/25">Track</Badge>
-                  <Badge variant="secondary" className="bg-white/5 border-white/10">
-                    {track.genre}
-                  </Badge>
+                  {splitGenreTags(track.genre).map((g, i) => (
+                    <Badge key={`genre-${i}`} variant="secondary" className="bg-white/5 border-white/10 whitespace-nowrap max-w-[min(100%,14rem)] truncate" title={g}>
+                      {g}
+                    </Badge>
+                  ))}
                   {track.duration && (
                     <span className="text-sm text-muted-foreground flex items-center gap-1.5">
                       <Clock className="w-4 h-4" />
@@ -445,7 +448,7 @@ const TrackDetail = () => {
                       step="0.01"
                       value={payWhatYouWantEuro}
                       onChange={(e) => setPayWhatYouWantEuro(e.target.value)}
-                      className="h-12 rounded-xl bg-white/5 border-white/10"
+                      className="h-12 rounded-xl bg-slate-50 border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none"
                       placeholder={minEuro != null ? minEuro.toFixed(2) : '0.00'}
                       data-testid="pay-what-you-want-input"
                     />
@@ -578,7 +581,7 @@ const TrackDetail = () => {
                           value={newPlaylistName}
                           onChange={(e) => setNewPlaylistName(e.target.value)}
                           required
-                          className="h-12 rounded-xl bg-white/5 border-white/10"
+                          className="h-12 rounded-xl bg-slate-50 border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none"
                         />
                       </div>
                       <div className="space-y-2">
@@ -586,7 +589,7 @@ const TrackDetail = () => {
                         <Input
                           value={newPlaylistDescription}
                           onChange={(e) => setNewPlaylistDescription(e.target.value)}
-                          className="h-12 rounded-xl bg-white/5 border-white/10"
+                          className="h-12 rounded-xl bg-slate-50 border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none"
                         />
                       </div>
                       <div className="flex gap-2">

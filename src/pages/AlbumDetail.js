@@ -10,6 +10,7 @@ import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
+import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -226,13 +227,13 @@ const AlbumDetail = () => {
 
               {/* Meta */}
               <div className="flex-1 min-w-0 space-y-5">
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge className="bg-purple-500/15 text-purple-300 border-purple-500/25">Album</Badge>
-                  {album.genre && (
-                    <Badge variant="secondary" className="bg-white/5 border-white/10">
-                      {album.genre}
+                  {splitGenreTags(album.genre).map((g, i) => (
+                    <Badge key={`album-genre-${i}`} variant="secondary" className="bg-white/5 border-white/10 whitespace-nowrap max-w-[min(100%,14rem)] truncate" title={g}>
+                      {g}
                     </Badge>
-                  )}
+                  ))}
                   <span className="text-sm text-muted-foreground">
                     {tracks.length} titre{tracks.length > 1 ? 's' : ''}
                   </span>
@@ -348,7 +349,9 @@ const AlbumDetail = () => {
 
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{track.title}</div>
-                        <div className="text-sm text-muted-foreground truncate">{track.genre || album.genre || '—'}</div>
+                        <div className="text-sm text-muted-foreground truncate">
+                          {splitGenreTags(track.genre || album.genre).join(' · ') || '—'}
+                        </div>
                       </div>
 
                       {track.duration ? (
@@ -396,7 +399,7 @@ const AlbumDetail = () => {
                       step="0.01"
                       value={payWhatYouWantEuro}
                       onChange={(e) => setPayWhatYouWantEuro(e.target.value)}
-                      className="h-12 rounded-xl bg-white/5 border-white/10"
+                      className="h-12 rounded-xl bg-slate-50 border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none"
                       placeholder={minEuro != null ? minEuro.toFixed(2) : '0.00'}
                       data-testid="album-pay-what-you-want-input"
                     />
