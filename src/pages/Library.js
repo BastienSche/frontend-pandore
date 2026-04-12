@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Music,
   Disc,
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import LibraryTrackRow from '@/components/library/LibraryTrackRow';
 import LibraryAlbumCard from '@/components/library/LibraryAlbumCard';
@@ -31,6 +32,9 @@ const normalizeOwnedTrack = (t) => {
 };
 
 const Library = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const processedStripeSessions = useRef(new Set());
   const [library, setLibrary] = useState({ tracks: [], albums: [] });
   const [loading, setLoading] = useState(true);
   const [playingAlbumId, setPlayingAlbumId] = useState(null);
@@ -55,6 +59,26 @@ const Library = () => {
   useEffect(() => {
     loadLibrary();
   }, [loadLibrary]);
+
+  /** Après Stripe Checkout : /library?session_id=… — confirme l’achat puis nettoie l’URL (chaque session une fois). */
+  useEffect(() => {
+    const sid = searchParams.get('session_id');
+    if (!sid) return;
+    if (processedStripeSessions.current.has(sid)) return;
+    processedStripeSessions.current.add(sid);
+    (async () => {
+      try {
+        await apiClient.get(`/api/purchases/status/${encodeURIComponent(sid)}`);
+        toast.success('Paiement confirmé — ta bibliothèque est à jour.');
+        await loadLibrary();
+      } catch (e) {
+        processedStripeSessions.current.delete(sid);
+        toast.error(formatApiError(e) || "Impossible de confirmer le paiement");
+      } finally {
+        navigate('/library', { replace: true });
+      }
+    })();
+  }, [searchParams, loadLibrary, navigate]);
 
   const playableTracks = useMemo(
     () => library.tracks.filter((t) => Boolean(t.file_url)),

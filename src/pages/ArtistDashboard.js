@@ -485,6 +485,55 @@ const ArtistDashboard = () => {
     coverFile: null
   });
 
+  const [connectStatus, setConnectStatus] = useState(null);
+  const [connectBalance, setConnectBalance] = useState(null);
+  const [connectActionLoading, setConnectActionLoading] = useState(false);
+
+  useEffect(() => {
+    if (authLoading || !user || user.role !== 'artist') return;
+    (async () => {
+      try {
+        const { data } = await apiClient.get('/api/artist/stripe/connect/status');
+        setConnectStatus(data);
+        if (data?.has_account && data?.charges_enabled) {
+          try {
+            const { data: bal } = await apiClient.get('/api/artist/stripe/connect/balance');
+            setConnectBalance(bal);
+          } catch {
+            setConnectBalance(null);
+          }
+        } else {
+          setConnectBalance(null);
+        }
+      } catch {
+        setConnectStatus(null);
+        setConnectBalance(null);
+      }
+    })();
+  }, [user, authLoading]);
+
+  const startStripeOnboarding = async () => {
+    setConnectActionLoading(true);
+    try {
+      const { data } = await apiClient.post('/api/artist/stripe/connect/onboard');
+      if (data?.url) window.location.href = data.url;
+      else toast.error("Pas d'URL Stripe");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Erreur Stripe');
+    } finally {
+      setConnectActionLoading(false);
+    }
+  };
+
+  const openStripeExpress = async () => {
+    try {
+      const { data } = await apiClient.post('/api/artist/stripe/connect/login-link');
+      if (data?.url) window.open(data.url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Erreur');
+    }
+  };
+
   useEffect(() => {
     // Wait for auth to load before checking role
     if (authLoading) return;
@@ -1171,6 +1220,64 @@ const ArtistDashboard = () => {
                 icon={Heart}
                 color="violet"
               />
+            </div>
+
+            <div className="glass-heavy rounded-3xl p-6 border border-emerald-500/20">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-semibold flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-emerald-400" />
+                    Paiements & versements (Stripe Connect)
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
+                    Les achats passent par Stripe : la part vendeur (après commission plateforme{' '}
+                    {connectStatus?.platform_fee_percent ?? '—'}%) est créditée sur ton compte connecté.
+                    Les virements vers ton IBAN sont gérés par Stripe (Express). Le seuil minimum avant premier
+                    virement dépend du pays et du compte — indicatif souvent autour de{' '}
+                    {connectBalance?.min_payout_hint_euros ?? 20}
+                    € ; détail dans l&apos;espace Stripe Express.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  {!connectStatus?.has_account || !connectStatus?.charges_enabled ? (
+                    <Button
+                      className="rounded-full bg-emerald-600 hover:bg-emerald-500"
+                      disabled={connectActionLoading}
+                      onClick={startStripeOnboarding}
+                    >
+                      {connectActionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Activer les paiements
+                    </Button>
+                  ) : (
+                    <Button variant="outline" className="rounded-full" onClick={openStripeExpress}>
+                      Ouvrir Stripe Express
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {connectStatus?.has_account && connectStatus?.charges_enabled && connectBalance && (
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-xl bg-white/5 p-4">
+                    <p className="text-muted-foreground">Disponible (Stripe)</p>
+                    <p className="text-lg font-semibold">
+                      {(Number(connectBalance.available_cents || 0) / 100).toFixed(2)}{' '}
+                      {String(connectBalance.currency || 'eur').toUpperCase()}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white/5 p-4">
+                    <p className="text-muted-foreground">En attente</p>
+                    <p className="text-lg font-semibold">
+                      {(Number(connectBalance.pending_cents || 0) / 100).toFixed(2)}{' '}
+                      {String(connectBalance.currency || 'eur').toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {connectStatus && connectStatus.connect_enabled === false && (
+                <p className="text-xs text-amber-500/90 mt-3">
+                  Connect désactivé côté API (STRIPE_CONNECT_ENABLED) — les ventes restent sur le compte plateforme.
+                </p>
+              )}
             </div>
 
             {/* Top Tracks */}

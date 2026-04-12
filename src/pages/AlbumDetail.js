@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { getCheckoutRedirectUrl } from '@/lib/checkoutRedirect';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
@@ -89,6 +90,10 @@ const AlbumDetail = () => {
   };
 
   const handlePurchase = async () => {
+    if (!albumId) {
+      toast.error('Album introuvable');
+      return;
+    }
     setPurchasing(true);
     try {
       const isPayWhatYouWant = !!album?.is_free_price;
@@ -119,7 +124,8 @@ const AlbumDetail = () => {
           origin_url: originUrl,
           amount_cents: amountCents
         });
-        if (data?.url) window.location.href = data.url;
+        const payUrl = getCheckoutRedirectUrl(data);
+        if (payUrl) window.location.href = payUrl;
         else toast.success('Checkout créé');
         return;
       }
@@ -137,8 +143,9 @@ const AlbumDetail = () => {
         item_id: albumId,
         origin_url: originUrl
       });
-      if (data?.url) {
-        window.location.href = data.url;
+      const payUrl = getCheckoutRedirectUrl(data);
+      if (payUrl) {
+        window.location.href = payUrl;
       } else {
         toast.success('Checkout créé');
       }

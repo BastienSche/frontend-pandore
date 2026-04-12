@@ -15,7 +15,16 @@ function normalizeApiBaseUrl(raw) {
   return `${isLocal ? 'http' : 'https'}://${s}`;
 }
 
-const rawBaseUrl = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || '';
+/** En dev, si aucune env : appeler l’API locale (évite les appels vers localhost:3000/api qui ne sont pas ton FastAPI). */
+function defaultApiBaseUrl() {
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://127.0.0.1:8000';
+  }
+  return '';
+}
+
+const rawBaseUrl =
+  process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || defaultApiBaseUrl();
 const baseURL = normalizeApiBaseUrl(rawBaseUrl);
 
 if (typeof window !== 'undefined' && baseURL && /\.internal(\/|$)/i.test(baseURL)) {
@@ -23,6 +32,14 @@ if (typeof window !== 'undefined' && baseURL && /\.internal(\/|$)/i.test(baseURL
   console.warn(
     '[Kloud] REACT_APP_API_URL pointe vers un hôte .internal : le navigateur ne peut pas y accéder. ' +
       'Utilise l’URL HTTPS publique Railway (dashboard → Networking → domaine public).'
+  );
+}
+
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production' && !baseURL) {
+  // eslint-disable-next-line no-console
+  console.error(
+    '[Kloud] REACT_APP_API_URL est vide au build : les appels /api partiront sur le mauvais hôte. ' +
+      'Définis REACT_APP_API_URL (URL publique HTTPS du backend) dans Netlify / Vercel / CI.'
   );
 }
 
@@ -41,6 +58,33 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
+
+/** Message lisible pour les toasts (réponse vide, 501 proxy, etc.) */
+export function formatApiError(error) {
+  const d = error?.response?.data;
+  if (d && typeof d === 'object' && d.detail != null) {
+    return typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail);
+  }
+  if (error?.response?.status) {
+    return `Erreur serveur (${error.response.status})`;
+  }
+  if (error?.message) return error.message;
+  return 'Erreur réseau';
+}
+
+apiClient.interceptors.response.use(
+  (r) => r,
+  (error) => {
+    if (error?.response?.status === 401 && typeof window !== 'undefined') {
+      const url = error.config?.url || '';
+      if (url.includes('/purchases/status')) {
+        // eslint-disable-next-line no-console
+        console.warn('[Kloud] Session expirée ou non connecté — impossible de confirmer le paiement sans JWT.');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export function resolveApiUrl(pathOrUrl) {
   if (!pathOrUrl) return pathOrUrl;

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { getCheckoutRedirectUrl } from '@/lib/checkoutRedirect';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
@@ -91,6 +92,10 @@ const TrackDetail = () => {
   };
 
   const handlePurchase = async () => {
+    if (!trackId) {
+      toast.error('Track introuvable');
+      return;
+    }
     setPurchasing(true);
     try {
       const isPayWhatYouWant = !!track?.is_free_price;
@@ -121,7 +126,8 @@ const TrackDetail = () => {
           origin_url: originUrl,
           amount_cents: amountCents
         });
-        if (data?.url) window.location.href = data.url;
+        const payUrl = getCheckoutRedirectUrl(data);
+        if (payUrl) window.location.href = payUrl;
         else toast.success('Checkout créé');
         return;
       }
@@ -139,8 +145,9 @@ const TrackDetail = () => {
         item_id: trackId,
         origin_url: originUrl
       });
-      if (data?.url) {
-        window.location.href = data.url;
+      const payUrl = getCheckoutRedirectUrl(data);
+      if (payUrl) {
+        window.location.href = payUrl;
       } else {
         toast.success('Checkout créé');
       }
