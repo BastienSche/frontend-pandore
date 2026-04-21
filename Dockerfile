@@ -11,7 +11,9 @@ ENV REACT_APP_API_URL=${REACT_APP_API_URL} \
 COPY package.json package-lock.json* yarn.lock* ./
 
 # Prefer npm when package-lock exists
-RUN if [ -f package-lock.json ]; then npm ci; else yarn install --frozen-lockfile; fi
+# `npm ci` is strict about lockfile/package.json sync and can fail across npm versions.
+# For this repo we prefer a resilient install inside Docker.
+RUN if [ -f package-lock.json ]; then npm install; else yarn install --frozen-lockfile; fi
 
 COPY . .
 
