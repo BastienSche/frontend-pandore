@@ -22,6 +22,7 @@ import AccountSettings from '@/pages/AccountSettings';
 import PlaylistDetail from '@/pages/PlaylistDetail';
 import AuthCallback from '@/pages/AuthCallback';
 import UiKit from '@/pages/UiKit';
+import NousDecouvrir from '@/pages/NousDecouvrir';
 import '@/App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -41,6 +42,7 @@ function AppRouter() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/nous-decouvrir" element={<NousDecouvrir />} />
         <Route
           path="/browse"
           element={
