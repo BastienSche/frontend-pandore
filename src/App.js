@@ -23,6 +23,7 @@ import PlaylistDetail from '@/pages/PlaylistDetail';
 import AuthCallback from '@/pages/AuthCallback';
 import UiKit from '@/pages/UiKit';
 import NousDecouvrir from '@/pages/NousDecouvrir';
+import AdminDashboard from '@/pages/AdminDashboard';
 import '@/App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -43,6 +44,14 @@ function AppRouter() {
         <Route path="/register" element={<Register />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/nous-decouvrir" element={<NousDecouvrir />} />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/browse"
           element={
