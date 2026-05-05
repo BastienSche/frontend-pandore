@@ -10,6 +10,20 @@ import { formatPriceLabel } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 
+const mixLabel = (v) => {
+  const s = String(v || '').toLowerCase();
+  if (s === 'maquette') return 'Maquette';
+  if (s === 'mixed') return 'Mixed';
+  return null;
+};
+
+const availabilityLabel = (v) => {
+  const s = String(v || '').toLowerCase();
+  if (s === 'exclusive') return 'Kloud Exclusive';
+  if (s === 'all_platforms') return 'Toutes plateformes';
+  return null;
+};
+
 const TrackCard = ({ track }) => {
   const { currentTrack, isPlaying, playTrack } = useAudioPlayer();
   const navigate = useNavigate();
@@ -57,6 +71,15 @@ const TrackCard = ({ track }) => {
           className="relative aspect-square cursor-pointer" 
           onClick={() => navigate(`/track/${track.track_id}`)}
         >
+          {/* Overlays (no layout impact) */}
+          {mixLabel(track.mix_version) && (
+            <div className="absolute top-3 left-3 z-20">
+              <div className="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
+                {mixLabel(track.mix_version)}
+              </div>
+            </div>
+          )}
+
           {track.cover_url && !coverError ? (
             <img
               src={track.cover_url}
@@ -68,6 +91,16 @@ const TrackCard = ({ track }) => {
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-cyan-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center">
               <Play className="w-16 h-16 text-white/30" />
+            </div>
+          )}
+
+          {availabilityLabel(track.availability) && (
+            <div className="absolute bottom-0 inset-x-0 z-10">
+              <div className="px-4 py-2 bg-gradient-to-r from-black/70 via-black/35 to-black/70 backdrop-blur-sm border-t border-white/10">
+                <div className="text-[11px] font-semibold tracking-wide text-white/90">
+                  {availabilityLabel(track.availability)}
+                </div>
+              </div>
             </div>
           )}
 
@@ -127,17 +160,19 @@ const TrackCard = ({ track }) => {
           </div>
           
           <div className="flex items-start justify-between gap-2">
-            <div className="flex min-w-0 flex-1 flex-wrap content-center gap-1.5">
-              {splitGenreTags(track.genre).map((g, i) => (
-                <Badge
-                  key={`${track.track_id}-genre-${i}`}
-                  variant="secondary"
-                  className="shrink-0 whitespace-nowrap text-xs leading-tight bg-white/5 border border-white/10 text-muted-foreground max-w-[min(100%,11rem)] truncate"
-                  title={g}
-                >
-                  {g}
-                </Badge>
-              ))}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {splitGenreTags(track.genre).map((g, i) => (
+                  <Badge
+                    key={`${track.track_id}-genre-${i}`}
+                    variant="secondary"
+                    className="shrink-0 whitespace-nowrap text-xs leading-tight bg-white/5 border border-white/10 text-muted-foreground max-w-[11rem] truncate"
+                    title={g}
+                  >
+                    {g}
+                  </Badge>
+                ))}
+              </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span

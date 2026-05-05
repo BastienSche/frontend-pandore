@@ -123,6 +123,10 @@ const buildTrackFormFromApiTrack = (track) => {
     key: track?.key ?? '',
     isrc: track?.isrc ?? '',
     releaseDate: normalizeReleaseDateForInput(track?.release_date),
+    mixVersion: track?.mix_version ?? '',
+    availability: track?.availability ?? '',
+    producer: track?.producer ?? '',
+    beatmaker: track?.beatmaker ?? '',
     splits,
     status: track?.status || 'draft',
     audioFile: null,
@@ -467,6 +471,10 @@ const ArtistDashboard = () => {
     key: '',
     isrc: '',
     releaseDate: '',
+    mixVersion: '',
+    availability: '',
+    producer: '',
+    beatmaker: '',
     splits: [{ party: '', percent: '', role: '' }],
     status: 'draft',
     audioFile: null,
@@ -479,6 +487,10 @@ const ArtistDashboard = () => {
     isFreePrice: false,
     minPrice: '',
     description: '',
+    mixVersion: '',
+    availability: '',
+    producer: '',
+    beatmaker: '',
     trackIds: [],
     albumTracks: [],
     status: 'draft',
@@ -628,6 +640,10 @@ const ArtistDashboard = () => {
       key: '',
       isrc: '',
       releaseDate: '',
+      mixVersion: '',
+      availability: '',
+      producer: '',
+      beatmaker: '',
       splits: [{ party: '', percent: '', role: '' }],
       status: 'draft',
       audioFile: null,
@@ -643,6 +659,10 @@ const ArtistDashboard = () => {
       isFreePrice: false,
       minPrice: '',
       description: '',
+      mixVersion: '',
+      availability: '',
+      producer: '',
+      beatmaker: '',
       trackIds: [],
       albumTracks: [],
       status: 'draft',
@@ -687,6 +707,10 @@ const ArtistDashboard = () => {
         ? (Number(album.min_price) / 100).toString()
         : '',
       description: album.description || '',
+      mixVersion: album?.mix_version || '',
+      availability: album?.availability || '',
+      producer: album?.producer || '',
+      beatmaker: album?.beatmaker || '',
       trackIds: album.track_ids || [],
       albumTracks: [],
       status: album.status || 'draft',
@@ -782,6 +806,10 @@ const ArtistDashboard = () => {
         key: trackForm.key || null,
         isrc: trackForm.isrc || null,
         release_date: trackForm.releaseDate || null,
+        mix_version: trackForm.mixVersion || null,
+        availability: trackForm.availability || null,
+        producer: trackForm.producer || null,
+        beatmaker: trackForm.beatmaker || null,
         splits: trackForm.splits.filter(s => s.party && s.percent).map(s => ({
           party: s.party,
           percent: parseFloat(s.percent),
@@ -884,6 +912,10 @@ const ArtistDashboard = () => {
             ? (minPriceEuro === null ? null : Math.round(minPriceEuro * 100))
             : null,
           description: albumForm.description,
+          mix_version: albumForm.mixVersion || null,
+          availability: albumForm.availability || null,
+          producer: albumForm.producer || null,
+          beatmaker: albumForm.beatmaker || null,
           track_ids: [],
           status: 'draft'
         });
@@ -897,6 +929,10 @@ const ArtistDashboard = () => {
             ? (minPriceEuro === null ? null : Math.round(minPriceEuro * 100))
             : null,
           description: albumForm.description,
+          mix_version: albumForm.mixVersion || null,
+          availability: albumForm.availability || null,
+          producer: albumForm.producer || null,
+          beatmaker: albumForm.beatmaker || null,
           track_ids: albumForm.trackIds || [],
           status: albumForm.status
         });
@@ -1001,6 +1037,10 @@ const ArtistDashboard = () => {
           ? (minPriceEuro === null ? null : Math.round(minPriceEuro * 100))
           : null,
         description: albumForm.description,
+        mix_version: albumForm.mixVersion || null,
+        availability: albumForm.availability || null,
+        producer: albumForm.producer || null,
+        beatmaker: albumForm.beatmaker || null,
         track_ids: mergedTrackIds,
         status: albumForm.status
       };
@@ -1833,6 +1873,73 @@ const ArtistDashboard = () => {
               </div>
             </div>
 
+            {/* Track Meta */}
+            <div className={`glass rounded-2xl p-4 space-y-4 ${trackStep !== 3 ? 'hidden' : ''}`}>
+              <h4 className="font-semibold flex items-center gap-2">
+                <Library className="w-4 h-4 text-purple-300" />
+                Infos release
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Version</Label>
+                  <div className={fieldRing}>
+                    <select
+                      value={trackForm.mixVersion}
+                      onChange={(e) => setTrackForm({ ...trackForm, mixVersion: e.target.value })}
+                      className={cn(
+                        'h-12 w-full rounded-[10px] px-4 py-2.5 text-sm',
+                        fieldInnerSurface,
+                        fieldFocusRingSelect
+                      )}
+                    >
+                      <option value="">—</option>
+                      <option value="maquette">Maquette</option>
+                      <option value="mixed">Mixed</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Disponibilité</Label>
+                  <div className={fieldRing}>
+                    <select
+                      value={trackForm.availability}
+                      onChange={(e) => setTrackForm({ ...trackForm, availability: e.target.value })}
+                      className={cn(
+                        'h-12 w-full rounded-[10px] px-4 py-2.5 text-sm',
+                        fieldInnerSurface,
+                        fieldFocusRingSelect
+                      )}
+                    >
+                      <option value="">—</option>
+                      <option value="exclusive">Kloud Exclusive Only</option>
+                      <option value="all_platforms">Dispo sur toutes les plateformes</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Producteur</Label>
+                  <Input
+                    value={trackForm.producer}
+                    onChange={(e) => setTrackForm({ ...trackForm, producer: e.target.value })}
+                    className="h-12 rounded-[10px]"
+                    placeholder="Nom du producteur"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Beatmaker</Label>
+                  <Input
+                    value={trackForm.beatmaker}
+                    onChange={(e) => setTrackForm({ ...trackForm, beatmaker: e.target.value })}
+                    className="h-12 rounded-[10px]"
+                    placeholder="Nom du beatmaker"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Files */}
             <div className={`grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 ${trackStep !== 2 ? 'hidden' : ''}`}>
               <div className="glass min-w-0 space-y-3 rounded-2xl p-4">
@@ -2272,6 +2379,73 @@ const ArtistDashboard = () => {
                     <option value="draft">Brouillon (non visible)</option>
                     <option value="published">Publié (visible par tous)</option>
                   </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Album Meta */}
+            <div className={`${albumStep !== 3 ? 'hidden' : ''} glass rounded-2xl p-4 space-y-4`}>
+              <h4 className="font-semibold flex items-center gap-2">
+                <Library className="w-4 h-4 text-purple-300" />
+                Infos album
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Version</Label>
+                  <div className={fieldRing}>
+                    <select
+                      value={albumForm.mixVersion}
+                      onChange={(e) => setAlbumForm({ ...albumForm, mixVersion: e.target.value })}
+                      className={cn(
+                        'h-12 w-full rounded-[10px] px-4 py-2.5 text-sm',
+                        fieldInnerSurface,
+                        fieldFocusRingSelect
+                      )}
+                    >
+                      <option value="">—</option>
+                      <option value="maquette">Maquette</option>
+                      <option value="mixed">Mixed</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Disponibilité</Label>
+                  <div className={fieldRing}>
+                    <select
+                      value={albumForm.availability}
+                      onChange={(e) => setAlbumForm({ ...albumForm, availability: e.target.value })}
+                      className={cn(
+                        'h-12 w-full rounded-[10px] px-4 py-2.5 text-sm',
+                        fieldInnerSurface,
+                        fieldFocusRingSelect
+                      )}
+                    >
+                      <option value="">—</option>
+                      <option value="exclusive">Kloud Exclusive Only</option>
+                      <option value="all_platforms">Dispo sur toutes les plateformes</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Producteur</Label>
+                  <Input
+                    value={albumForm.producer}
+                    onChange={(e) => setAlbumForm({ ...albumForm, producer: e.target.value })}
+                    className="h-12 rounded-[10px]"
+                    placeholder="Nom du producteur"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Beatmaker</Label>
+                  <Input
+                    value={albumForm.beatmaker}
+                    onChange={(e) => setAlbumForm({ ...albumForm, beatmaker: e.target.value })}
+                    className="h-12 rounded-[10px]"
+                    placeholder="Nom du beatmaker"
+                  />
                 </div>
               </div>
             </div>

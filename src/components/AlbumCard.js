@@ -8,6 +8,20 @@ import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { formatPriceLabel } from '@/lib/pricing';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 
+const mixLabel = (v) => {
+  const s = String(v || '').toLowerCase();
+  if (s === 'maquette') return 'Maquette';
+  if (s === 'mixed') return 'Mixed';
+  return null;
+};
+
+const availabilityLabel = (v) => {
+  const s = String(v || '').toLowerCase();
+  if (s === 'exclusive') return 'Kloud Exclusive';
+  if (s === 'all_platforms') return 'Toutes plateformes';
+  return null;
+};
+
 const AlbumCard = ({ album }) => {
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
@@ -53,6 +67,15 @@ const AlbumCard = ({ album }) => {
           className="relative aspect-square cursor-pointer" 
           onClick={() => navigate(`/album/${album.album_id}`)}
         >
+          {/* Overlays (no layout impact) */}
+          {mixLabel(album.mix_version) && (
+            <div className="absolute top-3 right-3 z-20">
+              <div className="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
+                {mixLabel(album.mix_version)}
+              </div>
+            </div>
+          )}
+
           {album.cover_url && !coverError ? (
             <img
               src={album.cover_url}
@@ -75,6 +98,16 @@ const AlbumCard = ({ album }) => {
             <Disc className="w-3 h-3 mr-1.5" />
             {album.track_ids?.length || 0} titres
           </Badge>
+
+          {availabilityLabel(album.availability) && (
+            <div className="absolute bottom-0 inset-x-0 z-10">
+              <div className="px-4 py-2 bg-gradient-to-r from-black/70 via-black/35 to-black/70 backdrop-blur-sm border-t border-white/10">
+                <div className="text-[11px] font-semibold tracking-wide text-white/90">
+                  {availabilityLabel(album.availability)}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Album Info */}
@@ -94,7 +127,7 @@ const AlbumCard = ({ album }) => {
               {album.artist_name}
             </p>
           </div>
-          
+
           <div className="flex items-center justify-between">
             <span 
               className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400"

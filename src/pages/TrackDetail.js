@@ -17,6 +17,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
+const mixLabel = (v) => {
+  const s = String(v || '').toLowerCase();
+  if (s === 'maquette') return 'Maquette';
+  if (s === 'mixed') return 'Mixed';
+  return null;
+};
+
+const availabilityLabel = (v) => {
+  const s = String(v || '').toLowerCase();
+  if (s === 'exclusive') return 'Kloud Exclusive';
+  if (s === 'all_platforms') return 'Toutes plateformes';
+  return null;
+};
+
 const TrackDetail = () => {
   const { trackId } = useParams();
   const navigate = useNavigate();
@@ -289,6 +303,16 @@ const TrackDetail = () => {
                       {g}
                     </Badge>
                   ))}
+                  {mixLabel(track.mix_version) && (
+                    <Badge className="bg-purple-500/10 text-purple-200 border-purple-500/20">
+                      {mixLabel(track.mix_version)}
+                    </Badge>
+                  )}
+                  {availabilityLabel(track.availability) && (
+                    <Badge className="bg-cyan-500/10 text-cyan-200 border-cyan-500/20">
+                      {availabilityLabel(track.availability)}
+                    </Badge>
+                  )}
                   {track.duration && (
                     <span className="text-sm text-muted-foreground flex items-center gap-1.5">
                       <Clock className="w-4 h-4" />

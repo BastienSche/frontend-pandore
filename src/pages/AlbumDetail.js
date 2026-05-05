@@ -16,6 +16,20 @@ import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
+const mixLabel = (v) => {
+  const s = String(v || '').toLowerCase();
+  if (s === 'maquette') return 'Maquette';
+  if (s === 'mixed') return 'Mixed';
+  return null;
+};
+
+const availabilityLabel = (v) => {
+  const s = String(v || '').toLowerCase();
+  if (s === 'exclusive') return 'Kloud Exclusive';
+  if (s === 'all_platforms') return 'Toutes plateformes';
+  return null;
+};
+
 const AlbumDetail = () => {
   const { albumId } = useParams();
   const navigate = useNavigate();
@@ -241,6 +255,16 @@ const AlbumDetail = () => {
                       {g}
                     </Badge>
                   ))}
+                  {mixLabel(album.mix_version) && (
+                    <Badge className="bg-purple-500/10 text-purple-200 border-purple-500/20">
+                      {mixLabel(album.mix_version)}
+                    </Badge>
+                  )}
+                  {availabilityLabel(album.availability) && (
+                    <Badge className="bg-cyan-500/10 text-cyan-200 border-cyan-500/20">
+                      {availabilityLabel(album.availability)}
+                    </Badge>
+                  )}
                   <span className="text-sm text-muted-foreground">
                     {tracks.length} titre{tracks.length > 1 ? 's' : ''}
                   </span>
