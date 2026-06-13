@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Music, Moon, Sun, User, LogOut, Home, Library, PlusCircle, Disc, GripHorizontal, X, Menu } from 'lucide-react';
+import { Moon, Sun, User, LogOut, Home, Library, PlusCircle, Disc, GripHorizontal, X, Menu, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,6 +14,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { motion, useDragControls } from 'framer-motion';
+import KloudLogo from '@/components/KloudLogo';
+
+const userInitial = (u) => {
+  if (!u) return '?';
+  const s = String(u.name || u.email || u.artist_name || '').trim();
+  return s ? s.charAt(0).toUpperCase() : '?';
+};
 
 const Navbar = () => {
   const { user, logout, switchRole } = useAuth();
@@ -129,15 +136,11 @@ const Navbar = () => {
               className="flex items-center gap-2 group px-2" 
               data-testid="navbar-logo-link"
             >
-              <motion.div
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.6 }}
-                className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center shadow-[0_0_15px_rgba(34,211,238,0.3)]"
-              >
-                <Music className="w-4 h-4 text-white" />
+              <motion.div whileHover={{ rotate: 8 }} transition={{ duration: 0.25 }}>
+                <KloudLogo className="w-8 h-8 shrink-0 text-zinc-900 dark:text-white drop-shadow-sm dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.12)]" />
               </motion.div>
-              <span className="text-lg font-bold tracking-tight hidden sm:block">
-                Pandore
+              <span className="text-lg font-bold tracking-tight text-foreground hidden sm:block">
+                Kloud
               </span>
             </Link>
 
@@ -199,7 +202,7 @@ const Navbar = () => {
                     <Avatar className="w-8 h-8">
                       <AvatarImage src={user.picture} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-sm">
-                        {user.name[0]}
+                        {userInitial(user)}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -212,11 +215,11 @@ const Navbar = () => {
                     <Avatar className="w-10 h-10">
                       <AvatarImage src={user.picture} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
-                        {user.name[0]}
+                        {userInitial(user)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col min-w-0">
-                      <span className="font-medium text-sm truncate">{user.name}</span>
+                      <span className="font-medium text-sm truncate">{user.name || user.email || 'Utilisateur'}</span>
                       <span className="text-xs text-muted-foreground truncate">
                         {user.email}
                       </span>
@@ -241,6 +244,15 @@ const Navbar = () => {
                     >
                       {user.role === 'artist' ? 'Artiste' : 'User'}
                     </Badge>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => navigate('/settings')}
+                    className="rounded-xl cursor-pointer"
+                    data-testid="settings-button"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Réglages du compte
                   </DropdownMenuItem>
                   
                   <DropdownMenuSeparator className="bg-white/10 my-2" />

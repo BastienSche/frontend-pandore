@@ -1,12 +1,58 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Music, Heart, Disc } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
+import { fetchLikeState, like, unlike } from '@/lib/likes';
+import { formatPriceLabel } from '@/lib/pricing';
+import { heartIconActiveClass } from '@/lib/heartIconClass';
+
+const mixLabel = (v) => {
+  const s = String(v || '').toLowerCase();
+  if (s === 'maquette') return 'Maquette';
+  if (s === 'mixed') return 'Mixed';
+  return null;
+};
+
+const availabilityLabel = (v) => {
+  const s = String(v || '').toLowerCase();
+  if (s === 'exclusive') return 'Kloud Exclusive';
+  if (s === 'all_platforms') return 'Toutes plateformes';
+  return null;
+};
 
 const AlbumCard = ({ album }) => {
   const navigate = useNavigate();
+  const [liked, setLiked] = useState(false);
+  const [coverError, setCoverError] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const state = await fetchLikeState('album', [album.album_id]);
+        if (mounted) setLiked(!!state?.[album.album_id]);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [album.album_id]);
+
+  const toggleLike = async (e) => {
+    e.stopPropagation();
+    const next = !liked;
+    setLiked(next);
+    try {
+      if (next) await like('album', album.album_id);
+      else await unlike('album', album.album_id);
+    } catch {
+      setLiked(!next);
+    }
+  };
 
   return (
     <motion.div
@@ -21,26 +67,29 @@ const AlbumCard = ({ album }) => {
           className="relative aspect-square cursor-pointer" 
           onClick={() => navigate(`/album/${album.album_id}`)}
         >
-          {album.cover_url ? (
+          {/* Overlays (no layout impact) */}
+          {mixLabel(album.mix_version) && (
+            <div className="absolute top-3 right-3 z-20">
+              <div className="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
+                {mixLabel(album.mix_version)}
+              </div>
+            </div>
+          )}
+
+          {album.cover_url && !coverError ? (
             <img
               src={album.cover_url}
               alt={album.title}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              loading="lazy"
+              onError={() => setCoverError(true)}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 flex items-center justify-center">
               <Disc className="w-16 h-16 text-white/30" />
             </div>
           )}
-          
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
-          
-          {/* Glow effect on hover */}
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-            <div className="absolute inset-0 bg-gradient-to-t from-purple-500/20 to-transparent" />
-          </div>
-          
+
           {/* Track Count Badge */}
           <Badge 
             className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm border border-white/20 text-white"
@@ -49,6 +98,16 @@ const AlbumCard = ({ album }) => {
             <Disc className="w-3 h-3 mr-1.5" />
             {album.track_ids?.length || 0} titres
           </Badge>
+
+          {availabilityLabel(album.availability) && (
+            <div className="absolute bottom-0 inset-x-0 z-10">
+              <div className="px-4 py-2 bg-gradient-to-r from-black/70 via-black/35 to-black/70 backdrop-blur-sm border-t border-white/10">
+                <div className="text-[11px] font-semibold tracking-wide text-white/90">
+                  {availabilityLabel(album.availability)}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Album Info */}
@@ -68,13 +127,13 @@ const AlbumCard = ({ album }) => {
               {album.artist_name}
             </p>
           </div>
-          
+
           <div className="flex items-center justify-between">
             <span 
               className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400"
               data-testid={`album-price-${album.album_id}`}
             >
-              ${album.price}
+              {formatPriceLabel(album.price)}
             </span>
             
             <Button 
@@ -82,8 +141,9 @@ const AlbumCard = ({ album }) => {
               size="icon" 
               className="rounded-full w-8 h-8 hover:bg-pink-500/10 hover:text-pink-400 transition-colors"
               data-testid={`album-like-button-${album.album_id}`}
+              onClick={toggleLike}
             >
-              <Heart className="w-4 h-4" />
+              <Heart className={`w-4 h-4 ${heartIconActiveClass(liked)}`} />
             </Button>
           </div>
         </div>

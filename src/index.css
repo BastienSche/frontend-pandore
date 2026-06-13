@@ -6,12 +6,23 @@
 
 /* === BIOLUMINESCENT OCEAN THEME === */
 
+html {
+  width: 100%;
+  overflow-x: hidden;
+  /* Global “dezoom” (Tailwind sizes are rem-based) */
+  font-size: 87.5%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -159,6 +170,13 @@ code {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Light mode: dialogs / cards must stay opaque (otherwise dark overlay shows through). */
+html:not(.dark) .glass-heavy {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.12);
 }
 
 .glass-bubble {

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Search, Disc, Music } from 'lucide-react';
@@ -8,9 +7,7 @@ import AlbumCard from '@/components/AlbumCard';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { apiClient, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -29,6 +26,11 @@ const itemVariants = {
   }
 };
 
+const isPublicItem = (item) => {
+  const status = String(item?.status || 'published').toLowerCase();
+  return status === 'published' || status === 'public';
+};
+
 const Browse = () => {
   const [tracks, setTracks] = useState([]);
   const [albums, setAlbums] = useState([]);
@@ -41,12 +43,26 @@ const Browse = () => {
 
   const fetchData = async () => {
     try {
-      const [tracksRes, albumsRes] = await Promise.all([
-        axios.get(`${API}/tracks`),
-        axios.get(`${API}/albums`)
+      const [tracksResp, albumsResp] = await Promise.all([
+        apiClient.get('/api/tracks'),
+        apiClient.get('/api/albums')
       ]);
-      setTracks(tracksRes.data);
-      setAlbums(albumsRes.data);
+      const nextTracks = normalizeApiList(tracksResp.data)
+        .filter(isPublicItem)
+        .map((t) => ({
+          ...t,
+          preview_url: resolveApiUrl(t?.preview_url),
+          file_url: resolveApiUrl(t?.file_url),
+          cover_url: resolveApiUrl(t?.cover_url)
+        }));
+      const nextAlbums = normalizeApiList(albumsResp.data)
+        .filter(isPublicItem)
+        .map((a) => ({
+          ...a,
+          cover_url: resolveApiUrl(a?.cover_url)
+        }));
+      setTracks(nextTracks);
+      setAlbums(nextAlbums);
     } catch (error) {
       toast.error('Erreur lors du chargement');
     } finally {

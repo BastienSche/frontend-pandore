@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
 import { Music, Disc, Heart, ExternalLink, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,30 +7,72 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import { toast } from 'sonner';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { fetchFollowState, followArtist, unfollowArtist } from '@/lib/follows';
+import { heartIconActiveClass } from '@/lib/heartIconClass';
 
 const ArtistProfile = () => {
   const { artistId } = useParams();
   const [artist, setArtist] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [following, setFollowing] = useState(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    fetchArtist();
-  }, [fetchArtist]);
-
-  const fetchArtist = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API}/artists/${artistId}`);
-      setArtist(response.data);
-    } catch (error) {
-      toast.error('Artiste introuvable');
-    } finally {
-      setLoading(false);
-    }
+    (async () => {
+      try {
+        const { data } = await apiClient.get(`/api/artists/${artistId}`);
+        const tracks = (data?.tracks || []).map((t) => ({
+          ...t,
+          preview_url: resolveApiUrl(t?.preview_url),
+          file_url: resolveApiUrl(t?.file_url),
+          cover_url: resolveApiUrl(t?.cover_url)
+        }));
+        const albums = (data?.albums || []).map((a) => ({
+          ...a,
+          cover_url: resolveApiUrl(a?.cover_url)
+        }));
+        setArtist({
+          ...data,
+          picture: resolveApiUrl(data?.picture),
+          tracks,
+          albums
+        });
+      } catch (error) {
+        toast.error('Artiste introuvable');
+        setArtist(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [artistId]);
+
+  useEffect(() => {
+    if (!artistId) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const state = await fetchFollowState([artistId]);
+        if (mounted) setFollowing(!!state?.[artistId]);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [artistId]);
+
+  const toggleFollow = async () => {
+    const next = !following;
+    setFollowing(next);
+    try {
+      if (next) await followArtist(artistId);
+      else await unfollowArtist(artistId);
+    } catch (e) {
+      setFollowing(!next);
+      toast.error(e.response?.data?.detail || 'Erreur');
+    }
+  };
 
   if (loading) {
     return (
@@ -73,9 +114,15 @@ const ArtistProfile = () => {
               </div>
             </div>
 
-            <Button size="lg" variant="outline" className="rounded-full" data-testid="follow-artist-button">
-              <Heart className="w-5 h-5 mr-2" />
-              Suivre
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-full"
+              data-testid="follow-artist-button"
+              onClick={toggleFollow}
+            >
+              <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(following)}`} />
+              {following ? 'Suivi' : 'Suivre'}
             </Button>
           </div>
         </div>

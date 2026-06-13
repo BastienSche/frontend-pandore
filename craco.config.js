@@ -78,6 +78,18 @@ if (config.enableVisualEdits && babelMetadataPlugin) {
 }
 
 webpackConfig.devServer = (devServerConfig) => {
+  // Fallback : requêtes vers /api sur le port 3000 → proxy vers FastAPI (si baseURL mal configuré)
+  devServerConfig.proxy = {
+    ...(typeof devServerConfig.proxy === "object" && !Array.isArray(devServerConfig.proxy)
+      ? devServerConfig.proxy
+      : {}),
+    "/api": {
+      target: process.env.REACT_APP_PROXY_TARGET || "http://127.0.0.1:8000",
+      changeOrigin: true,
+      secure: false,
+    },
+  };
+
   // Apply visual edits dev server setup only if enabled
   if (config.enableVisualEdits && setupDevServer) {
     devServerConfig = setupDevServer(devServerConfig);

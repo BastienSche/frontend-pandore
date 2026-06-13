@@ -2,12 +2,14 @@ import { useTheme } from "next-themes"
 import { Toaster as Sonner, toast } from "sonner"
 
 const Toaster = ({
+  position = "top-right",
   ...props
 }) => {
   const { theme = "system" } = useTheme()
 
   return (
     <Sonner
+      position={position}
       theme={theme}
       className="toaster group"
       toastOptions={{

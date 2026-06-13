@@ -4,7 +4,7 @@ const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('pandore-theme');
+    const saved = localStorage.getItem('kloud-theme') || localStorage.getItem('pandore-theme');
     return saved || 'dark';
   });
 
@@ -12,6 +12,7 @@ export const ThemeProvider = ({ children }) => {
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
+    localStorage.setItem('kloud-theme', theme);
     localStorage.setItem('pandore-theme', theme);
   }, [theme]);
 

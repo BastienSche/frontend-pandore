@@ -1,17 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-import { Music, Play, TrendingUp, Sparkles, ArrowRight, Disc, Star, Headphones } from 'lucide-react';
+import { Music, Play, TrendingUp, Sparkles, ArrowRight, Users, Headphones, Disc, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
-import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
+import { MusicNoteBubbleBackground, GlowOrb, BubbleBackground} from '@/components/BubbleCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { apiClient, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -43,12 +40,19 @@ const floatVariants = {
   })
 };
 
+const isPublicItem = (item) => {
+  const status = String(item?.status || 'published').toLowerCase();
+  return status === 'published' || status === 'public';
+};
+
 const Home = () => {
   const [newReleases, setNewReleases] = useState([]);
+  const [newAlbumsThisWeek, setNewAlbumsThisWeek] = useState([]);
   const [topTracks, setTopTracks] = useState([]);
   const [featuredArtists, setFeaturedArtists] = useState([]);
   const [featuredAlbums, setFeaturedAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [publicStats, setPublicStats] = useState(null);
 
   useEffect(() => {
     fetchHomeData();
@@ -56,18 +60,97 @@ const Home = () => {
 
   const fetchHomeData = async () => {
     try {
-      const [tracksRes, albumsRes, artistsRes] = await Promise.all([
-        axios.get(`${API}/tracks?limit=12`),
-        axios.get(`${API}/albums?limit=8`),
-        axios.get(`${API}/artists?limit=8`)
+      const [tracksResp, albumsResp, artistsResp, statsResp] = await Promise.all([
+        apiClient.get('/api/tracks?limit=60'),
+        apiClient.get('/api/albums?limit=40'),
+        apiClient.get('/api/artists?limit=40'),
+        apiClient.get('/api/public/stats').catch(() => ({ data: null }))
       ]);
-      
-      setNewReleases(tracksRes.data.slice(0, 6));
-      setTopTracks(tracksRes.data.sort((a, b) => b.likes_count - a.likes_count).slice(0, 6));
-      setFeaturedAlbums(albumsRes.data);
-      setFeaturedArtists(artistsRes.data);
-    } catch (error) {
-      console.error('Error fetching home data:', error);
+
+      const getTotalFromResp = (payload, fallback = 0) => {
+        const p = payload;
+        const candidates = [
+          p?.total,
+          p?.count,
+          p?.total_count,
+          p?.totalCount,
+          p?.meta?.total,
+          p?.meta?.count,
+          p?.pagination?.total,
+          p?.pagination?.count
+        ];
+        const n = candidates.map((v) => Number(v)).find((v) => Number.isFinite(v) && v >= 0);
+        return Number.isFinite(n) ? n : fallback;
+      };
+
+      const tracks = normalizeApiList(tracksResp.data)
+        .filter(isPublicItem)
+        .map((t) => ({
+          ...t,
+          preview_url: resolveApiUrl(t?.preview_url),
+          file_url: resolveApiUrl(t?.file_url),
+          cover_url: resolveApiUrl(t?.cover_url)
+        }));
+      const albums = normalizeApiList(albumsResp.data)
+        .filter(isPublicItem)
+        .map((a) => ({
+          ...a,
+          cover_url: resolveApiUrl(a?.cover_url)
+        }));
+      const artists = normalizeApiList(artistsResp.data).map((a) => ({
+        ...a,
+        picture: resolveApiUrl(a?.picture)
+      }));
+
+      const weekMs = 7 * 24 * 60 * 60 * 1000;
+      const weekCutoff = Date.now() - weekMs;
+      const createdMs = (iso) => {
+        if (!iso) return 0;
+        const t = Date.parse(iso);
+        return Number.isFinite(t) ? t : 0;
+      };
+
+      const tracksThisWeek = tracks
+        .filter((t) => createdMs(t.created_at) >= weekCutoff)
+        .sort((a, b) => createdMs(b.created_at) - createdMs(a.created_at))
+        .slice(0, 6);
+      setNewReleases(tracksThisWeek);
+
+      setTopTracks(
+        [...tracks].sort((a, b) => (b.play_count || 0) - (a.play_count || 0)).slice(0, 6)
+      );
+
+      const albumsWeek = albums
+        .filter((a) => createdMs(a.created_at) >= weekCutoff)
+        .sort((a, b) => createdMs(b.created_at) - createdMs(a.created_at))
+        .slice(0, 8);
+      setNewAlbumsThisWeek(albumsWeek);
+
+      const playsForAlbum = (albumId) =>
+        tracks
+          .filter((t) => t.album_id === albumId)
+          .reduce((s, t) => s + (Number(t.play_count) || 0), 0);
+
+      setFeaturedAlbums(
+        [...albums].sort((a, b) => playsForAlbum(b.album_id) - playsForAlbum(a.album_id)).slice(0, 8)
+      );
+      setFeaturedArtists(artists.slice(0, 8));
+
+      // Prefer backend aggregated stats, but fall back to list endpoint totals when available.
+      const apiStats = statsResp?.data && typeof statsResp.data === 'object' ? statsResp.data : {};
+      const fallbackTracks = getTotalFromResp(tracksResp.data, tracks.length);
+      const fallbackArtists = getTotalFromResp(artistsResp.data, artists.length);
+      const fallbackUsers =
+        Number(apiStats?.users_count) ||
+        Number(apiStats?.users) ||
+        0;
+
+      setPublicStats({
+        ...apiStats,
+        tracks_count: Number(apiStats?.tracks_count ?? apiStats?.tracks) || fallbackTracks,
+        artists_count: Number(apiStats?.artists_count ?? apiStats?.artists) || fallbackArtists,
+        users_count: Number(apiStats?.users_count ?? apiStats?.users) || fallbackUsers
+      });
     } finally {
       setLoading(false);
     }
@@ -77,24 +160,15 @@ const Home = () => {
     <div className="min-h-screen relative overflow-hidden">
       {/* Animated Background */}
       <BubbleBackground />
-      
+
+
       {/* Glow Orbs */}
       <GlowOrb color="cyan" size={600} x="20%" y="30%" blur={150} />
       <GlowOrb color="purple" size={500} x="80%" y="60%" blur={120} />
       <GlowOrb color="pink" size={400} x="50%" y="90%" blur={100} />
 
       {/* Hero Section */}
-      <section className="relative min-h-[95vh] flex items-center justify-center px-6 overflow-hidden">
-        {/* Background Image with Overlay */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center opacity-30"
-          style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1726650683763-a6ba2bf5ea27?crop=entropy&cs=srgb&fm=jpg&q=85')`,
-            filter: 'blur(2px)'
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/80 to-background" />
-        
+      <section className="relative min-h-[100vh] flex items-center justify-center px-2 overflow-hidden">
         <div className="relative z-10 max-w-5xl mx-auto text-center space-y-10">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -133,7 +207,7 @@ const Home = () => {
               className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
               data-testid="hero-description"
             >
-              Pandore réinvente l'achat de musique numérique. Achetez, téléchargez et gardez vos titres préférés pour toujours.
+              Kloud réinvente l'achat de musique numérique. Achetez, téléchargez et gardez vos titres préférés pour toujours.
             </p>
           </motion.div>
 
@@ -167,36 +241,80 @@ const Home = () => {
             </Link>
           </motion.div>
 
-          {/* Floating Stats */}
+          {/* Public stats */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex justify-center gap-8 md:gap-16 pt-12"
+            className="pt-10"
+            data-testid="hero-stats"
           >
-            {[
-              { value: "500+", label: "Titres", delay: 0 },
-              { value: "50+", label: "Artistes", delay: 1 },
-              { value: "75+", label: "Albums", delay: 2 }
-            ].map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                custom={stat.delay}
-                variants={floatVariants}
-                animate="animate"
-                className="text-center glass-bubble rounded-2xl px-6 py-4"
-              >
-                <div className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
-              </motion.div>
-            ))}
+            <div className="flex items-center justify-center gap-5 sm:gap-6 flex-wrap">
+              {(() => {
+                const nf = new Intl.NumberFormat('fr-FR');
+                const artistsCount =
+                  Number(publicStats?.artists_count) ||
+                  Number(publicStats?.artists) || 0;
+                const tracksCount =
+                  Number(publicStats?.tracks_count) ||
+                  Number(publicStats?.tracks) || 0;
+                const usersCount =
+                  Number(publicStats?.users_count) ||
+                  Number(publicStats?.users) || 0;
+
+                const cards = [
+                  {
+                    id: 'stat-tracks',
+                    value: nf.format(tracksCount),
+                    label: 'Tracks',
+                    Icon: Music,
+                    gradient: 'from-cyan-400 to-purple-400'
+                  },
+                  {
+                    id: 'stat-artists',
+                    value: nf.format(artistsCount),
+                    label: 'Artistes',
+                    Icon: TrendingUp,
+                    gradient: 'from-purple-400 to-pink-400'
+                  },
+                  {
+                    id: 'stat-users',
+                    value: nf.format(usersCount),
+                    label: 'Users',
+                    Icon: Users,
+                    gradient: 'from-pink-400 to-cyan-400'
+                  }
+                ];
+
+                return cards.map((card, idx) => (
+                  <motion.div
+                    key={card.id}
+                    custom={idx}
+                    variants={floatVariants}
+                    animate="animate"
+                    className="group relative rounded-2xl px-6 py-4 text-center min-w-[156px] border backdrop-blur-md bg-white/95 border-slate-200/90 shadow-md shadow-slate-900/5 dark:bg-white/[0.04] dark:border-white/10 dark:shadow-[0_0_30px_rgba(0,0,0,0.28)]"
+                  >
+                    <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-b from-slate-100/80 to-transparent dark:from-white/[0.06] dark:to-transparent" />
+                    <div className="relative flex items-center justify-center gap-2.5">
+                      <span className={`inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${card.gradient} opacity-90`}>
+                        <card.Icon className="w-4 h-4 text-zinc-900/90 dark:text-black/80" />
+                      </span>
+                      <div className={`text-3xl md:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r ${card.gradient}`}>
+                        {card.value}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:text-white/55">
+                      {card.label}
+                    </div>
+                  </motion.div>
+                ));
+              })()}
+            </div>
           </motion.div>
         </div>
 
         {/* Scroll Indicator */}
-        <motion.div
+        {/* <motion.div
           className="absolute bottom-8 left-1/2 -translate-x-1/2"
           animate={{ y: [0, 10, 0] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -204,12 +322,12 @@ const Home = () => {
           <div className="w-6 h-10 rounded-full border-2 border-white/20 flex justify-center pt-2">
             <div className="w-1 h-2 bg-primary rounded-full" />
           </div>
-        </motion.div>
+        </motion.div> */}
       </section>
 
       {/* New Releases - Floating Cards */}
-      <section className="relative py-32 px-6 md:px-12">
-        <GlowOrb color="cyan" size={400} x="10%" y="50%" blur={100} />
+      <section className="relative py-16 px-6 md:px-12">
+        <GlowOrb color="cyan" size={400} x="0%" y="50%" blur={100} />
         
         <div className="max-w-7xl mx-auto relative z-10">
           <motion.div
@@ -226,7 +344,9 @@ const Home = () => {
                 <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
                   Nouveautés
                 </h2>
-                <p className="text-muted-foreground mt-2 text-lg">Les dernières sorties des artistes</p>
+                <p className="text-muted-foreground mt-2 text-lg">
+                  Sorties des 7 derniers jours (tracks)
+                </p>
               </div>
               <Link to="/browse">
                 <Button variant="ghost" className="rounded-full glass hover:bg-white/10">
@@ -241,6 +361,8 @@ const Home = () => {
                   <div key={i} className="aspect-square rounded-3xl glass animate-pulse" />
                 ))}
               </div>
+            ) : newReleases.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Aucune sortie cette semaine pour l’instant.</p>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                 {newReleases.map((track, index) => (
@@ -256,12 +378,26 @@ const Home = () => {
                 ))}
               </div>
             )}
+            {!loading && newAlbumsThisWeek.length > 0 && (
+              <>
+                <motion.h3 variants={itemVariants} className="text-2xl font-bold mt-14 mb-6">
+                  Albums de la semaine
+                </motion.h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                  {newAlbumsThisWeek.map((album, index) => (
+                    <motion.div key={album.album_id} variants={itemVariants} className={`animate-float-slow stagger-${(index % 4) + 1}`}>
+                      <AlbumCard album={album} />
+                    </motion.div>
+                  ))}
+                </div>
+              </>
+            )}
           </motion.div>
         </div>
       </section>
 
       {/* Top Tracks */}
-      <section className="relative py-32 px-6 md:px-12">
+      <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="purple" size={500} x="90%" y="30%" blur={120} />
         
         <div className="max-w-7xl mx-auto relative z-10">
@@ -279,7 +415,7 @@ const Home = () => {
                 <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
                   Top du moment
                 </h2>
-                <p className="text-muted-foreground text-lg">Les tracks les plus aimés</p>
+                <p className="text-muted-foreground text-lg">Classés par nombre d’écoutes</p>
               </div>
             </motion.div>
 
@@ -304,7 +440,7 @@ const Home = () => {
       </section>
 
       {/* Featured Albums */}
-      <section className="relative py-32 px-6 md:px-12">
+      <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="pink" size={400} x="20%" y="60%" blur={100} />
         
         <div className="max-w-7xl mx-auto relative z-10">
@@ -322,7 +458,7 @@ const Home = () => {
                 <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
                   Albums
                 </h2>
-                <p className="text-muted-foreground text-lg">Collections complètes à découvrir</p>
+                <p className="text-muted-foreground text-lg">Les plus écoutés (somme des écoutes des titres)</p>
               </div>
             </motion.div>
 
@@ -342,7 +478,7 @@ const Home = () => {
       </section>
 
       {/* Featured Artists - Circular Bubbles */}
-      <section className="relative py-32 px-6 md:px-12">
+      <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="cyan" size={500} x="70%" y="40%" blur={120} />
         
         <div className="max-w-7xl mx-auto relative z-10">
@@ -404,8 +540,8 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Why Pandore - Glass Cards */}
-      <section className="relative py-32 px-6 md:px-12">
+      {/* Why Kloud - Glass Cards */}
+      <section className="relative py-16 px-6 md:px-12">
         <div className="max-w-6xl mx-auto relative z-10">
           <motion.div
             initial="hidden"
@@ -415,7 +551,7 @@ const Home = () => {
           >
             <motion.div variants={itemVariants} className="text-center mb-16">
               <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">
-                Pourquoi <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Pandore</span> ?
+                Pourquoi <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Kloud</span> ?
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 Une nouvelle approche de la musique numérique
@@ -474,7 +610,7 @@ const Home = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="relative py-32 px-6 md:px-12">
+      <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="cyan" size={600} x="50%" y="50%" blur={150} />
         
         <div className="max-w-4xl mx-auto relative z-10">
