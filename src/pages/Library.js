@@ -178,7 +178,7 @@ const Library = () => {
               >
                 <LibraryIcon className="h-3.5 w-3.5 shrink-0 text-purple-300" />
                 <span className="text-sm font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-                  Ma collectiont
+                  Ma collection2
                 </span>
               </div>
               <h1
