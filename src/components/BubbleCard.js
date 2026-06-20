@@ -1,6 +1,33 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 
+const useLowPerfMode = () => {
+  const [lowPerf, setLowPerf] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mqMobile = window.matchMedia('(max-width: 768px)');
+    const mqReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const mqCoarse = window.matchMedia('(pointer: coarse)');
+
+    const update = () => {
+      setLowPerf(mqMobile.matches || mqReduced.matches || mqCoarse.matches);
+    };
+
+    update();
+    mqMobile.addEventListener('change', update);
+    mqReduced.addEventListener('change', update);
+    mqCoarse.addEventListener('change', update);
+    return () => {
+      mqMobile.removeEventListener('change', update);
+      mqReduced.removeEventListener('change', update);
+      mqCoarse.removeEventListener('change', update);
+    };
+  }, []);
+
+  return lowPerf;
+};
+
 const floatVariants = {
   initial: { y: 0 },
   animate: (custom) => ({
@@ -23,6 +50,7 @@ export const BubbleCard = ({
   onClick,
   testId
 }) => {
+  const lowPerfMode = useLowPerfMode();
   const glowStyles = {
     cyan: "hover:shadow-[0_0_30px_rgba(34,211,238,0.2)]",
     purple: "hover:shadow-[0_0_30px_rgba(139,92,246,0.2)]",
@@ -32,14 +60,18 @@ export const BubbleCard = ({
   return (
     <motion.div
       custom={{ delay, duration }}
-      variants={floatVariants}
-      initial="initial"
-      animate="animate"
-      whileHover={{ 
-        scale: 1.02, 
-        y: -20,
-        transition: { duration: 0.3 }
-      }}
+      variants={lowPerfMode ? undefined : floatVariants}
+      initial={lowPerfMode ? false : 'initial'}
+      animate={lowPerfMode ? false : 'animate'}
+      whileHover={
+        lowPerfMode
+          ? undefined
+          : {
+              scale: 1.02,
+              y: -20,
+              transition: { duration: 0.3 }
+            }
+      }
       className={`
         bubble-card
         ${glowStyles[glowColor] || glowStyles.cyan}
@@ -54,8 +86,9 @@ export const BubbleCard = ({
 };
 
 export const BubbleBackground = () => {
+  const lowPerfMode = useLowPerfMode();
   const [bubbles, setBubbles] = useState(() =>
-    Array.from({ length: 16 }, (_, i) => {
+    Array.from({ length: 10 }, (_, i) => {
       // Mouvement de base plus doux au chargement
       const speedBase = 0.25 + Math.random() * 0.35;
       const angle = Math.random() * Math.PI * 2;
@@ -80,6 +113,7 @@ export const BubbleBackground = () => {
   const animationFrameRef = useRef(null);
 
   useEffect(() => {
+    if (lowPerfMode) return;
     const handleMouseMove = (e) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
     };
@@ -103,9 +137,10 @@ export const BubbleBackground = () => {
         window.removeEventListener('scroll', handleScroll);
       }
     };
-  }, []);
+  }, [lowPerfMode]);
 
   useEffect(() => {
+    if (lowPerfMode) return;
     let lastTime = performance.now();
 
     const animate = (time) => {
@@ -197,7 +232,9 @@ export const BubbleBackground = () => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, []);
+  }, [lowPerfMode]);
+
+  if (lowPerfMode) return null;
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -346,8 +383,9 @@ const NoteSvg = ({ variant = 0 }) => {
 };
 
 export const MusicNoteBackground = () => {
+  const lowPerfMode = useLowPerfMode();
   const [notes, setNotes] = useState(() =>
-    Array.from({ length: 18 }, (_, i) => {
+    Array.from({ length: 10 }, (_, i) => {
       const speedBase = 0.22 + Math.random() * 0.38;
       const angle = Math.random() * Math.PI * 2;
       const size = Math.random() * 70 + 46;
@@ -373,6 +411,7 @@ export const MusicNoteBackground = () => {
   const animationFrameRef = useRef(null);
 
   useEffect(() => {
+    if (lowPerfMode) return;
     const handleMouseMove = (e) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
     };
@@ -396,9 +435,10 @@ export const MusicNoteBackground = () => {
         window.removeEventListener('scroll', handleScroll);
       }
     };
-  }, []);
+  }, [lowPerfMode]);
 
   useEffect(() => {
+    if (lowPerfMode) return;
     let lastTime = performance.now();
 
     const animate = (time) => {
@@ -480,7 +520,9 @@ export const MusicNoteBackground = () => {
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, []);
+  }, [lowPerfMode]);
+
+  if (lowPerfMode) return null;
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -523,23 +565,34 @@ export const MusicNoteBubbleBackground = () => {
 };
 
 export const GlowOrb = ({ color = "cyan", size = 300, x = "50%", y = "50%", blur = 100 }) => {
+  const lowPerfMode = useLowPerfMode();
   const colors = {
     cyan: "rgba(34, 211, 238, 0.15)",
     purple: "rgba(139, 92, 246, 0.12)",
     pink: "rgba(244, 114, 182, 0.1)"
   };
 
+  const effectiveSize = lowPerfMode ? Math.round(size * 0.55) : size;
+  const effectiveBlur = lowPerfMode ? Math.round(blur * 0.45) : blur;
+  const effectiveOpacityColor = lowPerfMode
+    ? {
+        cyan: "rgba(34, 211, 238, 0.08)",
+        purple: "rgba(139, 92, 246, 0.07)",
+        pink: "rgba(244, 114, 182, 0.06)"
+      }
+    : colors;
+
   return (
     <div
-      className="absolute pointer-events-none animate-breathe"
+      className={`absolute pointer-events-none ${lowPerfMode ? '' : 'animate-breathe'}`}
       style={{
-        width: size,
-        height: size,
+        width: effectiveSize,
+        height: effectiveSize,
         left: x,
         top: y,
         transform: 'translate(-50%, -50%)',
-        background: `radial-gradient(circle, ${colors[color] || colors.cyan} 0%, transparent 70%)`,
-        filter: `blur(${blur}px)`
+        background: `radial-gradient(circle, ${effectiveOpacityColor[color] || effectiveOpacityColor.cyan} 0%, transparent 70%)`,
+        filter: `blur(${effectiveBlur}px)`
       }}
     />
   );
