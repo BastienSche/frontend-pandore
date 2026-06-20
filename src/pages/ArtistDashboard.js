@@ -1169,12 +1169,13 @@ const ArtistDashboard = () => {
       </div>
 
       {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-8 bg-slate-50 border border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none rounded-full p-1.5">
+          <div className="mb-8">
+          <TabsList className="bg-slate-50 border border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none rounded-2xl sm:rounded-full p-1.5 w-full sm:w-auto h-auto grid grid-cols-1 sm:inline-flex sm:h-9">
             <TabsTrigger 
               value="overview" 
-              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-6"
+              className="gap-2 rounded-xl sm:rounded-full justify-start sm:justify-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-3 sm:px-6 py-2 sm:py-1"
               data-testid="tab-overview"
             >
               <BarChart3 className="w-4 h-4" />
@@ -1182,7 +1183,7 @@ const ArtistDashboard = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="tracks" 
-              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500/20 data-[state=active]:to-purple-500/20 px-6"
+              className="gap-2 rounded-xl sm:rounded-full justify-start sm:justify-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500/20 data-[state=active]:to-purple-500/20 px-3 sm:px-6 py-2 sm:py-1"
               data-testid="tab-tracks"
             >
               <Music className="w-4 h-4" />
@@ -1190,7 +1191,7 @@ const ArtistDashboard = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="albums" 
-              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-6"
+              className="gap-2 rounded-xl sm:rounded-full justify-start sm:justify-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-3 sm:px-6 py-2 sm:py-1"
               data-testid="tab-albums"
             >
               <Disc className="w-4 h-4" />
@@ -1198,13 +1199,14 @@ const ArtistDashboard = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="stats" 
-              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500/20 data-[state=active]:to-cyan-500/20 px-6"
+              className="gap-2 rounded-xl sm:rounded-full justify-start sm:justify-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500/20 data-[state=active]:to-cyan-500/20 px-3 sm:px-6 py-2 sm:py-1"
               data-testid="tab-stats"
             >
               <TrendingUp className="w-4 h-4" />
               Statistiques
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-8">
