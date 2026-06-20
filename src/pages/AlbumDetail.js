@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Play, Pause, Heart, ShoppingCart, Music, Loader2, Clock, User, Check, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/useAuth';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -33,6 +34,8 @@ const availabilityLabel = (v) => {
 const AlbumDetail = () => {
   const { albumId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const { currentTrack, isPlaying, playTrack, setQueue } = useAudioPlayer();
   const [album, setAlbum] = useState(null);
   const [tracks, setTracks] = useState([]);
@@ -106,6 +109,15 @@ const AlbumDetail = () => {
   const handlePurchase = async () => {
     if (!albumId) {
       toast.error('Album introuvable');
+      return;
+    }
+    if (!isAuthenticated) {
+      toast.info('Connecte-toi ou crée un compte pour acheter cet album.');
+      navigate('/login', {
+        state: {
+          from: location.pathname
+        }
+      });
       return;
     }
     setPurchasing(true);
