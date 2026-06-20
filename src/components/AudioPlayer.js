@@ -82,7 +82,7 @@ const AudioPlayer = () => {
     <AnimatePresence>
       <div ref={constraintsRef} className="fixed inset-0 z-50 pointer-events-none">
         {/* Center with flex so Framer `x`/`y` drag offsets do not replace Tailwind’s -translate-x-1/2 (which skewed the bar right). */}
-        <div className="pointer-events-none fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-6 left-0 right-0 z-50 flex justify-center px-3 sm:px-4">
+        <div className="pointer-events-none fixed bottom-[calc(6.25rem+env(safe-area-inset-bottom))] md:bottom-6 left-0 right-0 z-50 flex justify-center px-2 sm:px-4">
           <motion.div
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -111,7 +111,7 @@ const AudioPlayer = () => {
               }
             }}
           >
-          <div className="glass-heavy rounded-3xl p-4 md:p-5 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
+          <div className="glass-heavy rounded-3xl p-3 md:p-5 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
             <div
               className="absolute left-0 right-0 top-0 h-6 cursor-grab active:cursor-grabbing"
               onPointerDown={(e) => {
@@ -166,9 +166,9 @@ const AudioPlayer = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 md:gap-6">
+          <div className="flex items-center gap-3 md:gap-6">
             {/* Track Info */}
-            <div className="flex items-center gap-4 flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 md:gap-4 flex-1 min-w-0">
               {currentTrack.cover_url && (
                 <motion.div
                   animate={{ rotate: isPlaying ? 360 : 0 }}
@@ -178,7 +178,7 @@ const AudioPlayer = () => {
                   <img
                     src={currentTrack.cover_url}
                     alt={currentTrack.title}
-                    className="w-14 h-14 md:w-16 md:h-16 rounded-2xl object-cover shadow-lg"
+                    className="w-12 h-12 md:w-16 md:h-16 rounded-2xl object-cover shadow-lg"
                   />
                   {isPlaying && (
                     <div className="absolute inset-0 rounded-2xl border-2 border-cyan-500/50 animate-pulse" />
@@ -187,13 +187,13 @@ const AudioPlayer = () => {
               )}
               <div className="min-w-0">
                 <h4 
-                  className="font-semibold text-sm md:text-base truncate"
+                  className="font-semibold text-xs sm:text-sm md:text-base truncate"
                   data-testid="player-track-title"
                 >
                   {currentTrack.title}
                 </h4>
                 <p 
-                  className="text-xs md:text-sm text-muted-foreground truncate"
+                  className="text-[11px] sm:text-xs md:text-sm text-muted-foreground truncate"
                   data-testid="player-artist-name"
                 >
                   {currentTrack.artist_name}
@@ -208,29 +208,29 @@ const AudioPlayer = () => {
             </div>
 
             {/* Controls */}
-            <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="rounded-full w-10 h-10 hover:bg-white/10"
+                className="rounded-full w-8 h-8 md:w-10 md:h-10 hover:bg-white/10"
                 data-testid="player-previous-button"
                 onClick={prev}
               >
-                <SkipBack className="w-5 h-5" />
+                <SkipBack className="w-4 h-4 md:w-5 md:h-5" />
               </Button>
               
               <motion.div whileTap={{ scale: 0.95 }}>
                 <Button
                   variant="default"
                   size="icon"
-                  className="rounded-full w-14 h-14 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0 shadow-[0_0_25px_rgba(34,211,238,0.4)]"
+                  className="rounded-full w-11 h-11 md:w-14 md:h-14 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0 shadow-[0_0_25px_rgba(34,211,238,0.4)]"
                   onClick={() => (isPlaying ? pause() : playTrack(currentTrack))}
                   data-testid="player-play-pause-button"
                 >
                   {isPlaying ? (
-                    <Pause className="w-6 h-6 text-white" />
+                    <Pause className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   ) : (
-                    <Play className="w-6 h-6 text-white ml-0.5" />
+                    <Play className="w-5 h-5 md:w-6 md:h-6 text-white ml-0.5" />
                   )}
                 </Button>
               </motion.div>
@@ -238,11 +238,11 @@ const AudioPlayer = () => {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="rounded-full w-10 h-10 hover:bg-white/10"
+                className="rounded-full w-8 h-8 md:w-10 md:h-10 hover:bg-white/10"
                 data-testid="player-next-button"
                 onClick={next}
               >
-                <SkipForward className="w-5 h-5" />
+                <SkipForward className="w-4 h-4 md:w-5 md:h-5" />
               </Button>
             </div>
 

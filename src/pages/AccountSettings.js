@@ -212,7 +212,7 @@ const AccountSettings = () => {
       <GlowOrb color="purple" size={420} x="85%" y="70%" blur={130} />
 
       <div className="relative pt-28 pb-10 px-4 md:px-8">
-        <div className="max-w-5xl mx-auto relative z-10 flex items-end justify-between gap-6">
+        <div className="max-w-5xl mx-auto relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6">
           <div>
             <Badge className="mb-4 bg-white/5 text-muted-foreground border-white/10">
               <Settings className="w-3.5 h-3.5 mr-2 inline" />
@@ -231,7 +231,7 @@ const AccountSettings = () => {
           <Button
             onClick={saveAll}
             disabled={saving}
-            className="rounded-full px-7 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0 shadow-[0_0_25px_rgba(34,211,238,0.25)]"
+            className="rounded-full px-7 w-full sm:w-auto bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0 shadow-[0_0_25px_rgba(34,211,238,0.25)]"
             data-testid="settings-save"
           >
             <Save className="w-4 h-4 mr-2" />
@@ -242,25 +242,27 @@ const AccountSettings = () => {
 
       <div className="max-w-5xl mx-auto px-4 md:px-8 relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-8 bg-white/5 border border-white/10 rounded-full p-1.5">
-            <TabsTrigger value="account" className="rounded-full px-5 gap-2">
+          <div className="mb-8 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabsList className="bg-white/5 border border-white/10 rounded-full p-1.5 w-max min-w-full sm:min-w-0">
+            <TabsTrigger value="account" className="rounded-full px-3 sm:px-5 gap-2">
               <User className="w-4 h-4" /> Compte
             </TabsTrigger>
-            <TabsTrigger value="audio" className="rounded-full px-5 gap-2">
+            <TabsTrigger value="audio" className="rounded-full px-3 sm:px-5 gap-2">
               <Headphones className="w-4 h-4" /> Audio
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="rounded-full px-5 gap-2">
+            <TabsTrigger value="notifications" className="rounded-full px-3 sm:px-5 gap-2">
               <Bell className="w-4 h-4" /> Notifications
             </TabsTrigger>
-            <TabsTrigger value="privacy" className="rounded-full px-5 gap-2">
+            <TabsTrigger value="privacy" className="rounded-full px-3 sm:px-5 gap-2">
               <Shield className="w-4 h-4" /> Confidentialité
             </TabsTrigger>
             {roleTargetIsArtist && (
-              <TabsTrigger value="artist" className="rounded-full px-5 gap-2">
+              <TabsTrigger value="artist" className="rounded-full px-3 sm:px-5 gap-2">
                 <Sparkles className="w-4 h-4" /> Artiste
               </TabsTrigger>
             )}
-          </TabsList>
+            </TabsList>
+          </div>
 
           <TabsContent value="account">
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6">
@@ -287,7 +289,7 @@ const AccountSettings = () => {
                   <CardTitle>Mode</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
                     <div>
                       <p className="font-medium">Activer le mode Artiste</p>
                       <p className="text-sm text-muted-foreground">
@@ -347,7 +349,7 @@ const AccountSettings = () => {
                   ].map((item) => (
                     <div
                       key={item.key}
-                      className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10"
                     >
                       <div>
                         <p className="font-medium">{item.title}</p>
@@ -383,7 +385,7 @@ const AccountSettings = () => {
                   ].map((item) => (
                     <div
                       key={item.key}
-                      className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10"
                     >
                       <div>
                         <p className="font-medium">{item.title}</p>
@@ -426,7 +428,7 @@ const AccountSettings = () => {
                   ].map((item) => (
                     <div
                       key={item.key}
-                      className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10"
                     >
                       <div>
                         <p className="font-medium">{item.title}</p>
@@ -492,7 +494,7 @@ const AccountSettings = () => {
                       <Label>Liens</Label>
                       <div className="space-y-2">
                         {(artistProfile.links || []).map((link, idx) => (
-                          <div key={idx} className="flex gap-2">
+                          <div key={idx} className="flex flex-col sm:flex-row gap-2">
                             <Input
                               value={link}
                               onChange={(e) =>
@@ -507,7 +509,7 @@ const AccountSettings = () => {
                             <Button
                               type="button"
                               variant="outline"
-                              className="rounded-xl glass border-white/10"
+                              className="rounded-xl glass border-white/10 w-full sm:w-auto"
                               onClick={() =>
                                 setArtistProfile((p) => ({
                                   ...p,

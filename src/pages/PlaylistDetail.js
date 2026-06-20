@@ -105,11 +105,11 @@ const PlaylistDetail = () => {
           </h1>
           {playlist.description && <p className="text-muted-foreground">{playlist.description}</p>}
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-col sm:flex-row gap-3">
             <Button
               onClick={playAll}
               disabled={!resolvedTracks.length}
-              className="rounded-full px-7 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 border-0"
+              className="rounded-full px-7 w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 border-0"
               data-testid="playlist-play-all"
             >
               <Play className="w-4 h-4 mr-2" />
@@ -117,7 +117,7 @@ const PlaylistDetail = () => {
             </Button>
             <Button
               variant="outline"
-              className="rounded-full glass border-white/15"
+              className="rounded-full glass border-white/15 w-full sm:w-auto"
               onClick={() => navigate('/browse')}
             >
               Ajouter des titres
@@ -147,23 +147,24 @@ const PlaylistDetail = () => {
               <motion.div key={t.track_id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                 <Card className="glass-heavy rounded-3xl border-white/10">
                   <CardHeader className="py-4">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="min-w-0">
                         <CardTitle className="truncate">{t.title}</CardTitle>
                         <p className="text-sm text-muted-foreground truncate">{t.artist_name}</p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 shrink-0 w-full sm:w-auto">
                         <Button
-                          className="rounded-full"
+                          className="rounded-full flex-1 sm:flex-none"
                           onClick={() => setQueue(resolvedTracks, idx)}
                           data-testid={`playlist-play-${t.track_id}`}
                         >
                           <Play className="w-4 h-4 mr-2" />
-                          Lire
+                          <span className="sm:inline">Lire</span>
                         </Button>
                         <Button
                           variant="outline"
-                          className="rounded-full glass border-white/15 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30"
+                          size="icon"
+                          className="rounded-full glass border-white/15 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 shrink-0"
                           onClick={() => removeTrack(t.track_id)}
                           data-testid={`playlist-remove-${t.track_id}`}
                         >

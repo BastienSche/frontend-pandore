@@ -144,7 +144,7 @@ const Playlists = () => {
               <Badge className="mb-4 bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
                 Playlists
               </Badge>
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tighter mb-4" data-testid="playlists-title">
+              <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold tracking-tighter mb-4" data-testid="playlists-title">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400">
                   Mes Playlists
                 </span>
@@ -234,9 +234,9 @@ const Playlists = () => {
                 data-testid={`playlist-card-${playlist.playlist_id}`}
               >
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="mb-2">{playlist.name}</CardTitle>
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="mb-2 truncate">{playlist.name}</CardTitle>
                       {playlist.description && (
                         <p className="text-sm text-muted-foreground line-clamp-2">
                           {playlist.description}
@@ -245,7 +245,7 @@ const Playlists = () => {
                     </div>
                     <Badge
                       variant="secondary"
-                      className={`ml-2 border ${playlist.visibility === 'public'
+                      className={`border shrink-0 self-start ${playlist.visibility === 'public'
                         ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                         : 'bg-white/5 text-muted-foreground border-white/10'
                       }`}
@@ -263,7 +263,7 @@ const Playlists = () => {
                       </span>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         className="flex-1 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 border-0"
                         onClick={() => navigate(`/playlist/${playlist.playlist_id}`)}

@@ -108,7 +108,7 @@ const TrackCard = ({ track }) => {
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             whileHover={{ scale: 1 }}
-            className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            className="absolute bottom-4 right-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300"
           >
             <Button
               variant="default"
@@ -161,7 +161,7 @@ const TrackCard = ({ track }) => {
           
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex flex-wrap items-center gap-1.5 pr-1 sm:overflow-x-auto sm:whitespace-nowrap sm:flex-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {splitGenreTags(track.genre).map((g, i) => (
                   <Badge
                     key={`${track.track_id}-genre-${i}`}

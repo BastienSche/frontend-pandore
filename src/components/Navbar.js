@@ -51,7 +51,12 @@ const Navbar = () => {
     }
   };
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => {
+    const pathname = location.pathname;
+    if (path === '/') return pathname === '/';
+    if (path === '/playlists') return pathname === '/playlists' || pathname.startsWith('/playlist/');
+    return pathname === path || pathname.startsWith(`${path}/`);
+  };
 
   const NavLink = ({ to, icon: Icon, children, testId }) => (
     <Link to={to} data-testid={testId}>
@@ -90,26 +95,28 @@ const Navbar = () => {
 
   const MobileBottomNav = () => (
     <nav
-      className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 md:hidden w-[calc(100%-1rem)] max-w-md"
+      className="fixed bottom-2 left-1/2 -translate-x-1/2 z-50 md:hidden w-[calc(100%-0.75rem)] max-w-lg pb-[env(safe-area-inset-bottom)]"
       data-testid="mobile-bottom-navbar"
     >
-      <div className="glass-heavy rounded-2xl border border-white/10 px-2 py-2 shadow-[0_0_30px_rgba(0,0,0,0.35)]">
+      <div className="glass-heavy rounded-2xl border border-white/10 px-1.5 py-1.5 shadow-[0_0_30px_rgba(0,0,0,0.35)]">
         <div className="flex items-center justify-between gap-1">
           {mobileItems.map(({ to, icon: Icon, label, testId }) => (
-            <Link key={to} to={to} className="flex-1" data-testid={testId}>
-              <Button
-                variant="ghost"
-                className={`h-auto w-full rounded-xl px-1.5 py-2.5 flex-col gap-1 text-[11px] ${
-                  isActive(to)
-                    ? 'bg-white/10 text-cyan-400 border border-cyan-500/30'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
-                }`}
-                data-testid={`${testId}-button`}
-              >
-                <Icon className="w-[18px] h-[18px]" />
-                <span className="leading-none">{label}</span>
-              </Button>
-            </Link>
+            <Button
+              key={to}
+              asChild
+              variant="ghost"
+              className={`h-auto min-h-11 w-full flex-1 rounded-xl px-1 py-2 flex-col gap-0.5 text-[10px] leading-tight whitespace-normal ${
+                isActive(to)
+                  ? 'bg-white/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+              }`}
+              data-testid={`${testId}-button`}
+            >
+              <Link to={to} data-testid={testId}>
+                <Icon className="w-[18px] h-[18px] shrink-0" />
+                <span className="leading-tight text-center">{label}</span>
+              </Link>
+            </Button>
           ))}
 
           <Button
