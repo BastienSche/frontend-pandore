@@ -111,6 +111,7 @@ export const BubbleBackground = () => {
     typeof window !== 'undefined' ? window.scrollY : 0
   );
   const animationFrameRef = useRef(null);
+  const lastRenderedAtRef = useRef(0);
 
   useEffect(() => {
     if (lowPerfMode) return;
@@ -142,8 +143,18 @@ export const BubbleBackground = () => {
   useEffect(() => {
     if (lowPerfMode) return;
     let lastTime = performance.now();
+    const targetFrameMs = 1000 / 30; // 30fps cap to reduce CPU/GPU pressure
 
     const animate = (time) => {
+      if (document.hidden) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      if (time - lastRenderedAtRef.current < targetFrameMs) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      lastRenderedAtRef.current = time;
       const dt = Math.min((time - lastTime) / 16.67, 2);
       lastTime = time;
 
@@ -409,6 +420,7 @@ export const MusicNoteBackground = () => {
   const scrollDeltaRef = useRef(0);
   const lastScrollYRef = useRef(typeof window !== 'undefined' ? window.scrollY : 0);
   const animationFrameRef = useRef(null);
+  const lastRenderedAtRef = useRef(0);
 
   useEffect(() => {
     if (lowPerfMode) return;
@@ -440,8 +452,18 @@ export const MusicNoteBackground = () => {
   useEffect(() => {
     if (lowPerfMode) return;
     let lastTime = performance.now();
+    const targetFrameMs = 1000 / 24; // notes are decorative only
 
     const animate = (time) => {
+      if (document.hidden) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      if (time - lastRenderedAtRef.current < targetFrameMs) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      lastRenderedAtRef.current = time;
       const dt = Math.min((time - lastTime) / 16.67, 2);
       lastTime = time;
 

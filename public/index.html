@@ -103,11 +103,17 @@
                     }),
                     (e.__SV = 1));
             })(document, window.posthog || []);
+            var isLowPerfClient =
+                (window.matchMedia &&
+                    (window.matchMedia("(max-width: 768px)").matches ||
+                        window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+                        window.matchMedia("(pointer: coarse)").matches)) ||
+                false;
             posthog.init("phc_xAvL2Iq4tFmANRE7kzbKwaSqp1HJjN7x48s3vr0CMjs", {
                 api_host: "https://us.i.posthog.com",
                 person_profiles: "identified_only", // or 'always' to create profiles for anonymous users as well,
                 session_recording: {
-                    recordCrossOriginIframes: true,
+                    recordCrossOriginIframes: !isLowPerfClient,
                 },
             });
         </script>
