@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Play, Pause, Heart, ShoppingCart, Music, Loader2, Clock, User, Check, ListPlus, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/useAuth';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -34,6 +35,8 @@ const availabilityLabel = (v) => {
 const TrackDetail = () => {
   const { trackId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const { currentTrack, isPlaying, playTrack } = useAudioPlayer();
   const [track, setTrack] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -108,6 +111,15 @@ const TrackDetail = () => {
   const handlePurchase = async () => {
     if (!trackId) {
       toast.error('Track introuvable');
+      return;
+    }
+    if (!isAuthenticated) {
+      toast.info('Connecte-toi ou crée un compte pour acheter ce titre.');
+      navigate('/login', {
+        state: {
+          from: location.pathname
+        }
+      });
       return;
     }
     setPurchasing(true);

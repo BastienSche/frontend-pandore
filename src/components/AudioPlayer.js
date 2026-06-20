@@ -68,7 +68,7 @@ const AudioPlayer = () => {
     <AnimatePresence>
       <div ref={constraintsRef} className="fixed inset-0 z-50 pointer-events-none">
         {/* Center with flex so Framer `x`/`y` drag offsets do not replace Tailwind’s -translate-x-1/2 (which skewed the bar right). */}
-        <div className="pointer-events-none fixed bottom-6 left-0 right-0 z-50 flex justify-center px-3 sm:px-4">
+        <div className="pointer-events-none fixed bottom-24 md:bottom-6 left-0 right-0 z-50 flex justify-center px-3 sm:px-4">
           <motion.div
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}

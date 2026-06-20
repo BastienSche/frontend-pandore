@@ -73,30 +73,86 @@ const Navbar = () => {
     </Link>
   );
 
+  const mobileItems = user
+    ? [
+        { to: '/browse', icon: Home, label: 'Découvrir', testId: 'mobile-nav-browse' },
+        { to: '/library', icon: Library, label: 'Bibliothèque', testId: 'mobile-nav-library' },
+        { to: '/playlists', icon: Disc, label: 'Playlists', testId: 'mobile-nav-playlists' },
+        user.role === 'artist'
+          ? { to: '/artist-dashboard', icon: PlusCircle, label: 'Dashboard', testId: 'mobile-nav-dashboard' }
+          : { to: '/settings', icon: Settings, label: 'Compte', testId: 'mobile-nav-settings' },
+      ]
+    : [
+        { to: '/', icon: Home, label: 'Accueil', testId: 'mobile-nav-home' },
+        { to: '/login', icon: User, label: 'Connexion', testId: 'mobile-nav-login' },
+        { to: '/register', icon: PlusCircle, label: 'Inscription', testId: 'mobile-nav-register' },
+      ];
+
+  const MobileBottomNav = () => (
+    <nav
+      className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 md:hidden w-[calc(100%-1rem)] max-w-md"
+      data-testid="mobile-bottom-navbar"
+    >
+      <div className="glass-heavy rounded-2xl border border-white/10 px-2 py-2 shadow-[0_0_30px_rgba(0,0,0,0.35)]">
+        <div className="flex items-center justify-between gap-1">
+          {mobileItems.map(({ to, icon: Icon, label, testId }) => (
+            <Link key={to} to={to} className="flex-1" data-testid={testId}>
+              <Button
+                variant="ghost"
+                className={`h-auto w-full rounded-xl px-1.5 py-2.5 flex-col gap-1 text-[11px] ${
+                  isActive(to)
+                    ? 'bg-white/10 text-cyan-400 border border-cyan-500/30'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                }`}
+                data-testid={`${testId}-button`}
+              >
+                <Icon className="w-[18px] h-[18px]" />
+                <span className="leading-none">{label}</span>
+              </Button>
+            </Link>
+          ))}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="rounded-xl w-10 h-10 border border-white/10 shrink-0 text-muted-foreground hover:text-foreground hover:bg-white/5"
+            data-testid="mobile-theme-toggle-button"
+          >
+            {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-yellow-400" />}
+          </Button>
+        </div>
+      </div>
+    </nav>
+  );
+
   // Minimized navbar (just a floating button)
   if (!isExpanded) {
     return (
       <>
-        <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40" />
-        <motion.div
-          drag
-          dragControls={dragControls}
-          dragMomentum={false}
-          dragConstraints={constraintsRef}
-          dragElastic={0.1}
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="fixed z-50 cursor-grab active:cursor-grabbing"
-          style={{ top: 20, left: '50%', x: '-50%' }}
-        >
-          <Button
-            onClick={() => setIsExpanded(true)}
-            className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 shadow-[0_0_30px_rgba(34,211,238,0.4)] hover:shadow-[0_0_40px_rgba(34,211,238,0.6)] border-0"
-            data-testid="navbar-expand-button"
+        <div className="hidden md:block">
+          <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40" />
+          <motion.div
+            drag
+            dragControls={dragControls}
+            dragMomentum={false}
+            dragConstraints={constraintsRef}
+            dragElastic={0.1}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="fixed z-50 cursor-grab active:cursor-grabbing"
+            style={{ top: 20, left: '50%', x: '-50%' }}
           >
-            <Menu className="w-6 h-6 text-white" />
-          </Button>
-        </motion.div>
+            <Button
+              onClick={() => setIsExpanded(true)}
+              className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 shadow-[0_0_30px_rgba(34,211,238,0.4)] hover:shadow-[0_0_40px_rgba(34,211,238,0.6)] border-0"
+              data-testid="navbar-expand-button"
+            >
+              <Menu className="w-6 h-6 text-white" />
+            </Button>
+          </motion.div>
+        </div>
+        <MobileBottomNav />
       </>
     );
   }
@@ -104,9 +160,9 @@ const Navbar = () => {
   return (
     <>
       {/* Drag constraints container */}
-      <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40" />
+      <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-40 hidden md:block" />
       
-      <motion.nav 
+      <motion.nav
         drag
         dragControls={dragControls}
         dragMomentum={false}
@@ -115,7 +171,7 @@ const Navbar = () => {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="fixed z-50 cursor-grab active:cursor-grabbing"
+        className="fixed z-50 cursor-grab active:cursor-grabbing hidden md:block"
         style={{ top: 16, left: '50%', x: '-50%' }}
         data-testid="draggable-navbar"
       >
@@ -293,6 +349,7 @@ const Navbar = () => {
           </div>
         </div>
       </motion.nav>
+      <MobileBottomNav />
     </>
   );
 };

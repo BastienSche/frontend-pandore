@@ -9,6 +9,8 @@ import { useAuth } from '@/hooks/useAuth';
 import Home from '@/pages/Home';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
 import Browse from '@/pages/Browse';
 import Library from '@/pages/Library';
 import LibraryTrackOwned from '@/pages/LibraryTrackOwned';
@@ -42,6 +44,8 @@ function AppRouter() {
         <Route path="/ui" element={<UiKit />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/nous-decouvrir" element={<NousDecouvrir />} />
         <Route
