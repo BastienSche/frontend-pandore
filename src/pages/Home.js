@@ -354,9 +354,9 @@ const Home = () => {
               })()}
             </div>
             <div className="mt-14 sm:mt-16 flex items-center justify-center px-2">
-              <div className="w-full max-w-3xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-full border border-cyan-400/35 bg-cyan-500/10 px-4 py-2.5 text-xs text-cyan-50 shadow-[0_0_22px_rgba(34,211,238,0.28)]">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/45 bg-cyan-400/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] self-center sm:self-auto">
-                  <Sparkles className="w-3 h-3 text-cyan-100" />
+              <div className="w-full max-w-3xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-full border border-slate-300/80 bg-white/90 px-4 py-2.5 text-xs text-slate-700 shadow-sm dark:border-cyan-400/35 dark:bg-cyan-500/10 dark:text-cyan-50 dark:shadow-[0_0_22px_rgba(34,211,238,0.28)]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-700 self-center sm:self-auto dark:border-cyan-300/45 dark:bg-cyan-400/20 dark:text-cyan-100">
+                  <Sparkles className="w-3 h-3 text-cyan-600 dark:text-cyan-100" />
                   Beta
                 </span>
                 <span className="text-center sm:text-left sm:flex-1 sm:px-2">
@@ -365,7 +365,7 @@ const Home = () => {
                 <button
                   type="button"
                   onClick={() => setFeedbackOpen(true)}
-                  className="rounded-full border border-cyan-200/60 bg-cyan-300/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-50 hover:bg-cyan-300/30 transition-colors self-center sm:self-auto"
+                  className="rounded-full border border-cyan-500/35 bg-cyan-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-700 hover:bg-cyan-200 transition-colors self-center sm:self-auto dark:border-cyan-200/60 dark:bg-cyan-300/20 dark:text-cyan-50 dark:hover:bg-cyan-300/30"
                 >
                   Retour
                 </button>
