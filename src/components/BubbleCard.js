@@ -2,11 +2,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 
 const useLowPerfMode = () => {
-  const [lowPerf, setLowPerf] = useState(false);
+  const [lowPerf, setLowPerf] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return (
+      window.matchMedia('(max-width: 900px)').matches ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      window.matchMedia('(pointer: coarse)').matches
+    );
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mqMobile = window.matchMedia('(max-width: 768px)');
+    const mqMobile = window.matchMedia('(max-width: 1024px)');
     const mqReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     const mqCoarse = window.matchMedia('(pointer: coarse)');
 
@@ -15,13 +22,22 @@ const useLowPerfMode = () => {
     };
 
     update();
-    mqMobile.addEventListener('change', update);
-    mqReduced.addEventListener('change', update);
-    mqCoarse.addEventListener('change', update);
+    const add = (mq) => {
+      if (mq.addEventListener) mq.addEventListener('change', update);
+      else if (mq.addListener) mq.addListener(update);
+    };
+    const remove = (mq) => {
+      if (mq.removeEventListener) mq.removeEventListener('change', update);
+      else if (mq.removeListener) mq.removeListener(update);
+    };
+
+    add(mqMobile);
+    add(mqReduced);
+    add(mqCoarse);
     return () => {
-      mqMobile.removeEventListener('change', update);
-      mqReduced.removeEventListener('change', update);
-      mqCoarse.removeEventListener('change', update);
+      remove(mqMobile);
+      remove(mqReduced);
+      remove(mqCoarse);
     };
   }, []);
 
@@ -594,19 +610,15 @@ export const GlowOrb = ({ color = "cyan", size = 300, x = "50%", y = "50%", blur
     pink: "rgba(244, 114, 182, 0.1)"
   };
 
-  const effectiveSize = lowPerfMode ? Math.round(size * 0.55) : size;
-  const effectiveBlur = lowPerfMode ? Math.round(blur * 0.45) : blur;
-  const effectiveOpacityColor = lowPerfMode
-    ? {
-        cyan: "rgba(34, 211, 238, 0.08)",
-        purple: "rgba(139, 92, 246, 0.07)",
-        pink: "rgba(244, 114, 182, 0.06)"
-      }
-    : colors;
+  if (lowPerfMode) return null;
+
+  const effectiveSize = size;
+  const effectiveBlur = blur;
+  const effectiveOpacityColor = colors;
 
   return (
     <div
-      className={`absolute pointer-events-none ${lowPerfMode ? '' : 'animate-breathe'}`}
+      className="absolute pointer-events-none animate-breathe"
       style={{
         width: effectiveSize,
         height: effectiveSize,
