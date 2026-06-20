@@ -3,12 +3,22 @@ import { Link } from 'react-router-dom';
 import { Music, Play, TrendingUp, Sparkles, ArrowRight, Users, Headphones, Disc, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
 import { motion } from 'framer-motion';
 import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import { MusicNoteBubbleBackground, GlowOrb, BubbleBackground} from '@/components/BubbleCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { apiClient, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
+import { apiClient, formatApiError, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -53,6 +63,13 @@ const Home = () => {
   const [featuredAlbums, setFeaturedAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
   const [publicStats, setPublicStats] = useState(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackTitle, setFeedbackTitle] = useState('');
+  const [feedbackDescription, setFeedbackDescription] = useState('');
+  const [feedbackImage, setFeedbackImage] = useState(null);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
+  const [feedbackSuccess, setFeedbackSuccess] = useState('');
 
   useEffect(() => {
     fetchHomeData();
@@ -153,6 +170,32 @@ const Home = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const submitFeedback = async (e) => {
+    e.preventDefault();
+    const cleanTitle = feedbackTitle.trim();
+    const cleanDescription = feedbackDescription.trim();
+    if (!cleanTitle || !cleanDescription) return;
+
+    setFeedbackSubmitting(true);
+    setFeedbackError('');
+    setFeedbackSuccess('');
+    try {
+      const formData = new FormData();
+      formData.append('title', cleanTitle);
+      formData.append('description', cleanDescription);
+      if (feedbackImage) formData.append('image', feedbackImage);
+      await apiClient.post('/api/feedback', formData);
+      setFeedbackSuccess('Merci ! Ton retour a bien ete envoye.');
+      setFeedbackTitle('');
+      setFeedbackDescription('');
+      setFeedbackImage(null);
+    } catch (err) {
+      setFeedbackError(formatApiError(err));
+    } finally {
+      setFeedbackSubmitting(false);
     }
   };
 
@@ -309,6 +352,24 @@ const Home = () => {
                   </motion.div>
                 ));
               })()}
+            </div>
+            <div className="mt-14 sm:mt-16 flex items-center justify-center px-2">
+              <div className="w-full max-w-3xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-full border border-cyan-400/35 bg-cyan-500/10 px-4 py-2.5 text-xs text-cyan-50 shadow-[0_0_22px_rgba(34,211,238,0.28)]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/45 bg-cyan-400/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] self-center sm:self-auto">
+                  <Sparkles className="w-3 h-3 text-cyan-100" />
+                  Beta
+                </span>
+                <span className="text-center sm:text-left sm:flex-1 sm:px-2">
+                  Ton feedback nous aide a ameliorer la plateforme.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFeedbackOpen(true)}
+                  className="rounded-full border border-cyan-200/60 bg-cyan-300/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-50 hover:bg-cyan-300/30 transition-colors self-center sm:self-auto"
+                >
+                  Retour
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -642,6 +703,77 @@ const Home = () => {
 
       {/* Spacer for audio player */}
       <div className="h-32" />
+
+      <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+        <DialogContent className="glass-heavy border-white/15 rounded-2xl max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Envoyer un retour beta</DialogTitle>
+            <DialogDescription>
+              Ton message est envoye directement au backend puis visible dans l'admin.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={submitFeedback} className="space-y-4">
+            {feedbackSuccess && (
+              <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+                {feedbackSuccess}
+              </div>
+            )}
+            {feedbackError && (
+              <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                {feedbackError}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="feedback-title">Titre</Label>
+              <Input
+                id="feedback-title"
+                value={feedbackTitle}
+                onChange={(e) => setFeedbackTitle(e.target.value)}
+                placeholder="Ex: Bug navigation mobile"
+                disabled={feedbackSubmitting}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="feedback-description">Description</Label>
+              <Textarea
+                id="feedback-description"
+                value={feedbackDescription}
+                onChange={(e) => setFeedbackDescription(e.target.value)}
+                placeholder="Explique ce que tu as vu, etapes, resultat attendu..."
+                rows={6}
+                disabled={feedbackSubmitting}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="feedback-image">Image (optionnel)</Label>
+              <Input
+                id="feedback-image"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFeedbackImage(e.target.files?.[0] || null)}
+                disabled={feedbackSubmitting}
+              />
+              <p className="text-xs text-muted-foreground">
+                Optionnel. L'image est envoyee au backend avec ton retour.
+              </p>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" className="rounded-full" onClick={() => setFeedbackOpen(false)} disabled={feedbackSubmitting}>
+                Annuler
+              </Button>
+              <Button type="submit" className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 border-0" disabled={feedbackSubmitting}>
+                {feedbackSubmitting ? 'Envoi...' : 'Envoyer'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

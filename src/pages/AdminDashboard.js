@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Activity, CreditCard, Download, Loader2, Pencil, Search, Shield, Trash2, Users } from 'lucide-react';
+import { Activity, CreditCard, Download, Loader2, MessageSquare, Pencil, Search, Shield, Trash2, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Badge } from '@/components/ui/badge';
@@ -84,6 +84,7 @@ const AdminDashboard = () => {
   const [logs, setLogs] = useState([]);
   const [tracks, setTracks] = useState([]);
   const [albums, setAlbums] = useState([]);
+  const [feedbackItems, setFeedbackItems] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [q, setQ] = useState('');
   const lastFetchRef = useRef(0);
@@ -98,12 +99,13 @@ const AdminDashboard = () => {
       setLoading(true);
       setError('');
       try {
-        const [ov, pt, lg, tr, al] = await Promise.all([
+        const [ov, pt, lg, tr, al, fb] = await Promise.all([
           apiClient.get('/api/admin/overview'),
           apiClient.get('/api/admin/payment-transactions?limit=200'),
           apiClient.get('/api/admin/logs?limit=200'),
           apiClient.get('/api/admin/tracks?limit=300'),
-          apiClient.get('/api/admin/albums?limit=300')
+          apiClient.get('/api/admin/albums?limit=300'),
+          apiClient.get('/api/admin/feedback?limit=300')
         ]);
         if (cancelled) return;
         setOverview(ov.data);
@@ -111,6 +113,7 @@ const AdminDashboard = () => {
         setLogs(lg.data?.items || []);
         setTracks(tr.data?.items || []);
         setAlbums(al.data?.items || []);
+        setFeedbackItems(fb.data?.items || []);
       } catch (e) {
         if (!cancelled) setError(formatApiError(e));
       } finally {
@@ -238,6 +241,7 @@ const AdminDashboard = () => {
                   { id: 'tracks', label: 'Tracks' },
                   { id: 'albums', label: 'Albums' },
                   { id: 'transactions', label: 'Transactions' },
+                  { id: 'feedback', label: 'Retours' },
                   { id: 'logs', label: 'Logs' }
                 ].map((t) => (
                   <Button
@@ -622,6 +626,68 @@ const AdminDashboard = () => {
                           <TableCell className="text-right font-semibold">{eur(t.amount)}</TableCell>
                         </TableRow>
                       ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'feedback' && (
+              <div className="glass-heavy rounded-[32px] p-8 border border-white/10 shadow-[0_16px_60px_rgba(0,0,0,0.18)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-500/25 to-purple-500/25 border border-white/10 flex items-center justify-center">
+                    <MessageSquare className="w-5 h-5 text-cyan-300" />
+                  </div>
+                  <div className="text-2xl font-semibold tracking-tight">Retours utilisateurs ({feedbackItems.length})</div>
+                </div>
+                <div className="mt-4 max-h-[560px] overflow-auto rounded-2xl border border-white/10">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Titre</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Auteur</TableHead>
+                        <TableHead>Image</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {feedbackItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                            Aucun retour pour le moment.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        feedbackItems.map((f) => (
+                          <TableRow key={f.feedback_id}>
+                            <TableCell className="text-muted-foreground whitespace-nowrap">
+                              {String(f.created_at || '').slice(0, 19).replace('T', ' ')}
+                            </TableCell>
+                            <TableCell className="font-medium">{f.title || '—'}</TableCell>
+                            <TableCell className="text-muted-foreground max-w-[34rem]">
+                              <div className="line-clamp-3 whitespace-pre-wrap">{f.description || '—'}</div>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {f.reporter_email || f.reporter_name || f.reporter_user_id || 'Anonyme'}
+                            </TableCell>
+                            <TableCell>
+                              {f.image_url ? (
+                                <a
+                                  href={f.image_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-cyan-300 hover:text-cyan-200 underline underline-offset-4"
+                                >
+                                  Voir
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>
