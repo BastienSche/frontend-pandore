@@ -402,7 +402,7 @@ const LibraryAlbumOwned = () => {
                       </Button>
                       <Link
                         to={`/library/tracks/${track.track_id}`}
-                        className="text-xs text-cyan-400/90 hover:text-cyan-300 transition-colors px-2 shrink-0 hidden sm:inline"
+                        className="text-xs text-cyan-400/90 hover:text-cyan-300 transition-colors px-2 shrink-0 hidden md:inline"
                       >
                         Fiche
                       </Link>

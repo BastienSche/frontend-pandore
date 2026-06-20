@@ -347,3 +347,31 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(34, 211, 238, 0.3);
   color: #f8fafc;
 }
+
+/* === Mobile / Low-motion performance mode === */
+@media (max-width: 768px), (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-slow,
+  .animate-float-gentle,
+  .animate-breathe,
+  .animate-drift,
+  .animate-glow-pulse,
+  .shimmer-bg {
+    animation: none !important;
+  }
+
+  .glass {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .glass-heavy {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .bubble-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}

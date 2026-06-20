@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Activity, CreditCard, Download, Loader2, Pencil, Search, Shield, Trash2, Users } from 'lucide-react';
+import { Activity, CreditCard, Download, HardDrive, Loader2, MessageSquare, Pencil, Search, Shield, Trash2, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,14 @@ const nf = new Intl.NumberFormat('fr-FR');
 const eur = (cents) => {
   const n = Number(cents) || 0;
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n / 100);
+};
+const formatBytes = (bytes) => {
+  const b = Number(bytes);
+  if (!Number.isFinite(b) || b <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const idx = Math.min(Math.floor(Math.log(b) / Math.log(1024)), units.length - 1);
+  const val = b / (1024 ** idx);
+  return `${val.toFixed(val >= 100 || idx === 0 ? 0 : 1)} ${units[idx]}`;
 };
 
 const isAdmin = (user) => String(user?.role || '').toUpperCase() === 'ADMIN';
@@ -84,6 +92,8 @@ const AdminDashboard = () => {
   const [logs, setLogs] = useState([]);
   const [tracks, setTracks] = useState([]);
   const [albums, setAlbums] = useState([]);
+  const [feedbackItems, setFeedbackItems] = useState([]);
+  const [storage, setStorage] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [q, setQ] = useState('');
   const lastFetchRef = useRef(0);
@@ -98,12 +108,14 @@ const AdminDashboard = () => {
       setLoading(true);
       setError('');
       try {
-        const [ov, pt, lg, tr, al] = await Promise.all([
+        const [ov, pt, lg, tr, al, fb, st] = await Promise.all([
           apiClient.get('/api/admin/overview'),
           apiClient.get('/api/admin/payment-transactions?limit=200'),
           apiClient.get('/api/admin/logs?limit=200'),
           apiClient.get('/api/admin/tracks?limit=300'),
-          apiClient.get('/api/admin/albums?limit=300')
+          apiClient.get('/api/admin/albums?limit=300'),
+          apiClient.get('/api/admin/feedback?limit=300'),
+          apiClient.get('/api/admin/storage').catch(() => ({ data: null }))
         ]);
         if (cancelled) return;
         setOverview(ov.data);
@@ -111,6 +123,8 @@ const AdminDashboard = () => {
         setLogs(lg.data?.items || []);
         setTracks(tr.data?.items || []);
         setAlbums(al.data?.items || []);
+        setFeedbackItems(fb.data?.items || []);
+        setStorage(st.data || null);
       } catch (e) {
         if (!cancelled) setError(formatApiError(e));
       } finally {
@@ -127,6 +141,10 @@ const AdminDashboard = () => {
   const series = useMemo(() => overview?.series_30d || [], [overview]);
   const counts = overview?.counts || {};
   const money = overview?.money || {};
+  const diskTotal = Number(storage?.disk_total_bytes || 0);
+  const diskUsed = Number(storage?.disk_used_bytes || 0);
+  const diskFree = Number(storage?.disk_free_bytes || 0);
+  const diskPct = diskTotal > 0 ? Math.min(100, Math.max(0, (diskUsed / diskTotal) * 100)) : 0;
 
   const filteredTracks = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -238,6 +256,7 @@ const AdminDashboard = () => {
                   { id: 'tracks', label: 'Tracks' },
                   { id: 'albums', label: 'Albums' },
                   { id: 'transactions', label: 'Transactions' },
+                  { id: 'feedback', label: 'Retours' },
                   { id: 'logs', label: 'Logs' }
                 ].map((t) => (
                   <Button
@@ -317,6 +336,60 @@ const AdminDashboard = () => {
                     subtitle={`Payées: ${nf.format(Number(counts.paid_transactions || 0))}`}
                     gradient="from-pink-400 to-cyan-400"
                   />
+                </div>
+
+                <div className="mt-6 glass-heavy rounded-[32px] p-8 border border-white/10 shadow-[0_16px_60px_rgba(0,0,0,0.18)]">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="text-sm text-muted-foreground">Stockage serveur (admin only)</div>
+                      <div className="mt-1 text-2xl font-semibold tracking-tight flex items-center gap-2">
+                        <HardDrive className="w-5 h-5 text-cyan-300" />
+                        Espace disque & MongoDB
+                      </div>
+                    </div>
+                    <Badge className="bg-white/5 border border-white/10 text-foreground/90 rounded-full px-4 py-1.5">
+                      Utilisation disque: {diskTotal > 0 ? `${diskPct.toFixed(1)}%` : 'N/A'}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-5 h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className={`h-full ${diskPct > 90 ? 'bg-red-400' : diskPct > 75 ? 'bg-amber-400' : 'bg-cyan-400'}`}
+                      style={{ width: `${diskPct}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="text-muted-foreground">Disque total</div>
+                      <div className="mt-1 font-semibold">{formatBytes(storage?.disk_total_bytes)}</div>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="text-muted-foreground">Disque utilisé</div>
+                      <div className="mt-1 font-semibold">{formatBytes(storage?.disk_used_bytes)}</div>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="text-muted-foreground">Disque libre</div>
+                      <div className="mt-1 font-semibold">{formatBytes(storage?.disk_free_bytes)}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="text-muted-foreground">Mongo data</div>
+                      <div className="mt-1 font-semibold">{formatBytes(storage?.mongo_data_size_bytes)}</div>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="text-muted-foreground">Mongo storage</div>
+                      <div className="mt-1 font-semibold">{formatBytes(storage?.mongo_storage_size_bytes)}</div>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="text-muted-foreground">GridFS uploads</div>
+                      <div className="mt-1 font-semibold">
+                        {formatBytes(storage?.gridfs_total_bytes)} ({nf.format(Number(storage?.gridfs_files_count || 0))} fichiers)
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -622,6 +695,68 @@ const AdminDashboard = () => {
                           <TableCell className="text-right font-semibold">{eur(t.amount)}</TableCell>
                         </TableRow>
                       ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'feedback' && (
+              <div className="glass-heavy rounded-[32px] p-8 border border-white/10 shadow-[0_16px_60px_rgba(0,0,0,0.18)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-500/25 to-purple-500/25 border border-white/10 flex items-center justify-center">
+                    <MessageSquare className="w-5 h-5 text-cyan-300" />
+                  </div>
+                  <div className="text-2xl font-semibold tracking-tight">Retours utilisateurs ({feedbackItems.length})</div>
+                </div>
+                <div className="mt-4 max-h-[560px] overflow-auto rounded-2xl border border-white/10">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Titre</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Auteur</TableHead>
+                        <TableHead>Image</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {feedbackItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                            Aucun retour pour le moment.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        feedbackItems.map((f) => (
+                          <TableRow key={f.feedback_id}>
+                            <TableCell className="text-muted-foreground whitespace-nowrap">
+                              {String(f.created_at || '').slice(0, 19).replace('T', ' ')}
+                            </TableCell>
+                            <TableCell className="font-medium">{f.title || '—'}</TableCell>
+                            <TableCell className="text-muted-foreground max-w-[34rem]">
+                              <div className="line-clamp-3 whitespace-pre-wrap">{f.description || '—'}</div>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {f.reporter_email || f.reporter_name || f.reporter_user_id || 'Anonyme'}
+                            </TableCell>
+                            <TableCell>
+                              {f.image_url ? (
+                                <a
+                                  href={f.image_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-cyan-300 hover:text-cyan-200 underline underline-offset-4"
+                                >
+                                  Voir
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>

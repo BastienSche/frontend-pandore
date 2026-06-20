@@ -51,7 +51,12 @@ const Navbar = () => {
     }
   };
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => {
+    const pathname = location.pathname;
+    if (path === '/') return pathname === '/';
+    if (path === '/playlists') return pathname === '/playlists' || pathname.startsWith('/playlist/');
+    return pathname === path || pathname.startsWith(`${path}/`);
+  };
 
   const NavLink = ({ to, icon: Icon, children, testId }) => (
     <Link to={to} data-testid={testId}>
@@ -90,37 +95,115 @@ const Navbar = () => {
 
   const MobileBottomNav = () => (
     <nav
-      className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 md:hidden w-[calc(100%-1rem)] max-w-md"
+      className="fixed bottom-2 left-1/2 -translate-x-1/2 z-50 md:hidden w-[calc(100%-0.75rem)] max-w-lg pb-[env(safe-area-inset-bottom)]"
       data-testid="mobile-bottom-navbar"
     >
-      <div className="glass-heavy rounded-2xl border border-white/10 px-2 py-2 shadow-[0_0_30px_rgba(0,0,0,0.35)]">
+      <div className="glass-heavy rounded-2xl border border-white/10 px-1.5 py-1.5 shadow-[0_0_30px_rgba(0,0,0,0.35)]">
         <div className="flex items-center justify-between gap-1">
           {mobileItems.map(({ to, icon: Icon, label, testId }) => (
-            <Link key={to} to={to} className="flex-1" data-testid={testId}>
-              <Button
-                variant="ghost"
-                className={`h-auto w-full rounded-xl px-1.5 py-2.5 flex-col gap-1 text-[11px] ${
-                  isActive(to)
-                    ? 'bg-white/10 text-cyan-400 border border-cyan-500/30'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
-                }`}
-                data-testid={`${testId}-button`}
-              >
-                <Icon className="w-[18px] h-[18px]" />
-                <span className="leading-none">{label}</span>
-              </Button>
-            </Link>
+            <Button
+              key={to}
+              asChild
+              variant="ghost"
+              className={`h-auto min-h-11 w-full flex-1 rounded-xl px-1 py-2 flex-col gap-0.5 text-[10px] leading-tight whitespace-normal ${
+                isActive(to)
+                  ? 'bg-white/10 text-cyan-400 border border-cyan-500/30'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+              }`}
+              data-testid={`${testId}-button`}
+            >
+              <Link to={to} data-testid={testId}>
+                <Icon className="w-[18px] h-[18px] shrink-0" />
+                <span className="leading-tight text-center">{label}</span>
+              </Link>
+            </Button>
           ))}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            className="rounded-xl w-10 h-10 border border-white/10 shrink-0 text-muted-foreground hover:text-foreground hover:bg-white/5"
-            data-testid="mobile-theme-toggle-button"
-          >
-            {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-yellow-400" />}
-          </Button>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="rounded-xl w-10 h-10 p-0 border border-white/10 shrink-0 text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  data-testid="mobile-user-menu-trigger"
+                >
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src={user.picture} />
+                    <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-xs">
+                      {userInitial(user)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-64 glass-heavy border-white/10 rounded-2xl p-2 md:hidden"
+              >
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
+                  <Avatar className="w-9 h-9">
+                    <AvatarImage src={user.picture} />
+                    <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-xs">
+                      {userInitial(user)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{user.name || user.email || 'Utilisateur'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  </div>
+                </div>
+
+                <DropdownMenuSeparator className="bg-white/10 my-2" />
+
+                <DropdownMenuItem
+                  onClick={() => navigate('/settings')}
+                  className="rounded-xl cursor-pointer"
+                  data-testid="mobile-settings-button"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Réglages du compte
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={toggleTheme}
+                  className="rounded-xl cursor-pointer"
+                  data-testid="mobile-theme-toggle-menu-item"
+                >
+                  {theme === 'light' ? <Moon className="w-4 h-4 mr-2" /> : <Sun className="w-4 h-4 mr-2 text-yellow-400" />}
+                  Thème {theme === 'light' ? 'clair' : 'sombre'}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={handleRoleSwitch}
+                  className="rounded-xl cursor-pointer"
+                  data-testid="mobile-role-switch-button"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Mode {user.role === 'artist' ? 'Auditeur' : 'Artiste'}
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="bg-white/10 my-2" />
+
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
+                  data-testid="mobile-logout-button"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Déconnexion
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="rounded-xl w-10 h-10 border border-white/10 shrink-0 text-muted-foreground hover:text-foreground hover:bg-white/5"
+              data-testid="mobile-theme-toggle-button"
+            >
+              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-yellow-400" />}
+            </Button>
+          )}
         </div>
       </div>
     </nav>
@@ -252,10 +335,10 @@ const Navbar = () => {
                 <DropdownMenuTrigger asChild>
                   <Button 
                     variant="ghost" 
-                    className="rounded-full p-1 border border-white/10 hover:border-cyan-500/50 transition-colors"
+                    className="rounded-full p-0 w-9 h-9 bg-white/5 hover:bg-white/10 border-0 transition-colors"
                     data-testid="user-menu-trigger"
                   >
-                    <Avatar className="w-8 h-8">
+                    <Avatar className="w-8 h-8 border border-white/10">
                       <AvatarImage src={user.picture} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-sm">
                         {userInitial(user)}

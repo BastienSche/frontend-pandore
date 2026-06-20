@@ -1,6 +1,49 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 
+const useLowPerfMode = () => {
+  const [lowPerf, setLowPerf] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return (
+      window.matchMedia('(max-width: 900px)').matches ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      window.matchMedia('(pointer: coarse)').matches
+    );
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mqMobile = window.matchMedia('(max-width: 1024px)');
+    const mqReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const mqCoarse = window.matchMedia('(pointer: coarse)');
+
+    const update = () => {
+      setLowPerf(mqMobile.matches || mqReduced.matches || mqCoarse.matches);
+    };
+
+    update();
+    const add = (mq) => {
+      if (mq.addEventListener) mq.addEventListener('change', update);
+      else if (mq.addListener) mq.addListener(update);
+    };
+    const remove = (mq) => {
+      if (mq.removeEventListener) mq.removeEventListener('change', update);
+      else if (mq.removeListener) mq.removeListener(update);
+    };
+
+    add(mqMobile);
+    add(mqReduced);
+    add(mqCoarse);
+    return () => {
+      remove(mqMobile);
+      remove(mqReduced);
+      remove(mqCoarse);
+    };
+  }, []);
+
+  return lowPerf;
+};
+
 const floatVariants = {
   initial: { y: 0 },
   animate: (custom) => ({
@@ -23,6 +66,7 @@ export const BubbleCard = ({
   onClick,
   testId
 }) => {
+  const lowPerfMode = useLowPerfMode();
   const glowStyles = {
     cyan: "hover:shadow-[0_0_30px_rgba(34,211,238,0.2)]",
     purple: "hover:shadow-[0_0_30px_rgba(139,92,246,0.2)]",
@@ -32,14 +76,18 @@ export const BubbleCard = ({
   return (
     <motion.div
       custom={{ delay, duration }}
-      variants={floatVariants}
-      initial="initial"
-      animate="animate"
-      whileHover={{ 
-        scale: 1.02, 
-        y: -20,
-        transition: { duration: 0.3 }
-      }}
+      variants={lowPerfMode ? undefined : floatVariants}
+      initial={lowPerfMode ? false : 'initial'}
+      animate={lowPerfMode ? false : 'animate'}
+      whileHover={
+        lowPerfMode
+          ? undefined
+          : {
+              scale: 1.02,
+              y: -20,
+              transition: { duration: 0.3 }
+            }
+      }
       className={`
         bubble-card
         ${glowStyles[glowColor] || glowStyles.cyan}
@@ -54,8 +102,9 @@ export const BubbleCard = ({
 };
 
 export const BubbleBackground = () => {
+  const lowPerfMode = useLowPerfMode();
   const [bubbles, setBubbles] = useState(() =>
-    Array.from({ length: 16 }, (_, i) => {
+    Array.from({ length: 10 }, (_, i) => {
       // Mouvement de base plus doux au chargement
       const speedBase = 0.25 + Math.random() * 0.35;
       const angle = Math.random() * Math.PI * 2;
@@ -78,8 +127,10 @@ export const BubbleBackground = () => {
     typeof window !== 'undefined' ? window.scrollY : 0
   );
   const animationFrameRef = useRef(null);
+  const lastRenderedAtRef = useRef(0);
 
   useEffect(() => {
+    if (lowPerfMode) return;
     const handleMouseMove = (e) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
     };
@@ -103,12 +154,23 @@ export const BubbleBackground = () => {
         window.removeEventListener('scroll', handleScroll);
       }
     };
-  }, []);
+  }, [lowPerfMode]);
 
   useEffect(() => {
+    if (lowPerfMode) return;
     let lastTime = performance.now();
+    const targetFrameMs = 1000 / 30; // 30fps cap to reduce CPU/GPU pressure
 
     const animate = (time) => {
+      if (document.hidden) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      if (time - lastRenderedAtRef.current < targetFrameMs) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      lastRenderedAtRef.current = time;
       const dt = Math.min((time - lastTime) / 16.67, 2);
       lastTime = time;
 
@@ -197,7 +259,9 @@ export const BubbleBackground = () => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, []);
+  }, [lowPerfMode]);
+
+  if (lowPerfMode) return null;
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -346,8 +410,9 @@ const NoteSvg = ({ variant = 0 }) => {
 };
 
 export const MusicNoteBackground = () => {
+  const lowPerfMode = useLowPerfMode();
   const [notes, setNotes] = useState(() =>
-    Array.from({ length: 18 }, (_, i) => {
+    Array.from({ length: 10 }, (_, i) => {
       const speedBase = 0.22 + Math.random() * 0.38;
       const angle = Math.random() * Math.PI * 2;
       const size = Math.random() * 70 + 46;
@@ -371,8 +436,10 @@ export const MusicNoteBackground = () => {
   const scrollDeltaRef = useRef(0);
   const lastScrollYRef = useRef(typeof window !== 'undefined' ? window.scrollY : 0);
   const animationFrameRef = useRef(null);
+  const lastRenderedAtRef = useRef(0);
 
   useEffect(() => {
+    if (lowPerfMode) return;
     const handleMouseMove = (e) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
     };
@@ -396,12 +463,23 @@ export const MusicNoteBackground = () => {
         window.removeEventListener('scroll', handleScroll);
       }
     };
-  }, []);
+  }, [lowPerfMode]);
 
   useEffect(() => {
+    if (lowPerfMode) return;
     let lastTime = performance.now();
+    const targetFrameMs = 1000 / 24; // notes are decorative only
 
     const animate = (time) => {
+      if (document.hidden) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      if (time - lastRenderedAtRef.current < targetFrameMs) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      lastRenderedAtRef.current = time;
       const dt = Math.min((time - lastTime) / 16.67, 2);
       lastTime = time;
 
@@ -480,7 +558,9 @@ export const MusicNoteBackground = () => {
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, []);
+  }, [lowPerfMode]);
+
+  if (lowPerfMode) return null;
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -523,23 +603,30 @@ export const MusicNoteBubbleBackground = () => {
 };
 
 export const GlowOrb = ({ color = "cyan", size = 300, x = "50%", y = "50%", blur = 100 }) => {
+  const lowPerfMode = useLowPerfMode();
   const colors = {
     cyan: "rgba(34, 211, 238, 0.15)",
     purple: "rgba(139, 92, 246, 0.12)",
     pink: "rgba(244, 114, 182, 0.1)"
   };
 
+  if (lowPerfMode) return null;
+
+  const effectiveSize = size;
+  const effectiveBlur = blur;
+  const effectiveOpacityColor = colors;
+
   return (
     <div
       className="absolute pointer-events-none animate-breathe"
       style={{
-        width: size,
-        height: size,
+        width: effectiveSize,
+        height: effectiveSize,
         left: x,
         top: y,
         transform: 'translate(-50%, -50%)',
-        background: `radial-gradient(circle, ${colors[color] || colors.cyan} 0%, transparent 70%)`,
-        filter: `blur(${blur}px)`
+        background: `radial-gradient(circle, ${effectiveOpacityColor[color] || effectiveOpacityColor.cyan} 0%, transparent 70%)`,
+        filter: `blur(${effectiveBlur}px)`
       }}
     />
   );

@@ -238,7 +238,7 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => {
     animate={{ opacity: 1, x: 0 }}
     className="glass rounded-2xl p-4 hover:bg-white/5 transition-colors group"
   >
-    <div className="flex items-center gap-4">
+    <div className="flex flex-wrap items-center gap-3 md:gap-4">
       {/* Cover */}
       <div className="relative">
         {track.cover_url ? (
@@ -302,13 +302,13 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => {
         className={`${track.status === 'published' 
           ? 'bg-green-500/20 text-green-400 border-green-500/30' 
           : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-        }`}
+        } shrink-0`}
       >
         {track.status === 'published' ? 'Publié' : 'Brouillon'}
       </Badge>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 ml-auto">
         <Button
           variant="ghost"
           size="icon"
@@ -352,7 +352,7 @@ const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
     animate={{ opacity: 1, x: 0 }}
     className="glass rounded-2xl p-4 hover:bg-white/5 transition-colors group"
   >
-    <div className="flex items-center gap-4">
+    <div className="flex flex-wrap items-center gap-3 md:gap-4">
       <div className="relative">
         {album.cover_url ? (
           <img src={album.cover_url} alt={album.title} className="w-16 h-16 rounded-xl object-cover" />
@@ -395,12 +395,12 @@ const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
         className={`${album.status === 'published'
           ? 'bg-green-500/20 text-green-400 border-green-500/30'
           : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-        }`}
+        } shrink-0`}
       >
         {album.status === 'published' ? 'Publié' : 'Brouillon'}
       </Badge>
 
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 ml-auto">
         <Button
           variant="ghost"
           size="icon"
@@ -1169,12 +1169,13 @@ const ArtistDashboard = () => {
       </div>
 
       {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-8 bg-slate-50 border border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none rounded-full p-1.5">
+          <div className="mb-8">
+          <TabsList className="bg-slate-50 border border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none rounded-2xl sm:rounded-full p-1.5 w-full sm:w-auto h-auto grid grid-cols-1 sm:inline-flex sm:h-9">
             <TabsTrigger 
               value="overview" 
-              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-6"
+              className="gap-2 rounded-xl sm:rounded-full justify-start sm:justify-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-3 sm:px-6 py-2 sm:py-1"
               data-testid="tab-overview"
             >
               <BarChart3 className="w-4 h-4" />
@@ -1182,7 +1183,7 @@ const ArtistDashboard = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="tracks" 
-              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500/20 data-[state=active]:to-purple-500/20 px-6"
+              className="gap-2 rounded-xl sm:rounded-full justify-start sm:justify-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500/20 data-[state=active]:to-purple-500/20 px-3 sm:px-6 py-2 sm:py-1"
               data-testid="tab-tracks"
             >
               <Music className="w-4 h-4" />
@@ -1190,7 +1191,7 @@ const ArtistDashboard = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="albums" 
-              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-6"
+              className="gap-2 rounded-xl sm:rounded-full justify-start sm:justify-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-3 sm:px-6 py-2 sm:py-1"
               data-testid="tab-albums"
             >
               <Disc className="w-4 h-4" />
@@ -1198,13 +1199,14 @@ const ArtistDashboard = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="stats" 
-              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500/20 data-[state=active]:to-cyan-500/20 px-6"
+              className="gap-2 rounded-xl sm:rounded-full justify-start sm:justify-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500/20 data-[state=active]:to-cyan-500/20 px-3 sm:px-6 py-2 sm:py-1"
               data-testid="tab-stats"
             >
               <TrendingUp className="w-4 h-4" />
               Statistiques
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-8">
@@ -1480,17 +1482,17 @@ const ArtistDashboard = () => {
             <div className="glass-heavy rounded-3xl p-6">
               <h3 className="text-lg font-semibold mb-6">Performance par track</h3>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[720px]">
                   <thead>
                     <tr className="text-left text-sm text-muted-foreground border-b border-white/10">
                       <th className="pb-4">Track</th>
                       <th className="pb-4 text-right">Prix</th>
                       <th className="pb-4 text-right">Écoutes</th>
-                      <th className="pb-4 text-right">Durée</th>
-                      <th className="pb-4 text-right">Temps écouté</th>
+                      <th className="pb-4 text-right hidden md:table-cell">Durée</th>
+                      <th className="pb-4 text-right hidden md:table-cell">Temps écouté</th>
                       <th className="pb-4 text-right">Ventes</th>
-                      <th className="pb-4 text-right">Biblio</th>
-                      <th className="pb-4 text-right">Likes</th>
+                      <th className="pb-4 text-right hidden md:table-cell">Biblio</th>
+                      <th className="pb-4 text-right hidden md:table-cell">Likes</th>
                       <th className="pb-4 text-right">Revenus</th>
                       <th className="pb-4 text-right">Statut</th>
                     </tr>
@@ -1514,11 +1516,11 @@ const ArtistDashboard = () => {
                           {formatPriceLabel(track.price || 0)}
                         </td>
                         <td className="py-4 text-right text-cyan-400 tabular-nums">{track.play_count || 0}</td>
-                        <td className="py-4 text-right text-sky-400 tabular-nums text-sm">{formatTrackLengthClock(track)}</td>
-                        <td className="py-4 text-right text-teal-400 tabular-nums text-sm">{formatCumulativeListenTime(track.play_duration_sec)}</td>
+                        <td className="py-4 text-right text-sky-400 tabular-nums text-sm hidden md:table-cell">{formatTrackLengthClock(track)}</td>
+                        <td className="py-4 text-right text-teal-400 tabular-nums text-sm hidden md:table-cell">{formatCumulativeListenTime(track.play_duration_sec)}</td>
                         <td className="py-4 text-right text-purple-400">{track.sales_count || 0}</td>
-                        <td className="py-4 text-right text-orange-400">{track.library_adds_count ?? 0}</td>
-                        <td className="py-4 text-right text-pink-400">{track.likes_count ?? 0}</td>
+                        <td className="py-4 text-right text-orange-400 hidden md:table-cell">{track.library_adds_count ?? 0}</td>
+                        <td className="py-4 text-right text-pink-400 hidden md:table-cell">{track.likes_count ?? 0}</td>
                         <td className="py-4 text-right text-green-400">{((track.revenue || 0) / 100).toFixed(2)}€</td>
                         <td className="py-4 text-right">
                           <Badge className={track.status === 'published' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}>

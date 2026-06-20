@@ -108,7 +108,7 @@ const TrackCard = ({ track }) => {
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             whileHover={{ scale: 1 }}
-            className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            className="absolute bottom-4 right-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300"
           >
             <Button
               variant="default"
@@ -159,9 +159,9 @@ const TrackCard = ({ track }) => {
             </p>
           </div>
           
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex flex-wrap items-center gap-1.5 pr-1 sm:overflow-x-auto sm:whitespace-nowrap sm:flex-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {splitGenreTags(track.genre).map((g, i) => (
                   <Badge
                     key={`${track.track_id}-genre-${i}`}
@@ -174,7 +174,7 @@ const TrackCard = ({ track }) => {
                 ))}
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
               <span
                 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
                 data-testid={`track-price-${track.track_id}`}
