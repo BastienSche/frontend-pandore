@@ -107,6 +107,14 @@ const Login = () => {
                   data-testid="login-password-input"
                 />
               </div>
+              <div className="text-right">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                >
+                  Mot de passe oublié ?
+                </Link>
+              </div>
             </div>
 
             <Button
