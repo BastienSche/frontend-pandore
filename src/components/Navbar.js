@@ -119,15 +119,91 @@ const Navbar = () => {
             </Button>
           ))}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            className="rounded-xl w-10 h-10 border border-white/10 shrink-0 text-muted-foreground hover:text-foreground hover:bg-white/5"
-            data-testid="mobile-theme-toggle-button"
-          >
-            {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-yellow-400" />}
-          </Button>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="rounded-xl w-10 h-10 p-0 border border-white/10 shrink-0 text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  data-testid="mobile-user-menu-trigger"
+                >
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src={user.picture} />
+                    <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-xs">
+                      {userInitial(user)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-64 glass-heavy border-white/10 rounded-2xl p-2 md:hidden"
+              >
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
+                  <Avatar className="w-9 h-9">
+                    <AvatarImage src={user.picture} />
+                    <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-xs">
+                      {userInitial(user)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{user.name || user.email || 'Utilisateur'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  </div>
+                </div>
+
+                <DropdownMenuSeparator className="bg-white/10 my-2" />
+
+                <DropdownMenuItem
+                  onClick={() => navigate('/settings')}
+                  className="rounded-xl cursor-pointer"
+                  data-testid="mobile-settings-button"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Réglages du compte
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={toggleTheme}
+                  className="rounded-xl cursor-pointer"
+                  data-testid="mobile-theme-toggle-menu-item"
+                >
+                  {theme === 'light' ? <Moon className="w-4 h-4 mr-2" /> : <Sun className="w-4 h-4 mr-2 text-yellow-400" />}
+                  Thème {theme === 'light' ? 'clair' : 'sombre'}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={handleRoleSwitch}
+                  className="rounded-xl cursor-pointer"
+                  data-testid="mobile-role-switch-button"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Mode {user.role === 'artist' ? 'Auditeur' : 'Artiste'}
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="bg-white/10 my-2" />
+
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
+                  data-testid="mobile-logout-button"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Déconnexion
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="rounded-xl w-10 h-10 border border-white/10 shrink-0 text-muted-foreground hover:text-foreground hover:bg-white/5"
+              data-testid="mobile-theme-toggle-button"
+            >
+              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-yellow-400" />}
+            </Button>
+          )}
         </div>
       </div>
     </nav>
@@ -259,10 +335,10 @@ const Navbar = () => {
                 <DropdownMenuTrigger asChild>
                   <Button 
                     variant="ghost" 
-                    className="rounded-full p-1 border border-white/10 hover:border-cyan-500/50 transition-colors"
+                    className="rounded-full p-0 w-9 h-9 bg-white/5 hover:bg-white/10 border-0 transition-colors"
                     data-testid="user-menu-trigger"
                   >
-                    <Avatar className="w-8 h-8">
+                    <Avatar className="w-8 h-8 border border-white/10">
                       <AvatarImage src={user.picture} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-sm">
                         {userInitial(user)}
