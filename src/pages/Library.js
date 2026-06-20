@@ -94,7 +94,7 @@ const Library = () => {
       const link = document.createElement('a');
       link.href = track.file_url;
       const safe = (track.title || 'track').replace(/[/\\?%*:|"<>]/g, '-');
-      link.setAttribute('download', `${safe}.mp3`);
+      link.setAttribute('download', safe);
       document.body.appendChild(link);
       link.click();
       link.remove();
