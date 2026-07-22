@@ -375,3 +375,12 @@ input[type="range"]::-moz-range-thumb {
     box-shadow: none;
   }
 }
+
+/* iOS Safari: évite le zoom auto au focus des champs (<16px). */
+@media (max-width: 768px) {
+  input:not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
