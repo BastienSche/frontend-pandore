@@ -34,6 +34,9 @@ const parsePriceEuroInput = (raw) => {
   return n;
 };
 
+const AUDIO_UPLOAD_ACCEPT =
+  '.mp3,.wav,.wave,.m4a,.aac,.ogg,.flac,audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/wave,audio/aac,audio/ogg,audio/flac,audio/*';
+
 /** Aligne les libellés (prix / prix libre / durée, etc.) sur une même ligne de base. */
 const priceStepLabelRow = 'min-h-[2.75rem] flex items-end shrink-0';
 
@@ -1539,18 +1542,18 @@ const ArtistDashboard = () => {
 
       {/* Track Dialog */}
       <Dialog open={showTrackDialog} onOpenChange={(open) => { if (!open) closeTrackDialog(); }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto glass-heavy border-white/10 rounded-3xl">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full sm:max-w-3xl max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto glass-heavy border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl">
+            <DialogTitle className="pr-8 text-xl sm:text-2xl">
               {editingTrack ? 'Modifier le track' : 'Nouveau track'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 mt-4">
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <div className="flex items-start justify-between gap-2 text-xs text-muted-foreground sm:items-center sm:text-sm">
                 <span>Étape {trackStep + 1}/4</span>
-                <span>{trackStep === 0 ? 'Infos' : trackStep === 1 ? 'Prix' : trackStep === 2 ? 'Fichiers' : 'Avancé'}</span>
+                <span className="text-right">{trackStep === 0 ? 'Infos' : trackStep === 1 ? 'Prix' : trackStep === 2 ? 'Fichiers' : 'Avancé'}</span>
               </div>
               <Progress value={((trackStep + 1) / 4) * 100} />
             </div>
@@ -1692,7 +1695,7 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Preview & Release */}
-            <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 ${trackStep !== 1 ? 'hidden' : ''}`}>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 ${trackStep !== 1 ? 'hidden' : ''}`}>
               <div className="space-y-2">
                 <Label>Preview début (sec)</Label>
                 <Input
@@ -1951,12 +1954,13 @@ const ArtistDashboard = () => {
                 </Label>
                 <Input
                   type="file"
-                  accept="audio/*"
-                  onChange={(e) => setTrackForm({ ...trackForm, audioFile: e.target.files[0] })}
+                  accept={AUDIO_UPLOAD_ACCEPT}
+                  onChange={(e) => setTrackForm({ ...trackForm, audioFile: e.target.files?.[0] || null })}
                   className="w-full max-w-full rounded-[10px]"
                   required={!editingTrack}
                   data-testid="form-audio"
                 />
+                <p className="text-xs text-muted-foreground">Formats acceptés : MP3, WAV, M4A, AAC, OGG, FLAC.</p>
                 {editingTrack && !trackForm.audioFile && (
                   <p className="text-xs text-green-400">✓ Fichier actuel conservé</p>
                 )}
@@ -1970,7 +1974,7 @@ const ArtistDashboard = () => {
                 <Input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setTrackForm({ ...trackForm, coverFile: e.target.files[0] })}
+                  onChange={(e) => setTrackForm({ ...trackForm, coverFile: e.target.files?.[0] || null })}
                   className="w-full max-w-full rounded-[10px]"
                   data-testid="form-cover"
                 />
@@ -1981,19 +1985,19 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Stepper actions */}
-            <div className="flex gap-3 pt-4">
+            <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 rounded-full"
+                className="h-12 w-full rounded-full sm:w-auto"
                 onClick={closeTrackDialog}
               >
                 Annuler
               </Button>
-              <div className="flex-1" />
+              <div className="hidden sm:flex sm:flex-1" />
 
               {trackStep > 0 && (
-                <Button type="button" variant="outline" className="h-12 rounded-full" onClick={prevStep}>
+                <Button type="button" variant="outline" className="h-12 w-full rounded-full sm:w-auto" onClick={prevStep}>
                   Retour
                 </Button>
               )}
@@ -2001,7 +2005,7 @@ const ArtistDashboard = () => {
               {trackStep < 3 ? (
                 <Button
                   type="button"
-                  className="h-12 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0"
+                  className="h-12 w-full rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0 sm:w-auto"
                   onClick={nextStep}
                   disabled={!canGoNext()}
                 >
@@ -2010,7 +2014,7 @@ const ArtistDashboard = () => {
               ) : (
                 <Button
                   type="button"
-                  className="h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
+                  className="h-12 w-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 sm:w-auto"
                   disabled={submitting}
                   onClick={handleSubmit}
                   data-testid="form-submit"
@@ -2035,18 +2039,18 @@ const ArtistDashboard = () => {
 
       {/* Album Dialog */}
       <Dialog open={showAlbumDialog} onOpenChange={(open) => { if (!open) closeAlbumDialog(); }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto glass-heavy border-white/10 rounded-3xl">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full sm:max-w-3xl max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto glass-heavy border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl">
+            <DialogTitle className="pr-8 text-xl sm:text-2xl">
               {editingAlbum ? 'Modifier l’album' : 'Nouvel album'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6 mt-4">
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <div className="flex items-start justify-between gap-2 text-xs text-muted-foreground sm:items-center sm:text-sm">
                 <span>Étape {albumStep + 1}/4</span>
-                <span>{albumStep === 0 ? 'Infos' : albumStep === 1 ? 'Prix' : albumStep === 2 ? 'Titres' : 'Cover & statut'}</span>
+                <span className="text-right">{albumStep === 0 ? 'Infos' : albumStep === 1 ? 'Prix' : albumStep === 2 ? 'Titres' : 'Cover & statut'}</span>
               </div>
               <Progress value={((albumStep + 1) / 4) * 100} />
             </div>
@@ -2143,7 +2147,7 @@ const ArtistDashboard = () => {
               ) : null}
 
               <div className="glass rounded-2xl p-4 space-y-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
                   <div className="text-sm text-muted-foreground">
                     Ajoute un ou plusieurs tracks à cet album (titre + description, et les champs requis).
                   </div>
@@ -2183,7 +2187,7 @@ const ArtistDashboard = () => {
                   <div className="space-y-4">
                     {(albumForm.albumTracks || []).map((t, idx) => (
                       <div key={idx} className="glass rounded-2xl p-4 space-y-4 border border-white/10">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div className="font-medium">Track #{idx + 1}</div>
                           <Button
                             type="button"
@@ -2309,7 +2313,7 @@ const ArtistDashboard = () => {
                             <Input
                               id={`album-track-audio-${idx}`}
                               type="file"
-                              accept="audio/*"
+                              accept={AUDIO_UPLOAD_ACCEPT}
                               onChange={(e) => {
                                 const next = [...(albumForm.albumTracks || [])];
                                 next[idx] = { ...next[idx], audioFile: e.target.files?.[0] || null };
@@ -2358,7 +2362,7 @@ const ArtistDashboard = () => {
                 <Input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setAlbumForm({ ...albumForm, coverFile: e.target.files[0] })}
+                  onChange={(e) => setAlbumForm({ ...albumForm, coverFile: e.target.files?.[0] || null })}
                   className="w-full max-w-full rounded-[10px]"
                   data-testid="album-form-cover"
                 />
@@ -2453,14 +2457,14 @@ const ArtistDashboard = () => {
             </div>
 
             {/* Stepper actions */}
-            <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" className="h-12 rounded-full" onClick={closeAlbumDialog}>
+            <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
+              <Button type="button" variant="outline" className="h-12 w-full rounded-full sm:w-auto" onClick={closeAlbumDialog}>
                 Annuler
               </Button>
-              <div className="flex-1" />
+              <div className="hidden sm:flex sm:flex-1" />
 
               {albumStep > 0 && (
-                <Button type="button" variant="outline" className="h-12 rounded-full" onClick={prevAlbumStep}>
+                <Button type="button" variant="outline" className="h-12 w-full rounded-full sm:w-auto" onClick={prevAlbumStep}>
                   Retour
                 </Button>
               )}
@@ -2468,7 +2472,7 @@ const ArtistDashboard = () => {
               {albumStep < 3 ? (
                 <Button
                   type="button"
-                  className="h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 border-0"
+                  className="h-12 w-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 border-0 sm:w-auto"
                   onClick={nextAlbumStep}
                   disabled={!canGoNextAlbum()}
                 >
@@ -2477,7 +2481,7 @@ const ArtistDashboard = () => {
               ) : (
                 <Button
                   type="button"
-                  className="h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
+                  className="h-12 w-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 sm:w-auto"
                   disabled={submitting}
                   onClick={handleSubmitAlbum}
                   data-testid="album-form-submit"
