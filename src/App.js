@@ -5,7 +5,6 @@ import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { Toaster } from '@/components/ui/sonner';
 import Navbar from '@/components/Navbar';
 import AudioPlayer from '@/components/AudioPlayer';
-import { useAuth } from '@/hooks/useAuth';
 import Home from '@/pages/Home';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -26,6 +25,8 @@ import AuthCallback from '@/pages/AuthCallback';
 import UiKit from '@/pages/UiKit';
 import NousDecouvrir from '@/pages/NousDecouvrir';
 import AdminDashboard from '@/pages/AdminDashboard';
+import AdminProtectedRoute from '@/components/AdminProtectedRoute';
+import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import '@/App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -51,9 +52,9 @@ function AppRouter() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute>
+            <AdminProtectedRoute>
               <AdminDashboard />
-            </ProtectedRoute>
+            </AdminProtectedRoute>
           }
         />
         <Route
@@ -136,7 +137,9 @@ function App() {
       <AudioPlayerProvider>
         <div className="App">
           <BrowserRouter>
-            <AppRouter />
+            <AuthProvider>
+              <AppRouter />
+            </AuthProvider>
           </BrowserRouter>
           <Toaster />
         </div>
