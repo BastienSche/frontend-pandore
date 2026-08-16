@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Moon, Sun, User, LogOut, Home, Library, PlusCircle, Disc, GripHorizontal, X, Menu, Settings } from 'lucide-react';
+import { Moon, Sun, User, LogOut, Home, Library, PlusCircle, Disc, GripHorizontal, X, Menu, Settings, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -23,7 +23,7 @@ const userInitial = (u) => {
 };
 
 const Navbar = () => {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout, switchRole, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -153,6 +153,17 @@ const Navbar = () => {
                 </div>
 
                 <DropdownMenuSeparator className="bg-white/10 my-2" />
+
+                {isAdmin && (
+                  <DropdownMenuItem
+                    onClick={() => navigate('/admin')}
+                    className="rounded-xl cursor-pointer"
+                    data-testid="mobile-admin-button"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Admin
+                  </DropdownMenuItem>
+                )}
 
                 <DropdownMenuItem
                   onClick={() => navigate('/settings')}
@@ -393,6 +404,17 @@ const Navbar = () => {
                     <Settings className="w-4 h-4 mr-2" />
                     Réglages du compte
                   </DropdownMenuItem>
+
+                  {isAdmin && (
+                    <DropdownMenuItem
+                      onClick={() => navigate('/admin')}
+                      className="rounded-xl cursor-pointer"
+                      data-testid="admin-button"
+                    >
+                      <Shield className="w-4 h-4 mr-2" />
+                      Admin
+                    </DropdownMenuItem>
+                  )}
                   
                   <DropdownMenuSeparator className="bg-white/10 my-2" />
                   

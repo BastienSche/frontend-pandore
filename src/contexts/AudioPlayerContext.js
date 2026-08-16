@@ -22,6 +22,85 @@ const resolvePreviewDurationSec = (track) => {
   return 15;
 };
 
+const cacheBustUrl = (url) => {
+  if (!url) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}_r=${Date.now()}`;
+};
+
+const resolvedSrc = (url) => {
+  try {
+    return new URL(url, window.location.href).href;
+  } catch {
+    return url;
+  }
+};
+
+/**
+ * Load src, wait for metadata (needed for WAV), then seek and play.
+ * Seeking immediately after assigning src poisons Chrome's media cache on WAVE files.
+ */
+const loadAndPlay = (audio, url, startTime, generation, generationRef) => {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const isStale = () => generationRef.current !== generation;
+
+    const cleanup = () => {
+      audio.removeEventListener('loadedmetadata', onMeta);
+      audio.removeEventListener('error', onErr);
+    };
+
+    const finish = (fn) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      fn();
+    };
+
+    const onMeta = () => {
+      if (isStale()) {
+        finish(resolve);
+        return;
+      }
+      const start = Number(startTime) || 0;
+      if (start > 0 && Number.isFinite(audio.duration) && audio.duration > 0) {
+        try {
+          audio.currentTime = Math.min(start, Math.max(0, audio.duration - 0.05));
+        } catch {
+          // ignore; play still proceeds from 0
+        }
+      }
+      const playResult = audio.play();
+      if (playResult && typeof playResult.then === 'function') {
+        playResult.then(() => finish(resolve)).catch((err) => {
+          if (err?.name === 'AbortError') {
+            finish(resolve);
+            return;
+          }
+          finish(() => reject(err));
+        });
+      } else {
+        finish(resolve);
+      }
+    };
+
+    const onErr = () => {
+      finish(() => reject(audio.error || new Error('audio error')));
+    };
+
+    audio.addEventListener('loadedmetadata', onMeta);
+    audio.addEventListener('error', onErr);
+
+    const nextSrc = resolvedSrc(url);
+    if (audio.src === nextSrc && audio.readyState >= 1 && !audio.error) {
+      onMeta();
+      return;
+    }
+    audio.src = url;
+    audio.load();
+  });
+};
+
 export const AudioPlayerProvider = ({ children }) => {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -36,6 +115,12 @@ export const AudioPlayerProvider = ({ children }) => {
   const currentTrackRef = useRef(null);
   const playbackModeRef = useRef('preview');
   const playRecordedForTrackRef = useRef(new Set());
+  const playGenRef = useRef(0);
+  const playTrackRef = useRef(null);
+
+  useEffect(() => {
+    audioRef.current.preload = 'auto';
+  }, []);
 
   useEffect(() => {
     currentTrackRef.current = currentTrack;
@@ -44,6 +129,29 @@ export const AudioPlayerProvider = ({ children }) => {
   useEffect(() => {
     playbackModeRef.current = playbackMode;
   }, [playbackMode]);
+
+  const startUrl = async (url, startTime, { allowRetry = true } = {}) => {
+    const audio = audioRef.current;
+    const gen = ++playGenRef.current;
+    try {
+      await loadAndPlay(audio, url, startTime, gen, playGenRef);
+      if (playGenRef.current !== gen) return;
+      setIsPlaying(true);
+    } catch {
+      if (playGenRef.current !== gen) return;
+      if (allowRetry) {
+        try {
+          await loadAndPlay(audio, cacheBustUrl(url), startTime, gen, playGenRef);
+          if (playGenRef.current !== gen) return;
+          setIsPlaying(true);
+          return;
+        } catch {
+          // fall through
+        }
+      }
+      setIsPlaying(false);
+    }
+  };
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -75,16 +183,7 @@ export const AudioPlayerProvider = ({ children }) => {
         setQueueIndex(nextIndex);
         const nextTrack = queue[nextIndex];
         if (nextTrack) {
-          const url = resolveAudioUrl(nextTrack, playbackMode);
-          if (!url) {
-            setIsPlaying(false);
-            return;
-          }
-          setCurrentTrack(nextTrack);
-          audio.src = url;
-          audio.currentTime = resolveStartTime(nextTrack, playbackMode);
-          audio.play().catch(() => setIsPlaying(false));
-          setIsPlaying(true);
+          playTrackRef.current?.(nextTrack, { mode: playbackModeRef.current });
           return;
         }
       }
@@ -100,7 +199,7 @@ export const AudioPlayerProvider = ({ children }) => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [queue, queueIndex, playbackMode]);
+  }, [queue, queueIndex]);
 
   useEffect(() => {
     audioRef.current.volume = volume;
@@ -137,49 +236,52 @@ export const AudioPlayerProvider = ({ children }) => {
 
     const sameTrack = currentTrack?.track_id === track.track_id;
     const explicitMode = options.mode !== undefined;
+    const mode = explicitMode ? (options.mode ?? 'preview') : (sameTrack ? playbackMode : 'preview');
+    const url = resolveAudioUrl(track, mode);
+    const startTime = resolveStartTime(track, mode);
 
     if (sameTrack && !explicitMode) {
       if (isPlaying) {
         audio.pause();
         setIsPlaying(false);
-      } else {
-        audio.play().catch(() => setIsPlaying(false));
-        setIsPlaying(true);
+        return;
       }
+      if (audio.error || audio.readyState === 0) {
+        if (url) startUrl(cacheBustUrl(url), startTime);
+        return;
+      }
+      audio.play().then(() => setIsPlaying(true)).catch(() => {
+        if (url) startUrl(cacheBustUrl(url), startTime, { allowRetry: false });
+        else setIsPlaying(false);
+      });
+      setIsPlaying(true);
       return;
     }
 
-    const mode = explicitMode ? (options.mode ?? 'preview') : 'preview';
-    const url = resolveAudioUrl(track, mode);
     if (!url) return;
 
     if (sameTrack && explicitMode) {
-      const needReload = playbackMode !== mode || !audio.src;
-      if (needReload) {
-        setPlaybackMode(mode);
-        audio.src = url;
-        audio.currentTime = resolveStartTime(track, mode);
-        audio.play().catch(() => setIsPlaying(false));
-        setIsPlaying(true);
+      const needReload = playbackMode !== mode || !audio.src || audio.error;
+      if (!needReload) {
+        if (isPlaying) {
+          audio.pause();
+          setIsPlaying(false);
+        } else {
+          audio.play().then(() => setIsPlaying(true)).catch(() => {
+            startUrl(cacheBustUrl(url), startTime, { allowRetry: false });
+          });
+          setIsPlaying(true);
+        }
         return;
       }
-      if (isPlaying) {
-        audio.pause();
-        setIsPlaying(false);
-      } else {
-        audio.play().catch(() => setIsPlaying(false));
-        setIsPlaying(true);
-      }
-      return;
     }
 
     setPlaybackMode(mode);
     setCurrentTrack(track);
-    audio.src = url;
-    audio.currentTime = resolveStartTime(track, mode);
-    audio.play().catch(() => setIsPlaying(false));
-    setIsPlaying(true);
+    startUrl(url, startTime);
   };
+
+  playTrackRef.current = playTrack;
 
   const setQueue = (tracks, startIndex = 0, options = {}) => {
     const nextQueue = Array.isArray(tracks) ? tracks : [];

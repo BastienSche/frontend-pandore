@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate } from 'react-router-dom';
 import { Activity, CreditCard, Download, HardDrive, Loader2, MessageSquare, Pencil, Search, Shield, Trash2, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useAuth } from '@/hooks/useAuth';
 import { apiClient, formatApiError } from '@/lib/apiClient';
 
 const nf = new Intl.NumberFormat('fr-FR');
@@ -22,8 +20,6 @@ const formatBytes = (bytes) => {
   const val = b / (1024 ** idx);
   return `${val.toFixed(val >= 100 || idx === 0 ? 0 : 1)} ${units[idx]}`;
 };
-
-const isAdmin = (user) => String(user?.role || '').toUpperCase() === 'ADMIN';
 
 const MiniBarChart = ({ series, valueKey, height = 90 }) => {
   if (!Array.isArray(series) || series.length === 0) {
@@ -84,7 +80,6 @@ const StatCard = ({ Icon, title, value, subtitle, gradient = 'from-cyan-400 to-p
 );
 
 const AdminDashboard = () => {
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [overview, setOverview] = useState(null);
@@ -98,10 +93,7 @@ const AdminDashboard = () => {
   const [q, setQ] = useState('');
   const lastFetchRef = useRef(0);
 
-  const canView = isAuthenticated && isAdmin(user);
-
   useEffect(() => {
-    if (!canView) return;
     let cancelled = false;
 
     const fetchAdmin = async () => {
@@ -136,7 +128,7 @@ const AdminDashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [canView]);
+  }, []);
 
   const series = useMemo(() => overview?.series_30d || [], [overview]);
   const counts = overview?.counts || {};
@@ -204,10 +196,6 @@ const AdminDashboard = () => {
     await apiClient.delete(`/api/admin/albums/${albumId}`);
     setAlbums((prev) => prev.filter((a) => a.album_id !== albumId));
   };
-
-  if (authLoading) return null;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!isAdmin(user)) return <Navigate to="/" replace />;
 
   return (
     <div className="min-h-screen pb-32 relative overflow-hidden">
@@ -308,7 +296,7 @@ const AdminDashboard = () => {
             <div className="text-lg font-semibold">Erreur admin</div>
             <div className="mt-2 text-muted-foreground">{error}</div>
             <div className="mt-6 text-sm text-muted-foreground/80">
-              Cette page appelle `GET /api/admin/*` et nécessite un compte avec `role=ADMIN` en base.
+              Cette page appelle `GET /api/admin/*`.
             </div>
           </div>
         ) : (

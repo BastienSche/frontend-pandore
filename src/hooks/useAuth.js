@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { apiClient } from '@/lib/apiClient';
+import { isAdminEmail } from '@/lib/adminEmails';
+
+const AuthContext = createContext(null);
 
 const STORAGE_USER_KEY = 'kloud_user';
 const STORAGE_TOKEN_KEY = 'kloud_token';
@@ -20,7 +23,6 @@ const loadStoredUser = () => {
 const persistSession = ({ user, token }) => {
   if (user) window.localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
   if (token) window.localStorage.setItem(STORAGE_TOKEN_KEY, token);
-  // keep legacy keys for a short transition (safe no-op if unused)
   if (user) window.localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(user));
   if (token) window.localStorage.setItem(LEGACY_TOKEN_KEY, token);
 };
@@ -37,8 +39,8 @@ const emitAuthChanged = () => {
   window.dispatchEvent(new Event(LEGACY_AUTH_CHANGED_EVENT));
 };
 
-export const useAuth = () => {
-  const [user, setUser] = useState(null);
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(() => loadStoredUser());
   const [loading, setLoading] = useState(true);
 
   const checkAuth = async () => {
@@ -48,7 +50,7 @@ export const useAuth = () => {
       setUser(data);
       persistSession({ user: data });
       return data;
-    } catch (error) {
+    } catch {
       const stored = loadStoredUser();
       setUser(stored);
       return stored;
@@ -60,11 +62,7 @@ export const useAuth = () => {
   useEffect(() => {
     checkAuth();
 
-    const syncFromStorage = () => {
-      const stored = loadStoredUser();
-      setUser(stored);
-    };
-
+    const syncFromStorage = () => setUser(loadStoredUser());
     const onStorage = (e) => {
       if (!e) return;
       if (e.key === STORAGE_USER_KEY || e.key === STORAGE_TOKEN_KEY) syncFromStorage();
@@ -73,12 +71,12 @@ export const useAuth = () => {
     window.addEventListener('storage', onStorage);
     window.addEventListener(AUTH_CHANGED_EVENT, syncFromStorage);
     window.addEventListener(LEGACY_AUTH_CHANGED_EVENT, syncFromStorage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener(AUTH_CHANGED_EVENT, syncFromStorage);
       window.removeEventListener(LEGACY_AUTH_CHANGED_EVENT, syncFromStorage);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async (email, password) => {
@@ -112,28 +110,48 @@ export const useAuth = () => {
 
   const switchRole = async (artistName = null) => {
     const params = new URLSearchParams();
-    // Uniquement le paramètre explicite : si null/"" → auditeur, même si un nom d'artiste est déjà enregistré.
     const newRole = artistName ? 'artist' : 'user';
     params.set('new_role', newRole);
     if (artistName) params.set('artist_name', artistName);
     const { data } = await apiClient.put(`/api/auth/role?${params.toString()}`);
-    const updated = { ...(user || {}), role: data.role, artist_name: data.artist_name };
+    const updated = {
+      ...(user || {}),
+      role: data.role,
+      artist_name: data.artist_name,
+      is_admin: data.is_admin ?? user?.is_admin,
+    };
     setUser(updated);
     persistSession({ user: updated });
     emitAuthChanged();
     return updated;
   };
 
-  const isAuthenticated = useMemo(() => !!user, [user]);
+  const isAuthenticated = !!user;
+  const isAdmin = isAdminEmail(user?.email);
 
-  return {
-    user,
-    loading,
-    login,
-    register,
-    logout,
-    checkAuth,
-    switchRole,
-    isAuthenticated
-  };
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      login,
+      register,
+      logout,
+      checkAuth,
+      switchRole,
+      isAuthenticated,
+      isAdmin,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, loading, isAuthenticated, isAdmin]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
 };
