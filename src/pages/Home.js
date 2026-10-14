@@ -18,6 +18,7 @@ import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import { MusicNoteBubbleBackground, GlowOrb, BubbleBackground} from '@/components/BubbleCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import RevenueRaceWidget from '@/components/RevenueRaceWidget';
 import { apiClient, formatApiError, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
 
 const containerVariants = {
@@ -70,6 +71,7 @@ const Home = () => {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
   const [feedbackSuccess, setFeedbackSuccess] = useState('');
+  const [contestPayload, setContestPayload] = useState(null);
 
   useEffect(() => {
     fetchHomeData();
@@ -77,12 +79,14 @@ const Home = () => {
 
   const fetchHomeData = async () => {
     try {
-      const [tracksResp, albumsResp, artistsResp, statsResp] = await Promise.all([
+      const [tracksResp, albumsResp, artistsResp, statsResp, contestResp] = await Promise.all([
         apiClient.get('/api/tracks?limit=60'),
         apiClient.get('/api/albums?limit=40'),
         apiClient.get('/api/artists?limit=40'),
-        apiClient.get('/api/public/stats').catch(() => ({ data: null }))
+        apiClient.get('/api/public/stats').catch(() => ({ data: null })),
+        apiClient.get('/api/contests/current').catch(() => ({ data: null }))
       ]);
+      setContestPayload(contestResp?.data?.contest ? contestResp.data : null);
 
       const getTotalFromResp = (payload, fallback = 0) => {
         const p = payload;
@@ -211,15 +215,19 @@ const Home = () => {
       <GlowOrb color="pink" size={400} x="50%" y="90%" blur={100} />
 
       {/* Hero Section */}
-      <section className="relative min-h-[100vh] flex items-center justify-center px-2 overflow-hidden">
-        <div className="relative z-10 max-w-5xl mx-auto text-center space-y-10">
+      <section className="relative min-h-[100vh] flex items-center px-4 md:px-8 lg:px-12 overflow-hidden pt-24 pb-16">
+        <div
+          className={`relative z-10 w-full max-w-7xl mx-auto grid gap-10 lg:gap-12 items-center ${
+            contestPayload?.contest ? 'lg:grid-cols-2' : 'justify-items-center'
+          }`}
+        >
+          <div className={`space-y-8 ${contestPayload?.contest ? 'text-left' : 'text-center max-w-3xl'}`}>
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="space-y-6"
           >
-            {/* Floating Badge */}
             <motion.div
               custom={2}
               variants={floatVariants}
@@ -236,7 +244,7 @@ const Home = () => {
             </motion.div>
 
             <h1 
-              className="text-5xl sm:text-6xl md:text-8xl font-bold tracking-tighter leading-none"
+              className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-bold tracking-tighter leading-none"
               data-testid="hero-title"
             >
               <span className="text-foreground">Possédez votre</span>
@@ -247,7 +255,7 @@ const Home = () => {
             </h1>
             
             <p 
-              className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
+              className={`text-lg md:text-xl text-muted-foreground leading-relaxed ${contestPayload?.contest ? 'max-w-xl' : 'max-w-2xl mx-auto'}`}
               data-testid="hero-description"
             >
               Kloud réinvente l'achat de musique numérique. Achetez, téléchargez et gardez vos titres préférés pour toujours.
@@ -258,7 +266,7 @@ const Home = () => {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center"
+            className={`flex flex-col sm:flex-row gap-4 ${contestPayload?.contest ? '' : 'justify-center'}`}
           >
             <Link to="/register" data-testid="hero-register-link">
               <Button 
@@ -284,15 +292,14 @@ const Home = () => {
             </Link>
           </motion.div>
 
-          {/* Public stats */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="pt-10"
+            className="pt-2"
             data-testid="hero-stats"
           >
-            <div className="flex items-center justify-center gap-5 sm:gap-6 flex-wrap">
+            <div className={`flex items-center gap-4 sm:gap-5 flex-wrap ${contestPayload?.contest ? '' : 'justify-center'}`}>
               {(() => {
                 const nf = new Intl.NumberFormat('fr-FR');
                 const artistsCount =
@@ -335,26 +342,26 @@ const Home = () => {
                     custom={idx}
                     variants={floatVariants}
                     animate="animate"
-                    className="group relative rounded-2xl px-6 py-4 text-center min-w-[156px] border backdrop-blur-md bg-white/95 border-slate-200/90 shadow-md shadow-slate-900/5 dark:bg-white/[0.04] dark:border-white/10 dark:shadow-[0_0_30px_rgba(0,0,0,0.28)]"
+                    className="group relative rounded-2xl px-5 py-3.5 text-center min-w-[132px] border backdrop-blur-md bg-white/95 border-slate-200/90 shadow-md shadow-slate-900/5 dark:bg-white/[0.04] dark:border-white/10 dark:shadow-[0_0_30px_rgba(0,0,0,0.28)]"
                   >
                     <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-b from-slate-100/80 to-transparent dark:from-white/[0.06] dark:to-transparent" />
-                    <div className="relative flex items-center justify-center gap-2.5">
-                      <span className={`inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${card.gradient} opacity-90`}>
-                        <card.Icon className="w-4 h-4 text-zinc-900/90 dark:text-black/80" />
+                    <div className="relative flex items-center justify-center gap-2">
+                      <span className={`inline-flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-br ${card.gradient} opacity-90`}>
+                        <card.Icon className="w-3.5 h-3.5 text-zinc-900/90 dark:text-black/80" />
                       </span>
-                      <div className={`text-3xl md:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r ${card.gradient}`}>
+                      <div className={`text-2xl md:text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r ${card.gradient}`}>
                         {card.value}
                       </div>
                     </div>
-                    <div className="mt-1 text-[11px] uppercase tracking-[0.22em] text-slate-500 dark:text-white/55">
+                    <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-slate-500 dark:text-white/55">
                       {card.label}
                     </div>
                   </motion.div>
                 ));
               })()}
             </div>
-            <div className="mt-14 sm:mt-16 flex items-center justify-center px-2">
-              <div className="w-full max-w-3xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-full border border-slate-300/80 bg-white/90 px-4 py-2.5 text-xs text-slate-700 shadow-sm dark:border-cyan-400/35 dark:bg-cyan-500/10 dark:text-cyan-50 dark:shadow-[0_0_22px_rgba(34,211,238,0.28)]">
+            <div className={`mt-10 flex ${contestPayload?.contest ? '' : 'justify-center'}`}>
+              <div className="w-full max-w-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-full border border-slate-300/80 bg-white/90 px-4 py-2.5 text-xs text-slate-700 shadow-sm dark:border-cyan-400/35 dark:bg-cyan-500/10 dark:text-cyan-50 dark:shadow-[0_0_22px_rgba(34,211,238,0.28)]">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-700 self-center sm:self-auto dark:border-cyan-300/45 dark:bg-cyan-400/20 dark:text-cyan-100">
                   <Sparkles className="w-3 h-3 text-cyan-600 dark:text-cyan-100" />
                   Beta
@@ -372,6 +379,24 @@ const Home = () => {
               </div>
             </div>
           </motion.div>
+          </div>
+
+          {contestPayload?.contest && (
+            <motion.div
+              initial={{ opacity: 0, x: 28 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.7, delay: 0.25 }}
+              className="w-full max-w-xl mx-auto lg:mx-0 lg:justify-self-end"
+            >
+              <RevenueRaceWidget
+                contest={contestPayload.contest}
+                leaderboard={contestPayload.leaderboard}
+                series={contestPayload.series}
+                days={contestPayload.days}
+                compact
+              />
+            </motion.div>
+          )}
         </div>
 
         {/* Scroll Indicator */}
