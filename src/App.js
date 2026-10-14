@@ -25,7 +25,9 @@ import AuthCallback from '@/pages/AuthCallback';
 import UiKit from '@/pages/UiKit';
 import NousDecouvrir from '@/pages/NousDecouvrir';
 import AdminDashboard from '@/pages/AdminDashboard';
+import Concours from '@/pages/Concours';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
+import ContestAnnounceModal from '@/components/ContestAnnounceModal';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import '@/App.css';
 
@@ -49,6 +51,8 @@ function AppRouter() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/nous-decouvrir" element={<NousDecouvrir />} />
+        <Route path="/concours" element={<Concours />} />
+        <Route path="/concours/:contestId" element={<Concours />} />
         <Route
           path="/admin"
           element={
@@ -127,6 +131,7 @@ function AppRouter() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <AudioPlayer />
+      <ContestAnnounceModal />
     </>
   );
 }

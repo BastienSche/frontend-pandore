@@ -1,11 +1,39 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, CreditCard, Download, HardDrive, Loader2, MessageSquare, Pencil, Search, Shield, Trash2, Users } from 'lucide-react';
+import { Activity, CreditCard, Download, HardDrive, Loader2, MessageSquare, Pencil, Search, Shield, Trash2, Trophy, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { toast } from 'sonner';
 import { apiClient, formatApiError } from '@/lib/apiClient';
+
+const toLocalInput = (iso) => {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return '';
+  }
+};
+
+const emptyContestForm = () => {
+  const start = new Date();
+  const end = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  return {
+    title: 'Course aux revenus',
+    subtitle: 'Les artistes qui génèrent le plus d’euros',
+    starts_at: toLocalInput(start.toISOString()),
+    ends_at: toLocalInput(end.toISOString()),
+    is_published: true,
+    prize_label: ''
+  };
+};
 
 const nf = new Intl.NumberFormat('fr-FR');
 const eur = (cents) => {
@@ -89,6 +117,10 @@ const AdminDashboard = () => {
   const [albums, setAlbums] = useState([]);
   const [feedbackItems, setFeedbackItems] = useState([]);
   const [storage, setStorage] = useState(null);
+  const [contests, setContests] = useState([]);
+  const [contestForm, setContestForm] = useState(emptyContestForm);
+  const [contestSaving, setContestSaving] = useState(false);
+  const [editingContestId, setEditingContestId] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [q, setQ] = useState('');
   const lastFetchRef = useRef(0);
@@ -100,14 +132,15 @@ const AdminDashboard = () => {
       setLoading(true);
       setError('');
       try {
-        const [ov, pt, lg, tr, al, fb, st] = await Promise.all([
+        const [ov, pt, lg, tr, al, fb, st, ct] = await Promise.all([
           apiClient.get('/api/admin/overview'),
           apiClient.get('/api/admin/payment-transactions?limit=200'),
           apiClient.get('/api/admin/logs?limit=200'),
           apiClient.get('/api/admin/tracks?limit=300'),
           apiClient.get('/api/admin/albums?limit=300'),
           apiClient.get('/api/admin/feedback?limit=300'),
-          apiClient.get('/api/admin/storage').catch(() => ({ data: null }))
+          apiClient.get('/api/admin/storage').catch(() => ({ data: null })),
+          apiClient.get('/api/admin/contests').catch(() => ({ data: { items: [] } }))
         ]);
         if (cancelled) return;
         setOverview(ov.data);
@@ -117,6 +150,7 @@ const AdminDashboard = () => {
         setAlbums(al.data?.items || []);
         setFeedbackItems(fb.data?.items || []);
         setStorage(st.data || null);
+        setContests(ct.data?.items || []);
       } catch (e) {
         if (!cancelled) setError(formatApiError(e));
       } finally {
@@ -129,6 +163,72 @@ const AdminDashboard = () => {
       cancelled = true;
     };
   }, []);
+
+  const refreshContests = async () => {
+    try {
+      const { data } = await apiClient.get('/api/admin/contests');
+      setContests(data?.items || []);
+    } catch (e) {
+      toast.error(formatApiError(e) || 'Impossible de recharger les concours');
+    }
+  };
+
+  const saveContest = async () => {
+    setContestSaving(true);
+    try {
+      const body = {
+        title: contestForm.title,
+        subtitle: contestForm.subtitle || null,
+        starts_at: new Date(contestForm.starts_at).toISOString(),
+        ends_at: new Date(contestForm.ends_at).toISOString(),
+        is_published: Boolean(contestForm.is_published),
+        prize_label: contestForm.prize_label || null
+      };
+      if (editingContestId) {
+        await apiClient.patch(`/api/admin/contests/${editingContestId}`, body);
+        toast.success('Concours mis à jour');
+      } else {
+        await apiClient.post('/api/admin/contests', body);
+        toast.success('Concours créé');
+      }
+      setEditingContestId(null);
+      setContestForm(emptyContestForm());
+      await refreshContests();
+    } catch (e) {
+      toast.error(formatApiError(e) || 'Erreur lors de l’enregistrement');
+    } finally {
+      setContestSaving(false);
+    }
+  };
+
+  const editContest = (c) => {
+    setEditingContestId(c.contest_id);
+    setContestForm({
+      title: c.title || '',
+      subtitle: c.subtitle || '',
+      starts_at: toLocalInput(c.starts_at),
+      ends_at: toLocalInput(c.ends_at),
+      is_published: Boolean(c.is_published),
+      prize_label: c.prize_label || ''
+    });
+    setActiveTab('contests');
+  };
+
+  const deleteContest = async (contestId) => {
+    // eslint-disable-next-line no-alert
+    if (!window.confirm('Supprimer ce concours ?')) return;
+    try {
+      await apiClient.delete(`/api/admin/contests/${contestId}`);
+      if (editingContestId === contestId) {
+        setEditingContestId(null);
+        setContestForm(emptyContestForm());
+      }
+      toast.success('Concours supprimé');
+      await refreshContests();
+    } catch (e) {
+      toast.error(formatApiError(e) || 'Suppression impossible');
+    }
+  };
 
   const series = useMemo(() => overview?.series_30d || [], [overview]);
   const counts = overview?.counts || {};
@@ -241,6 +341,7 @@ const AdminDashboard = () => {
               <div className="flex items-center gap-2 flex-wrap">
                 {[
                   { id: 'overview', label: 'Aperçu' },
+                  { id: 'contests', label: 'Concours' },
                   { id: 'tracks', label: 'Tracks' },
                   { id: 'albums', label: 'Albums' },
                   { id: 'transactions', label: 'Transactions' },
@@ -747,6 +848,163 @@ const AdminDashboard = () => {
                       )}
                     </TableBody>
                   </Table>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'contests' && (
+              <div className="space-y-6">
+                <div className="glass-heavy rounded-[32px] p-8 border border-white/10 shadow-[0_16px_60px_rgba(0,0,0,0.18)]">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-cyan-400" />
+                    <div className="text-2xl font-semibold tracking-tight">
+                      {editingContestId ? 'Modifier le concours' : 'Nouveau concours'}
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
+                    Programme une course aux revenus (souvent 2 semaines à 1 mois). L’artiste qui génère le plus
+                    d’euros (ventes payées) sur la période gagne. Un seul concours publié à la fois.
+                  </p>
+
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="contest-title">Titre</Label>
+                      <Input
+                        id="contest-title"
+                        value={contestForm.title}
+                        onChange={(e) => setContestForm((f) => ({ ...f, title: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contest-prize">Prix (optionnel)</Label>
+                      <Input
+                        id="contest-prize"
+                        value={contestForm.prize_label}
+                        onChange={(e) => setContestForm((f) => ({ ...f, prize_label: e.target.value }))}
+                        placeholder="ex. Featured homepage + 100€"
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="contest-subtitle">Sous-titre</Label>
+                      <Input
+                        id="contest-subtitle"
+                        value={contestForm.subtitle}
+                        onChange={(e) => setContestForm((f) => ({ ...f, subtitle: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contest-start">Début</Label>
+                      <Input
+                        id="contest-start"
+                        type="datetime-local"
+                        value={contestForm.starts_at}
+                        onChange={(e) => setContestForm((f) => ({ ...f, starts_at: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contest-end">Fin</Label>
+                      <Input
+                        id="contest-end"
+                        type="datetime-local"
+                        value={contestForm.ends_at}
+                        onChange={(e) => setContestForm((f) => ({ ...f, ends_at: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="md:col-span-2 flex items-center gap-3">
+                      <input
+                        id="contest-published"
+                        type="checkbox"
+                        checked={contestForm.is_published}
+                        onChange={(e) => setContestForm((f) => ({ ...f, is_published: e.target.checked }))}
+                        className="h-4 w-4 rounded border-white/20"
+                      />
+                      <Label htmlFor="contest-published" className="font-normal">
+                        Publié (visible sur l’accueil + modal + page Concours)
+                      </Label>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Button
+                      className="rounded-full"
+                      onClick={saveContest}
+                      disabled={contestSaving || !contestForm.title || !contestForm.starts_at || !contestForm.ends_at}
+                    >
+                      {contestSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                      {editingContestId ? 'Enregistrer' : 'Créer le concours'}
+                    </Button>
+                    {editingContestId && (
+                      <Button
+                        variant="outline"
+                        className="rounded-full"
+                        onClick={() => {
+                          setEditingContestId(null);
+                          setContestForm(emptyContestForm());
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="glass-heavy rounded-[32px] p-8 border border-white/10 shadow-[0_16px_60px_rgba(0,0,0,0.18)]">
+                  <div className="text-2xl font-semibold tracking-tight">Concours existants</div>
+                  <div className="mt-4 max-h-[480px] overflow-auto rounded-2xl border border-white/10">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Titre</TableHead>
+                          <TableHead>Période</TableHead>
+                          <TableHead>Phase</TableHead>
+                          <TableHead>Publié</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {contests.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                              Aucun concours pour le moment.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          contests.map((c) => (
+                            <TableRow key={c.contest_id}>
+                              <TableCell className="font-medium">{c.title}</TableCell>
+                              <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                                {String(c.starts_at || '').slice(0, 10)} → {String(c.ends_at || '').slice(0, 10)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className="rounded-full capitalize bg-white/5 border-white/10">
+                                  {c.phase || '—'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{c.is_published ? 'oui' : 'non'}</TableCell>
+                              <TableCell className="text-right space-x-2">
+                                <Button size="sm" variant="ghost" className="rounded-full" onClick={() => editContest(c)}>
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="rounded-full text-red-400"
+                                  onClick={() => deleteContest(c.contest_id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </div>
             )}
