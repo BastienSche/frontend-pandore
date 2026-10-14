@@ -13,6 +13,7 @@ import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { getLibraryOwnership } from '@/lib/libraryOwnership';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,9 +46,24 @@ const AlbumDetail = () => {
   const [payWhatYouWantEuro, setPayWhatYouWantEuro] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
+      setLoading(true);
       try {
+        if (isAuthenticated) {
+          try {
+            const { albumIds } = await getLibraryOwnership(apiClient);
+            if (!cancelled && albumIds.has(albumId)) {
+              navigate(`/library/albums/${albumId}`, { replace: true });
+              return;
+            }
+          } catch {
+            // Bibliothèque indisponible : on affiche la fiche catalogue
+          }
+        }
+
         const { data } = await apiClient.get(`/api/albums/${albumId}`);
+        if (cancelled) return;
         const resolvedAlbum = { ...data, cover_url: resolveApiUrl(data?.cover_url) };
         setAlbum(resolvedAlbum);
 
@@ -58,6 +74,7 @@ const AlbumDetail = () => {
           const trackResults = await Promise.all(
             trackIds.map((id) => apiClient.get(`/api/tracks/${id}`).then((r) => r.data).catch(() => null))
           );
+          if (cancelled) return;
           setTracks(
             trackResults
               .filter(Boolean)
@@ -70,13 +87,18 @@ const AlbumDetail = () => {
           );
         }
       } catch (error) {
-        toast.error('Album introuvable');
-        navigate('/browse');
+        if (!cancelled) {
+          toast.error('Album introuvable');
+          navigate('/browse');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [albumId, navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [albumId, navigate, isAuthenticated]);
 
   useEffect(() => {
     if (!albumId) return;

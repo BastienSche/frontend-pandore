@@ -93,14 +93,14 @@ const ForgotPassword = () => {
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Si le compte existe, le lien est prêt.
+                Si le compte existe, un email a été envoyé. Vérifie aussi tes spams.
               </p>
               {debugResetUrl && (
                 <a
                   href={debugResetUrl}
                   className="block rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 text-sm text-cyan-200 hover:text-cyan-100 transition-colors break-all"
                 >
-                  Ouvrir le lien de reset (mode dev)
+                  Ouvrir le lien de reset (mode dev — email non envoyé)
                 </a>
               )}
             </div>

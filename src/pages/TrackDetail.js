@@ -13,6 +13,7 @@ import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { getLibraryOwnership } from '@/lib/libraryOwnership';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -52,9 +53,25 @@ const TrackDetail = () => {
   const [payWhatYouWantEuro, setPayWhatYouWantEuro] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
+      setLoading(true);
       try {
+        // Si le titre est déjà acquis → même UI que depuis la bibliothèque
+        if (isAuthenticated) {
+          try {
+            const { trackIds } = await getLibraryOwnership(apiClient);
+            if (!cancelled && trackIds.has(trackId)) {
+              navigate(`/library/tracks/${trackId}`, { replace: true });
+              return;
+            }
+          } catch {
+            // Bibliothèque indisponible : on affiche la fiche catalogue
+          }
+        }
+
         const { data } = await apiClient.get(`/api/tracks/${trackId}`);
+        if (cancelled) return;
         // Normalisation : certaines routes/retours API n'incluent pas exactement les mêmes champs.
         // On force surtout `track_id` pour que `AudioPlayerContext` puisse identifier le titre courant,
         // et on met un fallback de `preview_url` sur `file_url` si la preview manque.
@@ -72,13 +89,18 @@ const TrackDetail = () => {
           cover_url: data?.cover_url ? resolveApiUrl(data?.cover_url) : null
         });
       } catch (error) {
-        toast.error('Track introuvable');
-        navigate('/browse');
+        if (!cancelled) {
+          toast.error('Track introuvable');
+          navigate('/browse');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [trackId, navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [trackId, navigate, isAuthenticated]);
 
   useEffect(() => {
     if (!trackId) return;

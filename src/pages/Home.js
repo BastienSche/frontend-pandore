@@ -363,24 +363,7 @@ const Home = () => {
                 ));
               })()}
             </div>
-            <div className={`mt-10 flex ${contestPayload?.contest ? '' : 'justify-center'}`}>
-              <div className="w-full max-w-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-full border border-slate-300/80 bg-white/90 px-4 py-2.5 text-xs text-slate-700 shadow-sm dark:border-cyan-400/35 dark:bg-cyan-500/10 dark:text-cyan-50 dark:shadow-[0_0_22px_rgba(34,211,238,0.28)]">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-700 self-center sm:self-auto dark:border-cyan-300/45 dark:bg-cyan-400/20 dark:text-cyan-100">
-                  <Sparkles className="w-3 h-3 text-cyan-600 dark:text-cyan-100" />
-                  Beta
-                </span>
-                <span className="text-center sm:text-left sm:flex-1 sm:px-2">
-                  Ton feedback nous aide a ameliorer la plateforme.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setFeedbackOpen(true)}
-                  className="rounded-full border border-cyan-500/35 bg-cyan-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-700 hover:bg-cyan-200 transition-colors self-center sm:self-auto dark:border-cyan-200/60 dark:bg-cyan-300/20 dark:text-cyan-50 dark:hover:bg-cyan-300/30"
-                >
-                  Retour
-                </button>
-              </div>
-            </div>
+            {/* Widget Beta feedback — masqué pour l’instant */}
           </motion.div>
           </div>
 
