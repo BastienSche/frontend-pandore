@@ -19,6 +19,7 @@ import AlbumCard from '@/components/AlbumCard';
 import { MusicNoteBubbleBackground, GlowOrb, BubbleBackground} from '@/components/BubbleCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import RevenueRaceWidget from '@/components/RevenueRaceWidget';
+import { useAuth } from '@/hooks/useAuth';
 import { apiClient, formatApiError, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
 
 const containerVariants = {
@@ -57,6 +58,8 @@ const isPublicItem = (item) => {
 };
 
 const Home = () => {
+  const { isAuthenticated } = useAuth();
+  const primaryCtaTo = isAuthenticated ? '/browse' : '/login';
   const [newReleases, setNewReleases] = useState([]);
   const [newAlbumsThisWeek, setNewAlbumsThisWeek] = useState([]);
   const [topTracks, setTopTracks] = useState([]);
@@ -268,7 +271,7 @@ const Home = () => {
             transition={{ duration: 0.8, delay: 0.3 }}
             className={`flex flex-col sm:flex-row gap-4 ${contestPayload?.contest ? '' : 'justify-center'}`}
           >
-            <Link to="/register" data-testid="hero-register-link">
+            <Link to={primaryCtaTo} data-testid="hero-register-link">
               <Button 
                 size="lg" 
                 className="rounded-full px-10 py-7 text-lg bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0 shadow-[0_0_30px_rgba(34,211,238,0.3)] hover:shadow-[0_0_40px_rgba(34,211,238,0.5)] transition-shadow"

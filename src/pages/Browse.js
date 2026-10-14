@@ -132,12 +132,12 @@ const Browse = () => {
       <div className="max-w-7xl mx-auto px-6 md:px-12 py-8 relative z-10">
         <Tabs defaultValue="tracks" className="w-full">
           <TabsList 
-            className="mb-10 bg-white/5 border border-white/10 rounded-full p-1.5" 
+            className="mb-10 !h-auto items-center bg-white/5 border border-white/10 rounded-full p-1.5 overflow-hidden" 
             data-testid="browse-tabs"
           >
             <TabsTrigger 
               value="tracks" 
-              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500/20 data-[state=active]:to-purple-500/20 data-[state=active]:border data-[state=active]:border-cyan-500/30 px-6 py-2.5"
+              className="gap-2 rounded-full h-9 px-6 py-0 border border-transparent data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500/20 data-[state=active]:to-purple-500/20 data-[state=active]:border-cyan-500/30 data-[state=active]:shadow-none"
               data-testid="tracks-tab"
             >
               <Music className="w-4 h-4" />
@@ -145,7 +145,7 @@ const Browse = () => {
             </TabsTrigger>
             <TabsTrigger 
               value="albums" 
-              className="gap-2 rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 data-[state=active]:border data-[state=active]:border-purple-500/30 px-6 py-2.5"
+              className="gap-2 rounded-full h-9 px-6 py-0 border border-transparent data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 data-[state=active]:border-purple-500/30 data-[state=active]:shadow-none"
               data-testid="albums-tab"
             >
               <Disc className="w-4 h-4" />

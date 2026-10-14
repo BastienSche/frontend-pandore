@@ -1,13 +1,16 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { apiClient } from '@/lib/apiClient';
+import {
+  apiClient,
+  clearTokens,
+  getRefreshToken,
+  persistTokens,
+} from '@/lib/apiClient';
 import { isAdminEmail } from '@/lib/adminEmails';
 
 const AuthContext = createContext(null);
 
 const STORAGE_USER_KEY = 'kloud_user';
-const STORAGE_TOKEN_KEY = 'kloud_token';
 const LEGACY_USER_KEY = 'pandore_user';
-const LEGACY_TOKEN_KEY = 'pandore_token';
 const AUTH_CHANGED_EVENT = 'kloud-auth-changed';
 const LEGACY_AUTH_CHANGED_EVENT = 'pandore-auth-changed';
 
@@ -20,18 +23,21 @@ const loadStoredUser = () => {
   }
 };
 
-const persistSession = ({ user, token }) => {
-  if (user) window.localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
-  if (token) window.localStorage.setItem(STORAGE_TOKEN_KEY, token);
-  if (user) window.localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(user));
-  if (token) window.localStorage.setItem(LEGACY_TOKEN_KEY, token);
+const persistUser = (user) => {
+  if (!user) return;
+  window.localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+  window.localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(user));
+};
+
+const persistSession = ({ user, token, refreshToken } = {}) => {
+  if (user) persistUser(user);
+  persistTokens({ token, refreshToken });
 };
 
 const clearSession = () => {
   window.localStorage.removeItem(STORAGE_USER_KEY);
-  window.localStorage.removeItem(STORAGE_TOKEN_KEY);
   window.localStorage.removeItem(LEGACY_USER_KEY);
-  window.localStorage.removeItem(LEGACY_TOKEN_KEY);
+  clearTokens();
 };
 
 const emitAuthChanged = () => {
@@ -65,7 +71,13 @@ export const AuthProvider = ({ children }) => {
     const syncFromStorage = () => setUser(loadStoredUser());
     const onStorage = (e) => {
       if (!e) return;
-      if (e.key === STORAGE_USER_KEY || e.key === STORAGE_TOKEN_KEY) syncFromStorage();
+      if (
+        e.key === STORAGE_USER_KEY ||
+        e.key === 'kloud_token' ||
+        e.key === 'kloud_refresh_token'
+      ) {
+        syncFromStorage();
+      }
     };
 
     window.addEventListener('storage', onStorage);
@@ -82,8 +94,10 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const { data } = await apiClient.post('/api/auth/login', { email, password });
     const nextUser = data?.user || null;
-    const token = data?.token || null;
-    if (token) persistSession({ user: nextUser, token });
+    const token = data?.access_token || data?.token || null;
+    const refreshToken = data?.refresh_token || null;
+    if (token || refreshToken) persistSession({ user: nextUser, token, refreshToken });
+    else if (nextUser) persistUser(nextUser);
     if (nextUser) setUser(nextUser);
     emitAuthChanged();
     return data;
@@ -99,8 +113,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    const refreshToken = getRefreshToken();
     try {
-      await apiClient.post('/api/auth/logout');
+      await apiClient.post('/api/auth/logout', refreshToken ? { refresh_token: refreshToken } : {});
+    } catch {
+      // On nettoie quand même localement
     } finally {
       clearSession();
       setUser(null);
