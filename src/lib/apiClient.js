@@ -44,6 +44,45 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production' && !b
 }
 
 const TOKEN_KEYS = ['kloud_token', 'pandore_token'];
+const REFRESH_TOKEN_KEYS = ['kloud_refresh_token', 'pandore_refresh_token'];
+const AUTH_CHANGED_EVENT = 'kloud-auth-changed';
+
+export function getAccessToken() {
+  if (typeof window === 'undefined') return null;
+  return TOKEN_KEYS.map((k) => window.localStorage.getItem(k)).find(Boolean) || null;
+}
+
+export function getRefreshToken() {
+  if (typeof window === 'undefined') return null;
+  return REFRESH_TOKEN_KEYS.map((k) => window.localStorage.getItem(k)).find(Boolean) || null;
+}
+
+export function persistTokens({ token, refreshToken } = {}) {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    window.localStorage.setItem('kloud_token', token);
+    window.localStorage.setItem('pandore_token', token);
+  }
+  if (refreshToken) {
+    window.localStorage.setItem('kloud_refresh_token', refreshToken);
+    window.localStorage.setItem('pandore_refresh_token', refreshToken);
+  }
+}
+
+export function clearTokens() {
+  if (typeof window === 'undefined') return;
+  [...TOKEN_KEYS, ...REFRESH_TOKEN_KEYS].forEach((k) => window.localStorage.removeItem(k));
+}
+
+function isAuthRefreshUrl(url = '') {
+  return (
+    url.includes('/auth/login') ||
+    url.includes('/auth/register') ||
+    url.includes('/auth/refresh') ||
+    url.includes('/auth/forgot-password') ||
+    url.includes('/auth/reset-password')
+  );
+}
 
 export const apiClient = axios.create({
   baseURL,
@@ -51,7 +90,7 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = TOKEN_KEYS.map((k) => window.localStorage.getItem(k)).find(Boolean);
+  const token = getAccessToken();
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -72,17 +111,67 @@ export function formatApiError(error) {
   return 'Erreur réseau';
 }
 
+let refreshPromise = null;
+
+async function refreshAccessToken() {
+  const refreshToken = getRefreshToken();
+  const { data } = await axios.post(
+    `${baseURL}/api/auth/refresh`,
+    refreshToken ? { refresh_token: refreshToken } : {},
+    { withCredentials: true }
+  );
+  const nextAccess = data?.access_token || data?.token || null;
+  const nextRefresh = data?.refresh_token || null;
+  if (!nextAccess) {
+    throw new Error('Refresh failed: missing access token');
+  }
+  persistTokens({ token: nextAccess, refreshToken: nextRefresh || undefined });
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+  }
+  return nextAccess;
+}
+
 apiClient.interceptors.response.use(
   (r) => r,
-  (error) => {
-    if (error?.response?.status === 401 && typeof window !== 'undefined') {
-      const url = error.config?.url || '';
+  async (error) => {
+    const original = error?.config;
+    const status = error?.response?.status;
+    const url = original?.url || '';
+
+    if (status === 401 && typeof window !== 'undefined') {
       if (url.includes('/purchases/status')) {
         // eslint-disable-next-line no-console
         console.warn('[Kloud] Session expirée ou non connecté — impossible de confirmer le paiement sans JWT.');
       }
     }
-    return Promise.reject(error);
+
+    if (
+      status !== 401 ||
+      !original ||
+      original._retry ||
+      isAuthRefreshUrl(url) ||
+      typeof window === 'undefined'
+    ) {
+      return Promise.reject(error);
+    }
+
+    original._retry = true;
+    try {
+      if (!refreshPromise) {
+        refreshPromise = refreshAccessToken().finally(() => {
+          refreshPromise = null;
+        });
+      }
+      const nextAccess = await refreshPromise;
+      original.headers = original.headers || {};
+      original.headers.Authorization = `Bearer ${nextAccess}`;
+      return apiClient(original);
+    } catch (refreshError) {
+      clearTokens();
+      window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+      return Promise.reject(refreshError);
+    }
   }
 );
 
@@ -107,4 +196,3 @@ export function normalizeApiList(payload) {
   }
   return [];
 }
-
