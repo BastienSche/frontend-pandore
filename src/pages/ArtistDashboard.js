@@ -1078,7 +1078,7 @@ const ArtistDashboard = () => {
       await reloadStats();
       toast.success('Album supprimé');
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(error.response?.data?.detail || 'Erreur lors de la suppression');
     }
   };
 

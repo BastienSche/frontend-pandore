@@ -2,6 +2,7 @@
 export const ADMIN_EMAILS = [
   'bastien.schektman@gmail.com',
   'merwan.snk@gmail.com',
+  'merwane.snk@gmail.com',
 ];
 
 export function normalizeEmail(email) {
