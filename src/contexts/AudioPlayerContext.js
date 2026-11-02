@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { recordTrackPlay } from '@/lib/recordPlay';
 
 const AudioPlayerContext = createContext();
@@ -150,6 +151,9 @@ export const AudioPlayerProvider = ({ children }) => {
         }
       }
       setIsPlaying(false);
+      const err = audioRef.current?.error;
+      console.error('[Kloud] lecture audio impossible', { url, code: err?.code, message: err?.message });
+      toast.error('Impossible de lire ce son');
     }
   };
 
@@ -258,7 +262,10 @@ export const AudioPlayerProvider = ({ children }) => {
       return;
     }
 
-    if (!url) return;
+    if (!url) {
+      toast.error('Aucun fichier audio pour ce titre');
+      return;
+    }
 
     if (sameTrack && explicitMode) {
       const needReload = playbackMode !== mode || !audio.src || audio.error;
