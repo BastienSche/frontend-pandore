@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, Heart, ShoppingBag, Disc3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { apiClient } from '@/lib/apiClient';
+import { apiClient, getAccessToken, getRefreshToken } from '@/lib/apiClient';
 
 const POLL_MS = 20000;
 
@@ -36,6 +36,7 @@ const NotificationBell = ({ compact = false }) => {
   const unreadRef = useRef(null);
 
   const refresh = useCallback(async () => {
+    if (!getAccessToken() && !getRefreshToken()) return;
     try {
       const { data } = await apiClient.get('/api/notifications', { params: { limit: 40 } });
       const nextItems = Array.isArray(data?.items) ? data.items : [];

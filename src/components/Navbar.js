@@ -94,7 +94,7 @@ const Navbar = () => {
         { to: '/register', icon: PlusCircle, label: 'Inscription', testId: 'mobile-nav-register' },
       ];
 
-  const MobileBottomNav = () => (
+  const renderMobileBottomNav = () => (
     <nav
       className="fixed bottom-2 left-1/2 -translate-x-1/2 z-50 md:hidden w-[calc(100%-0.75rem)] max-w-lg pb-[env(safe-area-inset-bottom)]"
       data-testid="mobile-bottom-navbar"
@@ -249,7 +249,7 @@ const Navbar = () => {
             </Button>
           </motion.div>
         </div>
-        <MobileBottomNav />
+        {renderMobileBottomNav()}
       </>
     );
   }
@@ -459,7 +459,7 @@ const Navbar = () => {
           </div>
         </div>
       </motion.nav>
-      <MobileBottomNav />
+      {renderMobileBottomNav()}
     </>
   );
 };
