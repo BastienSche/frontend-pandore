@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { motion, useDragControls } from 'framer-motion';
 import KloudLogo from '@/components/KloudLogo';
+import NotificationBell from '@/components/NotificationBell';
 
 const userInitial = (u) => {
   if (!u) return '?';
@@ -118,6 +119,8 @@ const Navbar = () => {
               </Link>
             </Button>
           ))}
+
+          {user ? <NotificationBell compact /> : null}
 
           {user ? (
             <DropdownMenu>
@@ -339,6 +342,8 @@ const Navbar = () => {
                 )}
               </Button>
             </motion.div>
+
+            {user && <NotificationBell />}
 
             {/* User Menu */}
             {user ? (
