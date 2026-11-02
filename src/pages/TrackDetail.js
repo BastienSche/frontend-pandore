@@ -165,6 +165,7 @@ const TrackDetail = () => {
         if (amountCents === 0) {
           await apiClient.post('/api/purchases/library', { item_type: 'track', item_id: trackId });
           toast.success('Titre ajouté à la bibliothèque');
+          navigate(`/library/tracks/${trackId}`, { replace: true });
           return;
         }
         const originUrl = window.location.origin;
@@ -184,6 +185,7 @@ const TrackDetail = () => {
       if (isFree) {
         await apiClient.post('/api/purchases/library', { item_type: 'track', item_id: trackId });
         toast.success('Titre ajouté à la bibliothèque');
+        navigate(`/library/tracks/${trackId}`, { replace: true });
         return;
       }
 
