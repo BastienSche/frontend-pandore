@@ -21,6 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import RevenueRaceWidget from '@/components/RevenueRaceWidget';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient, formatApiError, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
+import { artistAvatarSrc } from '@/lib/artistAvatar';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -123,7 +124,7 @@ const Home = () => {
         }));
       const artists = normalizeApiList(artistsResp.data).map((a) => ({
         ...a,
-        picture: resolveApiUrl(a?.picture)
+        picture: artistAvatarSrc(a)
       }));
 
       const weekMs = 7 * 24 * 60 * 60 * 1000;

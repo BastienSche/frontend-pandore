@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import RevenueRaceWidget from '@/components/RevenueRaceWidget';
-import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, formatApiError } from '@/lib/apiClient';
+import { artistAvatarSrc } from '@/lib/artistAvatar';
 
 const eur = (cents) =>
   new Intl.NumberFormat('fr-FR', {
@@ -148,7 +149,7 @@ const Concours = () => {
                             {row.rank}
                           </span>
                           <Avatar className="w-9 h-9">
-                            <AvatarImage src={resolveApiUrl(row.picture)} />
+                            <AvatarImage src={artistAvatarSrc({ ...row, user_id: row.artist_id })} />
                             <AvatarFallback>{(row.artist_name || '?')[0]}</AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">

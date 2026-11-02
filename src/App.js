@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { Toaster } from '@/components/ui/sonner';
@@ -26,6 +26,7 @@ import UiKit from '@/pages/UiKit';
 import NousDecouvrir from '@/pages/NousDecouvrir';
 import AdminDashboard from '@/pages/AdminDashboard';
 import Concours from '@/pages/Concours';
+import SitePresentation from '@/pages/SitePresentation';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
 import ContestAnnounceModal from '@/components/ContestAnnounceModal';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
@@ -39,11 +40,15 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function AppRouter() {
+  const location = useLocation();
+  const isPresentation = location.pathname === '/presentation';
+
   return (
     <>
-      <Navbar />
+      {!isPresentation && <Navbar />}
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/presentation" element={<SitePresentation />} />
         <Route path="/ui" element={<UiKit />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -130,8 +135,8 @@ function AppRouter() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <AudioPlayer />
-      <ContestAnnounceModal />
+      {!isPresentation && <AudioPlayer />}
+      {!isPresentation && <ContestAnnounceModal />}
     </>
   );
 }

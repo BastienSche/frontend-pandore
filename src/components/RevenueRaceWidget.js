@@ -4,7 +4,7 @@ import { TrendingUp, ArrowRight, ArrowUpRight } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { resolveApiUrl } from '@/lib/apiClient';
+import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { cn } from '@/lib/utils';
 
 const LINE_COLORS = [
@@ -228,7 +228,7 @@ const RevenueRaceWidget = ({
                     className="w-8 h-8 border-2 shadow-lg"
                     style={{ borderColor: line.color.stroke, boxShadow: `0 0 12px ${line.color.glow}` }}
                   >
-                    <AvatarImage src={resolveApiUrl(line.picture)} />
+                    <AvatarImage src={artistAvatarSrc({ ...line, user_id: line.artist_id })} />
                     <AvatarFallback className="text-[10px] bg-white/10">
                       {(line.artist_name || '?')[0]}
                     </AvatarFallback>
@@ -273,7 +273,7 @@ const RevenueRaceWidget = ({
                     className="w-10 h-10 border"
                     style={idx === 0 ? { borderColor: color.stroke, boxShadow: `0 0 14px ${color.glow}` } : undefined}
                   >
-                    <AvatarImage src={resolveApiUrl(row.picture)} />
+                    <AvatarImage src={artistAvatarSrc({ ...row, user_id: row.artist_id })} />
                     <AvatarFallback>{(row.artist_name || '?')[0]}</AvatarFallback>
                   </Avatar>
                   <div
