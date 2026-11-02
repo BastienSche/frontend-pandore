@@ -163,6 +163,7 @@ const AlbumDetail = () => {
         if (amountCents === 0) {
           await apiClient.post('/api/purchases/library', { item_type: 'album', item_id: albumId });
           toast.success('Album ajouté à la bibliothèque');
+          navigate(`/library/albums/${albumId}`, { replace: true });
           return;
         }
         const originUrl = window.location.origin;
@@ -182,6 +183,7 @@ const AlbumDetail = () => {
       if (isFree) {
         await apiClient.post('/api/purchases/library', { item_type: 'album', item_id: albumId });
         toast.success('Album ajouté à la bibliothèque');
+        navigate(`/library/albums/${albumId}`, { replace: true });
         return;
       }
 

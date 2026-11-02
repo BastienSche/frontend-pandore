@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { apiClient, normalizeApiList, resolveApiUrl } from '@/lib/apiClient';
 
 export default function HeroRouletteBand({ tracks: tracksProp }) {
+  const navigate = useNavigate();
   const [tracks, setTracks] = useState(Array.isArray(tracksProp) ? tracksProp : []);
   const [loading, setLoading] = useState(!Array.isArray(tracksProp));
   const [rouletteTrack, setRouletteTrack] = useState(null);
@@ -77,6 +78,7 @@ export default function HeroRouletteBand({ tracks: tracksProp }) {
         item_id: rouletteTrack.track_id
       });
       toast.success("Ajouté à ta bibliothèque");
+      navigate(`/library/tracks/${rouletteTrack.track_id}`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Impossible d’ajouter à la bibliothèque");
     } finally {
