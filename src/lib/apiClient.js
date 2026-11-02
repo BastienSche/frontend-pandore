@@ -35,13 +35,8 @@ if (typeof window !== 'undefined' && baseURL && /\.internal(\/|$)/i.test(baseURL
   );
 }
 
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production' && !baseURL) {
-  // eslint-disable-next-line no-console
-  console.error(
-    '[Kloud] REACT_APP_API_URL est vide au build : les appels /api partiront sur le mauvais hôte. ' +
-      'Définis REACT_APP_API_URL (URL publique HTTPS du backend) dans Netlify / Vercel / CI.'
-  );
-}
+// Une base vide est voulue en prod Docker : les appels /api restent sur le même hôte,
+// et Caddy les proxifie vers le backend.
 
 const TOKEN_KEYS = ['kloud_token', 'pandore_token'];
 const REFRESH_TOKEN_KEYS = ['kloud_refresh_token', 'pandore_refresh_token'];

@@ -130,8 +130,8 @@ function AppRouter() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      {!isPresentation && <AudioPlayer />}
-      {!isPresentation && <ContestAnnounceModal />}
+      <AudioPlayer />
+      <ContestAnnounceModal />
     </>
   );
 }
