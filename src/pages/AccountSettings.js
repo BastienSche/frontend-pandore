@@ -42,7 +42,8 @@ const defaultListenerSettings = {
   notifications: {
     newReleases: true,
     recommendations: true,
-    purchases: true
+    purchases: true,
+    likes: true
   },
   privacy: {
     shareListeningActivity: false,
@@ -97,7 +98,8 @@ const AccountSettings = () => {
           notifications: {
             newReleases: data?.notifications_new_releases ?? true,
             recommendations: data?.notifications_recommendations ?? true,
-            purchases: data?.notifications_purchases ?? true
+            purchases: data?.notifications_purchases ?? true,
+            likes: data?.notifications_likes ?? true
           },
           privacy: {
             shareListeningActivity: data?.privacy_share_listening_activity ?? false,
@@ -189,6 +191,7 @@ const AccountSettings = () => {
         notifications_new_releases: !!listenerSettings.notifications.newReleases,
         notifications_recommendations: !!listenerSettings.notifications.recommendations,
         notifications_purchases: !!listenerSettings.notifications.purchases,
+        notifications_likes: !!listenerSettings.notifications.likes,
         privacy_share_listening_activity: !!listenerSettings.privacy.shareListeningActivity,
         privacy_personalized_ads: !!listenerSettings.privacy.personalizedAds
       });
@@ -379,9 +382,10 @@ const AccountSettings = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {[
-                    { key: 'newReleases', title: 'Nouvelles sorties', desc: 'Recevoir les nouveautés.' },
-                    { key: 'recommendations', title: 'Recommandations', desc: 'Découvertes adaptées à vos goûts.' },
-                    { key: 'purchases', title: 'Achats', desc: 'Suivi des achats et confirmations.' }
+                    { key: 'newReleases', title: 'Nouvelles sorties', desc: 'Quand un artiste que tu suis ou que tu aimes publie un titre ou un album.' },
+                    { key: 'likes', title: 'Likes', desc: 'Quand quelqu’un aime un de tes titres, un album, ou ton profil.' },
+                    { key: 'purchases', title: 'Achats', desc: 'Quand quelqu’un achète ou ajoute gratuitement un de tes sons.' },
+                    { key: 'recommendations', title: 'Recommandations', desc: 'Découvertes adaptées à vos goûts.' }
                   ].map((item) => (
                     <div
                       key={item.key}
