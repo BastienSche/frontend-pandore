@@ -30,6 +30,8 @@ import { splitGenreTags } from '@/lib/genreTags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import ShareButton from '@/components/ShareButton';
+import { publicPageUrl } from '@/lib/smartLinks';
 
 const LibraryTrackOwned = () => {
   const { trackId } = useParams();
@@ -312,6 +314,12 @@ const LibraryTrackOwned = () => {
                     <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(liked)}`} />
                     {liked ? 'En favoris' : 'Favoris'}
                   </Button>
+                  <ShareButton
+                    url={publicPageUrl(`/track/${trackId}`)}
+                    title={track.title}
+                    text={`${track.title} — ${track.artist_name || ''} sur Kloud`}
+                    testId="share-owned-track-button"
+                  />
                 </div>
               </div>
             </div>

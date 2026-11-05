@@ -16,6 +16,10 @@ import { fetchFollowState, followArtist, unfollowArtist } from '@/lib/follows';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { goToLogin } from '@/lib/postLoginRedirect';
 import { useAuth } from '@/hooks/useAuth';
+import ShareButton from '@/components/ShareButton';
+import SmartLinksList from '@/components/SmartLinksList';
+import { normalizeSmartLinks, publicPageUrl } from '@/lib/smartLinks';
+import { setDocumentShareMeta } from '@/lib/sharePage';
 
 const isListedCatalogItem = (item) => {
   const status = String(item?.status || 'published').toLowerCase();
@@ -78,6 +82,18 @@ const ArtistProfile = () => {
     };
   }, [artistId]);
 
+  useEffect(() => {
+    if (!artist) return undefined;
+    const name = artist.artist_name || artist.name || 'Artiste';
+    setDocumentShareMeta({
+      title: `${name} · Kloud`,
+      description: artist.bio || `Écoute ${name} sur Kloud.`
+    });
+    return () => {
+      document.title = 'Kloud';
+    };
+  }, [artist]);
+
   const toggleFollow = async () => {
     if (!isAuthenticated) {
       toast.info('Connecte-toi pour suivre cet artiste.');
@@ -116,6 +132,11 @@ const ArtistProfile = () => {
   }
 
   const displayName = artist.artist_name || artist.name || 'Artiste';
+  const smartLinks = normalizeSmartLinks(artist.links);
+  const genreList = Array.isArray(artist.genres)
+    ? artist.genres.filter(Boolean)
+    : [];
+  const shareUrl = publicPageUrl(`/artist/${artistId}`);
 
   return (
     <div className="min-h-screen pb-32 relative overflow-hidden">
@@ -155,23 +176,42 @@ const ArtistProfile = () => {
                 <p className="mt-2 text-sm sm:text-base text-muted-foreground">
                   {artist.tracks?.length || 0} titres • {artist.albums?.length || 0} albums
                 </p>
+                {genreList.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {genreList.map((g) => (
+                      <Badge key={g} className="rounded-full bg-white/5 border-white/10 text-foreground/80">
+                        {g}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
                 {artist.bio && (
                   <p className="mt-4 text-muted-foreground leading-relaxed max-w-2xl line-clamp-4">
                     {artist.bio}
                   </p>
                 )}
+                <SmartLinksList links={smartLinks} />
               </div>
 
+              <div className="flex flex-col gap-3 w-full sm:w-auto shrink-0">
               <Button
                 size="lg"
                 variant="outline"
-                className="rounded-full w-full sm:w-auto shrink-0 border-white/15 hover:bg-white/5"
+                className="rounded-full w-full sm:w-auto border-white/15 hover:bg-white/5"
                 data-testid="follow-artist-button"
                 onClick={toggleFollow}
               >
                 <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(following)}`} />
                 {following ? 'Suivi' : 'Suivre'}
               </Button>
+              <ShareButton
+                url={shareUrl}
+                title={displayName}
+                text={`Écoute ${displayName} sur Kloud`}
+                label="Partager"
+                testId="share-artist-button"
+              />
+              </div>
             </div>
           </motion.div>
 

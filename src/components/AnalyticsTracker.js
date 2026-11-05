@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { apiClient } from '@/lib/apiClient';
+import { COOKIE_CONSENT_EVENT, hasAnalyticsConsent } from '@/lib/cookieConsent';
 
 const SESSION_KEY = 'kloud_analytics_sid';
 const INTERVAL_MS = 25000;
@@ -40,11 +41,23 @@ const AnalyticsTracker = () => {
   const lastSentRef = useRef(Date.now());
   const locRef = useRef(location);
   const trackRef = useRef({ currentTrack, isPlaying });
+  const [analyticsOn, setAnalyticsOn] = useState(() => hasAnalyticsConsent());
 
   locRef.current = location;
   trackRef.current = { currentTrack, isPlaying };
 
   useEffect(() => {
+    const sync = () => setAnalyticsOn(hasAnalyticsConsent());
+    window.addEventListener(COOKIE_CONSENT_EVENT, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(COOKIE_CONSENT_EVENT, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!analyticsOn) return undefined;
     const send = (opts = {}) => {
       const now = Date.now();
       const dwellSec = Math.max(0, Math.min(120, Math.round((now - lastSentRef.current) / 1000)));
@@ -84,9 +97,10 @@ const AnalyticsTracker = () => {
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('pagehide', onHide);
     };
-  }, []);
+  }, [analyticsOn]);
 
   useEffect(() => {
+    if (!analyticsOn) return;
     lastSentRef.current = Date.now();
     const loc = location;
     const playing = trackRef.current;
@@ -105,7 +119,7 @@ const AnalyticsTracker = () => {
         visible: true
       })
       .catch(() => {});
-  }, [location.pathname, location.search]);
+  }, [location.pathname, location.search, analyticsOn]);
 
   return null;
 };

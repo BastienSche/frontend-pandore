@@ -26,9 +26,15 @@ import UiKit from '@/pages/UiKit';
 import NousDecouvrir from '@/pages/NousDecouvrir';
 import AdminDashboard from '@/pages/AdminDashboard';
 import Concours from '@/pages/Concours';
+import LegalDocument from '@/pages/LegalDocument';
+import Contact from '@/pages/Contact';
+import Help from '@/pages/Help';
+import NotFound from '@/pages/NotFound';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
 import ContestAnnounceModal from '@/components/ContestAnnounceModal';
 import AnalyticsTracker from '@/components/AnalyticsTracker';
+import SiteFooter from '@/components/SiteFooter';
+import CookieBanner from '@/components/CookieBanner';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { consumePostLoginPath, rememberPostLoginPath, safeInternalPath } from '@/lib/postLoginRedirect';
 import '@/App.css';
@@ -61,6 +67,7 @@ function AppRouter() {
     <>
       <Navbar />
       <AnalyticsTracker />
+      <div className="flex-1">
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/ui" element={<UiKit />} />
@@ -84,6 +91,14 @@ function AppRouter() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/nous-decouvrir" element={<NousDecouvrir />} />
+        <Route path="/legal" element={<LegalDocument />} />
+        <Route path="/cgu" element={<LegalDocument slug="cgu" />} />
+        <Route path="/cgv" element={<LegalDocument slug="cgv" />} />
+        <Route path="/mentions-legales" element={<LegalDocument slug="mentions-legales" />} />
+        <Route path="/confidentialite" element={<LegalDocument slug="confidentialite" />} />
+        <Route path="/cookies" element={<LegalDocument slug="cookies" />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/aide" element={<Help />} />
         <Route path="/concours" element={<Concours />} />
         <Route path="/concours/:contestId" element={<Concours />} />
         <Route
@@ -161,8 +176,11 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
+      </div>
+      <SiteFooter />
+      <CookieBanner />
       <AudioPlayer />
       <ContestAnnounceModal />
     </>
@@ -173,7 +191,7 @@ function App() {
   return (
     <ThemeProvider>
       <AudioPlayerProvider>
-        <div className="App">
+        <div className="App min-h-screen flex flex-col">
           <BrowserRouter>
             <AuthProvider>
               <AppRouter />

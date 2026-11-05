@@ -19,6 +19,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import CoverImage from '@/components/CoverImage';
+import ShareButton from '@/components/ShareButton';
+import { publicPageUrl } from '@/lib/smartLinks';
+import { setDocumentShareMeta } from '@/lib/sharePage';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -113,6 +116,17 @@ const AlbumDetail = () => {
       mounted = false;
     };
   }, [albumId]);
+
+  useEffect(() => {
+    if (!album) return undefined;
+    setDocumentShareMeta({
+      title: `${album.title} · ${album.artist_name || 'Kloud'}`,
+      description: album.description || `Écoute ${album.title} sur Kloud.`
+    });
+    return () => {
+      document.title = 'Kloud';
+    };
+  }, [album]);
 
   const toggleLike = async () => {
     if (!isAuthenticated) {
@@ -348,6 +362,12 @@ const AlbumDetail = () => {
                     <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(liked)}`} />
                     {liked ? 'En favoris' : 'Favoris'}
                   </Button>
+                  <ShareButton
+                    url={publicPageUrl(`/album/${albumId}`)}
+                    title={album.title}
+                    text={`${album.title} — ${album.artist_name || ''} sur Kloud`}
+                    testId="share-album-button"
+                  />
                 </div>
               </div>
             </div>

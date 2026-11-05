@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
-import { Play, Pause, Heart } from 'lucide-react';
+import { Play, Pause, Heart, ListPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -28,7 +28,7 @@ const availabilityLabel = (v) => {
 };
 
 const TrackCard = ({ track }) => {
-  const { currentTrack, isPlaying, playTrack } = useAudioPlayer();
+  const { currentTrack, isPlaying, playTrack, addToQueue } = useAudioPlayer();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -124,6 +124,21 @@ const TrackCard = ({ track }) => {
             whileHover={{ scale: 1 }}
             className="absolute bottom-4 right-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300"
           >
+            <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="icon"
+              className="rounded-full w-10 h-10 bg-black/55 border border-white/15 hover:bg-black/70"
+              onClick={(e) => {
+                e.stopPropagation();
+                addToQueue(track);
+                toast.success('Ajouté à la file d’attente');
+              }}
+              aria-label="Ajouter à la file d’attente"
+              data-testid={`track-queue-button-${track.track_id}`}
+            >
+              <ListPlus className="w-4 h-4 text-white" />
+            </Button>
             <Button
               variant="default"
               size="icon"
@@ -140,6 +155,7 @@ const TrackCard = ({ track }) => {
                 <Play className="w-5 h-5 text-white ml-0.5" />
               )}
             </Button>
+            </div>
           </motion.div>
 
           {/* Now Playing Indicator */}

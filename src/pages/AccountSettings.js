@@ -23,6 +23,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { emptySmartLink, normalizeSmartLinks, publicPageUrl, SMART_LINK_KINDS } from '@/lib/smartLinks';
+import ShareButton from '@/components/ShareButton';
 
 const AccountSettings = () => {
   const navigate = useNavigate();
@@ -42,7 +44,8 @@ const AccountSettings = () => {
     name: '',
     bio: '',
     avatar_url: '',
-    links: ['']
+    links: [emptySmartLink()],
+    genres: ''
   });
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarDragOver, setAvatarDragOver] = useState(false);
@@ -93,14 +96,16 @@ const AccountSettings = () => {
           name: data?.name || user.artist_name || user.name || '',
           bio: data?.bio || '',
           avatar_url: data?.avatar_url || '',
-          links: (data?.links?.length ? data.links : ['']).map((l) => l || '')
+          links: normalizeSmartLinks(data?.links).length ? normalizeSmartLinks(data?.links) : [emptySmartLink()],
+          genres: Array.isArray(data?.genres) ? data.genres.join(', ') : ''
         });
       } catch {
         setArtistProfile({
           name: user.artist_name || user.name || '',
           bio: '',
           avatar_url: '',
-          links: ['']
+          links: [emptySmartLink()],
+          genres: ''
         });
       }
     })();
@@ -170,7 +175,11 @@ const AccountSettings = () => {
       name: artistProfile.name?.trim() || artistName?.trim() || user?.artist_name || user?.name || '',
       bio: artistProfile.bio || '',
       avatar_url: artistProfile.avatar_url || '',
-      links: (artistProfile.links || []).map((l) => l.trim()).filter(Boolean)
+      links: normalizeSmartLinks(artistProfile.links),
+      genres: String(artistProfile.genres || '')
+        .split(/[,;/]+/)
+        .map((g) => g.trim())
+        .filter(Boolean)
     };
 
     if (!payload.name) {
@@ -656,31 +665,71 @@ const AccountSettings = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Liens</Label>
-                      <div className="space-y-2">
+                      <Label>Genres</Label>
+                      <Input
+                        value={artistProfile.genres}
+                        onChange={(e) => setArtistProfile((p) => ({ ...p, genres: e.target.value }))}
+                        placeholder="Rap, Lo-fi, Électro…"
+                        className="h-12 rounded-xl bg-white/5 border-white/10"
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <Label>Smart links</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Instagram, pre-save, Spotify… Ils s’affichent sur ta page publique, avec un QR pour la partager.
+                      </p>
+                      <div className="space-y-3">
                         {(artistProfile.links || []).map((link, idx) => (
-                          <div key={idx} className="flex flex-col sm:flex-row gap-2">
-                            <Input
-                              value={link}
+                          <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                            <select
+                              value={link.kind || 'website'}
                               onChange={(e) =>
                                 setArtistProfile((p) => ({
                                   ...p,
-                                  links: p.links.map((l, i) => (i === idx ? e.target.value : l))
+                                  links: p.links.map((l, i) => (i === idx ? { ...l, kind: e.target.value } : l))
                                 }))
                               }
-                              placeholder="https://instagram.com/..."
-                              className="h-12 rounded-xl bg-white/5 border-white/10"
+                              className="sm:col-span-3 h-12 rounded-xl bg-white/5 border border-white/10 px-3 text-sm"
+                            >
+                              {SMART_LINK_KINDS.map((kind) => (
+                                <option key={kind.id} value={kind.id}>
+                                  {kind.label}
+                                </option>
+                              ))}
+                            </select>
+                            <Input
+                              value={link.url || ''}
+                              onChange={(e) =>
+                                setArtistProfile((p) => ({
+                                  ...p,
+                                  links: p.links.map((l, i) => (i === idx ? { ...l, url: e.target.value } : l))
+                                }))
+                              }
+                              placeholder={SMART_LINK_KINDS.find((k) => k.id === link.kind)?.placeholder || 'https://…'}
+                              className="sm:col-span-6 h-12 rounded-xl bg-white/5 border-white/10"
+                            />
+                            <Input
+                              value={link.label || ''}
+                              onChange={(e) =>
+                                setArtistProfile((p) => ({
+                                  ...p,
+                                  links: p.links.map((l, i) => (i === idx ? { ...l, label: e.target.value } : l))
+                                }))
+                              }
+                              placeholder="Libellé"
+                              className="sm:col-span-3 h-12 rounded-xl bg-white/5 border-white/10"
                             />
                             <Button
                               type="button"
                               variant="outline"
-                              className="rounded-xl glass border-white/10 w-full sm:w-auto"
+                              className="rounded-xl glass border-white/10 sm:col-span-12"
                               onClick={() =>
                                 setArtistProfile((p) => ({
                                   ...p,
                                   links: p.links.filter((_, i) => i !== idx).length
                                     ? p.links.filter((_, i) => i !== idx)
-                                    : ['']
+                                    : [emptySmartLink()]
                                 }))
                               }
                             >
@@ -693,11 +742,26 @@ const AccountSettings = () => {
                         type="button"
                         variant="outline"
                         className="rounded-full glass border-white/10"
-                        onClick={() => setArtistProfile((p) => ({ ...p, links: [...(p.links || []), ''] }))}
+                        onClick={() =>
+                          setArtistProfile((p) => ({ ...p, links: [...(p.links || []), emptySmartLink()] }))
+                        }
                       >
-                        + Ajouter un lien
+                        + Ajouter un smart link
                       </Button>
                     </div>
+
+                    {user?.user_id && (
+                      <div className="pt-2 space-y-3">
+                        <Label>Partage de ta page</Label>
+                        <ShareButton
+                          url={publicPageUrl(`/artist/${user.user_id}`)}
+                          title={artistProfile.name || user.artist_name || 'Kloud'}
+                          text={`Écoute ${artistProfile.name || 'cet artiste'} sur Kloud`}
+                          label="Partager ma page"
+                          testId="settings-share-artist"
+                        />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>

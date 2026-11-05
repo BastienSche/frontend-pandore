@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Library } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Library, ListMusic, Repeat, Repeat1, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
@@ -10,10 +10,30 @@ const AUDIO_PLAYER_POS_KEY = 'kloud:audioPlayerPos:v1';
 const LEGACY_AUDIO_PLAYER_POS_KEY = 'pandore:audioPlayerPos:v1';
 
 const AudioPlayer = () => {
-  const { currentTrack, isPlaying, currentTime, duration, playTrack, pause, seek, next, prev, volume, setVolume, playbackMode } = useAudioPlayer();
+  const {
+    currentTrack,
+    isPlaying,
+    currentTime,
+    duration,
+    togglePlay,
+    seek,
+    next,
+    prev,
+    volume,
+    setVolume,
+    playbackMode,
+    queue,
+    queueIndex,
+    repeatMode,
+    cycleRepeat,
+    playQueueIndex,
+    removeFromQueue
+  } = useAudioPlayer();
   const constraintsRef = useRef(null);
+  const playerShellRef = useRef(null);
   const [savedPos, setSavedPos] = useState({ x: 0, y: 0 });
   const [isMobileUi, setIsMobileUi] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
   const dragControls = useDragControls();
   const topBarRef = useRef(null);
   const scrubbingRef = useRef(false);
@@ -43,6 +63,49 @@ const AudioPlayer = () => {
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    const isTyping = (el) => {
+      if (!el || el === document.body) return false;
+      const tag = String(el.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+      if (el.isContentEditable) return true;
+      return false;
+    };
+    const onKey = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTyping(e.target)) return;
+      if (!currentTrack) return;
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+        return;
+      }
+      if (e.target?.closest?.('[role="slider"]')) return;
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        next();
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prev();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [currentTrack, togglePlay, next, prev]);
+
+  useEffect(() => {
+    if (!queueOpen) return undefined;
+    const onPointer = (e) => {
+      if (playerShellRef.current && !playerShellRef.current.contains(e.target)) {
+        setQueueOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, [queueOpen]);
 
   useEffect(() => {
     const handlePointerMove = (e) => {
@@ -112,7 +175,96 @@ const AudioPlayer = () => {
               }
             }}
           >
-          <div className="glass-heavy rounded-3xl p-2.5 md:p-5 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
+          <div ref={playerShellRef} className="glass-heavy rounded-3xl p-2.5 md:p-5 shadow-[0_0_40px_rgba(0,0,0,0.5)] relative">
+            <AnimatePresence>
+              {queueOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  className="absolute left-0 right-0 bottom-[calc(100%+0.6rem)] glass-heavy rounded-3xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.45)] overflow-hidden"
+                  data-testid="player-queue-panel"
+                >
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                    <div>
+                      <p className="text-sm font-semibold">File d’attente</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {queue.length} titre{queue.length > 1 ? 's' : ''}
+                        {repeatMode === 'one' ? ' · répétition du titre' : repeatMode === 'all' ? ' · répétition de la file' : ''}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full w-8 h-8"
+                      onClick={() => setQueueOpen(false)}
+                      aria-label="Fermer la file"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <p className="px-4 pb-2 text-[11px] text-muted-foreground">
+                    Espace : lecture / pause · ← → : titre précédent / suivant
+                  </p>
+                  <ul className="max-h-[min(42vh,20rem)] overflow-y-auto py-1">
+                    {queue.map((track, index) => {
+                      const active = index === queueIndex;
+                      return (
+                        <li key={`${track?.track_id || 't'}-${index}`}>
+                          <div
+                            className={`flex items-center gap-2 px-2 py-1.5 ${
+                              active ? 'bg-cyan-500/15' : 'hover:bg-white/5'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              className="flex-1 min-w-0 flex items-center gap-3 text-left rounded-xl px-2 py-1"
+                              onClick={() => playQueueIndex(index)}
+                            >
+                              <CoverImage
+                                src={track.cover_url}
+                                alt=""
+                                className="w-9 h-9 rounded-lg shrink-0"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className={`block text-sm truncate ${active ? 'text-cyan-200' : ''}`}>
+                                  {track.title || 'Sans titre'}
+                                </span>
+                                <span className="block text-[11px] text-muted-foreground truncate">
+                                  {track.artist_name || ''}
+                                </span>
+                              </span>
+                              {active ? (
+                                <span className="text-[10px] uppercase tracking-wide text-cyan-300 shrink-0">
+                                  {isPlaying ? 'En cours' : 'En pause'}
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground w-5 text-right shrink-0">
+                                  {index + 1}
+                                </span>
+                              )}
+                            </button>
+                            {queue.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-full w-8 h-8 shrink-0"
+                                aria-label="Retirer de la file"
+                                onClick={() => removeFromQueue(index)}
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <div
               className="absolute left-0 right-0 top-0 h-6 cursor-grab active:cursor-grabbing"
               onPointerDown={(e) => {
@@ -223,7 +375,7 @@ const AudioPlayer = () => {
                   variant="default"
                   size="icon"
                   className="rounded-full w-10 h-10 md:w-14 md:h-14 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 border-0 shadow-[0_0_25px_rgba(34,211,238,0.4)]"
-                  onClick={() => (isPlaying ? pause() : playTrack(currentTrack))}
+                  onClick={togglePlay}
                   data-testid="player-play-pause-button"
                 >
                   {isPlaying ? (
@@ -242,6 +394,48 @@ const AudioPlayer = () => {
                 onClick={next}
               >
                 <SkipForward className="w-[0.95rem] h-[0.95rem] md:w-5 md:h-5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={`rounded-full w-[1.875rem] h-[1.875rem] md:w-10 md:h-10 hover:bg-white/10 ${
+                  repeatMode === 'off' ? 'text-muted-foreground' : 'text-cyan-300'
+                }`}
+                data-testid="player-repeat-button"
+                aria-label={
+                  repeatMode === 'one'
+                    ? 'Répéter le titre'
+                    : repeatMode === 'all'
+                      ? 'Répéter la file'
+                      : 'Répétition désactivée'
+                }
+                onClick={cycleRepeat}
+              >
+                {repeatMode === 'one' ? (
+                  <Repeat1 className="w-[0.95rem] h-[0.95rem] md:w-5 md:h-5" />
+                ) : (
+                  <Repeat className="w-[0.95rem] h-[0.95rem] md:w-5 md:h-5" />
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={`relative rounded-full w-[1.875rem] h-[1.875rem] md:w-10 md:h-10 hover:bg-white/10 ${
+                  queueOpen ? 'text-cyan-300' : 'text-muted-foreground'
+                }`}
+                data-testid="player-queue-button"
+                aria-label="File d’attente"
+                aria-expanded={queueOpen}
+                onClick={() => setQueueOpen((open) => !open)}
+              >
+                <ListMusic className="w-[0.95rem] h-[0.95rem] md:w-5 md:h-5" />
+                {queue.length > 1 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-1 rounded-full bg-cyan-500 text-[9px] font-bold text-black leading-4 text-center">
+                    {queue.length}
+                  </span>
+                )}
               </Button>
             </div>
 

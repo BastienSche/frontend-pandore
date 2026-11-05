@@ -20,6 +20,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import CoverImage from '@/components/CoverImage';
+import ShareButton from '@/components/ShareButton';
+import { publicPageUrl } from '@/lib/smartLinks';
+import { setDocumentShareMeta } from '@/lib/sharePage';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -115,6 +118,17 @@ const TrackDetail = () => {
       mounted = false;
     };
   }, [trackId]);
+
+  useEffect(() => {
+    if (!track) return undefined;
+    setDocumentShareMeta({
+      title: `${track.title} · ${track.artist_name || 'Kloud'}`,
+      description: track.description || `Écoute ${track.title} sur Kloud.`
+    });
+    return () => {
+      document.title = 'Kloud';
+    };
+  }, [track]);
 
   const requireAccount = (message) => {
     toast.info(message);
@@ -422,6 +436,12 @@ const TrackDetail = () => {
                     <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(liked)}`} />
                     {liked ? 'En favoris' : 'Favoris'}
                   </Button>
+                  <ShareButton
+                    url={publicPageUrl(`/track/${trackId}`)}
+                    title={track.title}
+                    text={`${track.title} — ${track.artist_name || ''} sur Kloud`}
+                    testId="share-track-button"
+                  />
                 </div>
               </div>
             </div>
