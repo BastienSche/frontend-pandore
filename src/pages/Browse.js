@@ -28,14 +28,14 @@ const itemVariants = {
   }
 };
 
-const isPublicItem = (item) => {
+const isListedCatalogItem = (item) => {
   const status = String(item?.status || 'published').toLowerCase();
-  return status === 'published' || status === 'public';
+  return status !== 'draft';
 };
 
 const mapTrack = (t) => ({
   ...t,
-  preview_url: resolveApiUrl(t?.preview_url),
+  preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
   file_url: null,
   cover_url: resolveApiUrl(t?.cover_url)
 });
@@ -63,8 +63,8 @@ const Browse = () => {
         ]);
         if (cancelled) return;
         setCatalog({
-          tracks: normalizeApiList(tracksResp.data).filter(isPublicItem).map(mapTrack),
-          albums: normalizeApiList(albumsResp.data).filter(isPublicItem).map(mapAlbum),
+          tracks: normalizeApiList(tracksResp.data).map(mapTrack),
+          albums: normalizeApiList(albumsResp.data).filter(isListedCatalogItem).map(mapAlbum),
           artists: normalizeApiList(artistsResp.data)
         });
       } catch (error) {
@@ -95,8 +95,8 @@ const Browse = () => {
         });
         if (cancelled) return;
         setSearchResults({
-          tracks: normalizeApiList(data?.tracks).filter(isPublicItem).map(mapTrack),
-          albums: normalizeApiList(data?.albums).filter(isPublicItem).map(mapAlbum),
+          tracks: normalizeApiList(data?.tracks).map(mapTrack),
+          albums: normalizeApiList(data?.albums).filter(isListedCatalogItem).map(mapAlbum),
           artists: normalizeApiList(data?.artists)
         });
       } catch (error) {

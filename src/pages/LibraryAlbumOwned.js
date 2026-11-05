@@ -61,8 +61,8 @@ const LibraryAlbumOwned = () => {
           setTracks(
             trackResults
               .map((t) => {
-                const previewUrl = resolveApiUrl(t?.preview_url);
                 const fileUrl = resolveApiUrl(t?.file_url) || null;
+                const previewUrl = resolveApiUrl(t?.preview_url || t?.file_url);
                 return ({
                 ...t,
                 preview_url: previewUrl,

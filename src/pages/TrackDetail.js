@@ -81,7 +81,7 @@ const TrackDetail = () => {
           track_id: data?.track_id ?? data?.id ?? trackId,
           preview_start_time: data?.preview_start_time ?? data?.preview_start_sec ?? 0,
           preview_duration_sec: data?.preview_duration ?? data?.preview_duration_sec ?? data?.preview_length_sec ?? null,
-          preview_url: data?.preview_url ? resolveApiUrl(data?.preview_url) : null,
+          preview_url: resolveApiUrl(data?.preview_url || data?.file_url) || null,
           file_url: data?.file_url ? resolveApiUrl(data?.file_url) : null,
           cover_url: data?.cover_url ? resolveApiUrl(data?.cover_url) : null
         });

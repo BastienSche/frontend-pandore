@@ -21,8 +21,8 @@ import LibraryAlbumCard from '@/components/library/LibraryAlbumCard';
 import { shuffleTracks } from '@/lib/libraryCollection';
 
 const normalizeOwnedTrack = (t) => {
-  const previewUrl = resolveApiUrl(t.preview_url);
   const fileUrl = resolveApiUrl(t.file_url) || null;
+  const previewUrl = resolveApiUrl(t.preview_url || t.file_url);
   return {
     ...t,
     file_url: fileUrl,

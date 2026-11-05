@@ -58,8 +58,8 @@ const LibraryTrackOwned = () => {
         }
         const { data } = await apiClient.get(`/api/tracks/${trackId}`);
         if (cancelled) return;
-        const previewUrl = resolveApiUrl(data?.preview_url);
         const fileUrl = resolveApiUrl(data?.file_url) || null;
+        const previewUrl = resolveApiUrl(data?.preview_url || data?.file_url);
         setTrack({
           ...data,
           preview_url: previewUrl,

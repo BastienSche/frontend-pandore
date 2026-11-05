@@ -23,7 +23,7 @@ export default function HeroRouletteBand({ tracks: tracksProp }) {
         const tracksResp = await apiClient.get('/api/tracks?limit=80');
         const list = normalizeApiList(tracksResp.data).map((t) => ({
           ...t,
-          preview_url: resolveApiUrl(t?.preview_url),
+          preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
           file_url: null,
           cover_url: resolveApiUrl(t?.cover_url)
         }));

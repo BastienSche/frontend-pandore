@@ -37,7 +37,7 @@ const AlbumDetail = () => {
   const { albumId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { currentTrack, isPlaying, playTrack, setQueue } = useAudioPlayer();
   const [album, setAlbum] = useState(null);
   const [tracks, setTracks] = useState([]);
@@ -74,20 +74,13 @@ const AlbumDetail = () => {
         } else {
           const trackResults = await fetchTracksByIds(trackIds);
           if (cancelled) return;
-          const isOwner = Boolean(user?.user_id && data?.artist_id && user.user_id === data.artist_id);
           setTracks(
-            trackResults
-              .filter((t) => {
-                if (isOwner) return true;
-                const status = String(t?.status || '').toLowerCase();
-                return status === 'published' || status === 'public';
-              })
-              .map((t) => ({
-                ...t,
-                preview_url: resolveApiUrl(t?.preview_url),
-                file_url: null,
-                cover_url: resolveApiUrl(t?.cover_url)
-              }))
+            trackResults.map((t) => ({
+              ...t,
+              preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
+              file_url: null,
+              cover_url: resolveApiUrl(t?.cover_url)
+            }))
           );
         }
       } catch (error) {
@@ -102,7 +95,7 @@ const AlbumDetail = () => {
     return () => {
       cancelled = true;
     };
-  }, [albumId, navigate, isAuthenticated, user?.user_id]);
+  }, [albumId, navigate, isAuthenticated]);
 
   useEffect(() => {
     if (!albumId) return;

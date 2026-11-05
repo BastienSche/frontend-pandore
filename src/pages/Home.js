@@ -53,9 +53,9 @@ const floatVariants = {
   })
 };
 
-const isPublicItem = (item) => {
+const isListedCatalogItem = (item) => {
   const status = String(item?.status || 'published').toLowerCase();
-  return status === 'published' || status === 'public';
+  return status !== 'draft';
 };
 
 const formatCommunityInvite = (usersCount) => {
@@ -124,15 +124,14 @@ const Home = () => {
       };
 
       const tracks = normalizeApiList(tracksResp.data)
-        .filter(isPublicItem)
         .map((t) => ({
           ...t,
-          preview_url: resolveApiUrl(t?.preview_url),
+          preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
           file_url: null,
           cover_url: resolveApiUrl(t?.cover_url)
         }));
       const albums = normalizeApiList(albumsResp.data)
-        .filter(isPublicItem)
+        .filter(isListedCatalogItem)
         .map((a) => ({
           ...a,
           cover_url: resolveApiUrl(a?.cover_url)

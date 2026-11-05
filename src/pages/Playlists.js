@@ -44,7 +44,7 @@ const Playlists = () => {
         (likes.tracks || []).map((t) => ({
           ...t,
           cover_url: resolveApiUrl(t?.cover_url),
-          preview_url: resolveApiUrl(t?.preview_url)
+          preview_url: resolveApiUrl(t?.preview_url || t?.file_url)
         }))
       );
       setLikedAlbums(

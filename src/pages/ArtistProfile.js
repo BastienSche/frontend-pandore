@@ -15,9 +15,9 @@ import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { fetchFollowState, followArtist, unfollowArtist } from '@/lib/follows';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 
-const isPublicItem = (item) => {
-  const status = String(item?.status || '').toLowerCase();
-  return status === 'published' || status === 'public';
+const isListedCatalogItem = (item) => {
+  const status = String(item?.status || 'published').toLowerCase();
+  return status !== 'draft';
 };
 
 const ArtistProfile = () => {
@@ -30,16 +30,14 @@ const ArtistProfile = () => {
     (async () => {
       try {
         const { data } = await apiClient.get(`/api/artists/${artistId}`);
-        const tracks = (data?.tracks || [])
-          .filter(isPublicItem)
-          .map((t) => ({
+        const tracks = (data?.tracks || []).map((t) => ({
             ...t,
-            preview_url: resolveApiUrl(t?.preview_url),
+            preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
             file_url: null,
             cover_url: resolveApiUrl(t?.cover_url)
           }));
         const albums = (data?.albums || [])
-          .filter(isPublicItem)
+          .filter(isListedCatalogItem)
           .map((a) => ({
             ...a,
             cover_url: resolveApiUrl(a?.cover_url)
