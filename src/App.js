@@ -28,6 +28,7 @@ import AdminDashboard from '@/pages/AdminDashboard';
 import Concours from '@/pages/Concours';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
 import ContestAnnounceModal from '@/components/ContestAnnounceModal';
+import AnalyticsTracker from '@/components/AnalyticsTracker';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { consumePostLoginPath, rememberPostLoginPath, safeInternalPath } from '@/lib/postLoginRedirect';
 import '@/App.css';
@@ -59,6 +60,7 @@ function AppRouter() {
   return (
     <>
       <Navbar />
+      <AnalyticsTracker />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/ui" element={<UiKit />} />
