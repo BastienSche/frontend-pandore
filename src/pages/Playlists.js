@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { fetchLikesSummary } from '@/lib/likes';
 import { fetchMyFollows } from '@/lib/follows';
@@ -70,7 +70,7 @@ const Playlists = () => {
       }
       setFollowedArtists(Array.from(byId.values()));
     } catch (error) {
-      toast.error('Erreur lors du chargement');
+      toast.error(formatApiError(error, 'Erreur lors du chargement'));
     } finally {
       setLoading(false);
     }
@@ -85,7 +85,7 @@ const Playlists = () => {
       setNewPlaylist({ name: '', description: '' });
       setPlaylists((prev) => [created, ...(prev || [])]);
     } catch (error) {
-      toast.error('Erreur lors de la création');
+      toast.error(formatApiError(error, 'Erreur lors de la création'));
     }
   };
 
@@ -97,7 +97,7 @@ const Playlists = () => {
       toast.success('Playlist supprimée');
       setPlaylists((prev) => (prev || []).filter((p) => p.playlist_id !== playlistId));
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(formatApiError(error, 'Erreur lors de la suppression'));
     }
   };
 
@@ -115,7 +115,7 @@ const Playlists = () => {
       toast.success('Playlist mise à jour');
       setEditingPlaylist(null);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(error, 'Erreur'));
     }
   };
 

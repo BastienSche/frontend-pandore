@@ -21,7 +21,7 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, downloadAuthenticatedFile, fetchTracksByIds, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
 import { formatTrackDuration, shuffleTracks } from '@/lib/libraryCollection';
@@ -56,16 +56,13 @@ const LibraryAlbumOwned = () => {
         if (!trackIds.length) {
           setTracks([]);
         } else {
-          const trackResults = await Promise.all(
-            trackIds.map((id) => apiClient.get(`/api/tracks/${id}`).then((r) => r.data).catch(() => null))
-          );
+          const trackResults = await fetchTracksByIds(trackIds);
           if (cancelled) return;
           setTracks(
             trackResults
-              .filter(Boolean)
               .map((t) => {
                 const previewUrl = resolveApiUrl(t?.preview_url);
-                const fileUrl = resolveApiUrl(t?.file_url) || previewUrl;
+                const fileUrl = resolveApiUrl(t?.file_url) || null;
                 return ({
                 ...t,
                 preview_url: previewUrl,
@@ -113,7 +110,7 @@ const LibraryAlbumOwned = () => {
       else await unlike('album', albumId);
     } catch (e) {
       setLiked(!next);
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
 
@@ -143,17 +140,11 @@ const LibraryAlbumOwned = () => {
     playTrack(track, { mode: 'library' });
   };
 
-  const handleDownload = (track) => {
-    const audioUrl = track.file_url || track.preview_url;
+  const handleDownload = async (track) => {
+    const audioUrl = track.file_url;
     if (!audioUrl) return;
     try {
-      const link = document.createElement('a');
-      link.href = audioUrl;
-      const safe = (track.title || 'track').replace(/[/\\?%*:|"<>]/g, '-');
-      link.setAttribute('download', safe);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      await downloadAuthenticatedFile(audioUrl, track.title || 'track');
       toast.success('Téléchargement commencé');
     } catch {
       toast.error('Erreur lors du téléchargement');

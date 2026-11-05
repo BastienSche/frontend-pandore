@@ -27,6 +27,16 @@ const rawBaseUrl =
   process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || defaultApiBaseUrl();
 const baseURL = normalizeApiBaseUrl(rawBaseUrl);
 
+export function apiOrigin() {
+  if (baseURL) return baseURL;
+  if (typeof window !== 'undefined') return window.location.origin;
+  return '';
+}
+
+export function googleOAuthLoginUrl() {
+  return `${apiOrigin()}/api/auth/google/login`;
+}
+
 if (typeof window !== 'undefined' && baseURL && /\.internal(\/|$)/i.test(baseURL)) {
   // eslint-disable-next-line no-console
   console.warn(
@@ -101,17 +111,42 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-/** Message lisible pour les toasts (réponse vide, 501 proxy, etc.) */
-export function formatApiError(error) {
+function formatDetail(detail) {
+  if (detail == null) return '';
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object' && item.msg) return String(item.msg);
+        return '';
+      })
+      .filter(Boolean)
+      .join(' · ');
+  }
+  if (typeof detail === 'object') {
+    if (detail.msg) return String(detail.msg);
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return '';
+    }
+  }
+  return String(detail);
+}
+
+/** Message lisible pour les toasts (422 FastAPI, réponse vide, 501 proxy, etc.) */
+export function formatApiError(error, fallback = 'Erreur réseau') {
   const d = error?.response?.data;
   if (d && typeof d === 'object' && d.detail != null) {
-    return typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail);
+    return formatDetail(d.detail) || fallback;
   }
+  if (typeof d === 'string' && d.trim()) return d;
   if (error?.response?.status) {
     return `Erreur serveur (${error.response.status})`;
   }
   if (error?.message) return error.message;
-  return 'Erreur réseau';
+  return fallback;
 }
 
 let refreshPromise = null;
@@ -192,6 +227,44 @@ export function resolveApiUrl(pathOrUrl) {
   return `${baseURL}${path}`;
 }
 
+/** Download a protected audio file with the JWT (Authorization), not a public <a href>. */
+export async function downloadAuthenticatedFile(pathOrUrl, filename = 'track') {
+  const raw = String(pathOrUrl || '').trim();
+  if (!raw) throw new Error('Fichier indisponible');
+  const requestUrl = /^https?:\/\//i.test(raw) ? raw : raw.startsWith('/') ? raw : `/${raw}`;
+  const response = await apiClient.get(requestUrl, { responseType: 'blob' });
+  const data = response.data;
+  if (data && data.type && data.type.includes('application/json')) {
+    throw new Error('Fichier indisponible');
+  }
+  const blobUrl = URL.createObjectURL(data);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.setAttribute('download', String(filename || 'track').replace(/[/\\?%*:|"<>]/g, '-'));
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+}
+
+/** Adds the JWT so <audio> / download can hit a protected /api/files/audio URL. */
+export function withAudioAccessToken(pathOrUrl) {
+  const url = resolveApiUrl(pathOrUrl);
+  if (!url) return url;
+  const token = getAccessToken();
+  if (!token) return url;
+  try {
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
+    if (!parsed.searchParams.has('token')) {
+      parsed.searchParams.set('token', token);
+    }
+    return parsed.toString();
+  } catch {
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}token=${encodeURIComponent(token)}`;
+  }
+}
+
 /** List endpoints may return a raw array or `{ items, results, data, ... }` depending on environment. */
 export function normalizeApiList(payload) {
   if (Array.isArray(payload)) return payload;
@@ -204,4 +277,39 @@ export function normalizeApiList(payload) {
     if (Array.isArray(payload.artists)) return payload.artists;
   }
   return [];
+}
+
+const TRACK_IDS_BATCH = 100;
+
+/** One (or few) GET /tracks?ids=… instead of N GET /tracks/{id}. Preserves requested order. */
+export async function fetchTracksByIds(ids) {
+  const clean = [];
+  const seen = new Set();
+  for (const id of ids || []) {
+    const tid = String(id || '').trim();
+    if (!tid || seen.has(tid)) continue;
+    seen.add(tid);
+    clean.push(tid);
+  }
+  if (!clean.length) return [];
+
+  const batches = [];
+  for (let i = 0; i < clean.length; i += TRACK_IDS_BATCH) {
+    batches.push(clean.slice(i, i + TRACK_IDS_BATCH));
+  }
+  const chunks = await Promise.all(
+    batches.map((batch) =>
+      apiClient
+        .get('/api/tracks', { params: { ids: batch.join(',') } })
+        .then((r) => normalizeApiList(r.data))
+        .catch(() => [])
+    )
+  );
+  const byId = new Map();
+  for (const list of chunks) {
+    for (const track of list) {
+      if (track?.track_id) byId.set(track.track_id, track);
+    }
+  }
+  return clean.map((id) => byId.get(id)).filter(Boolean);
 }

@@ -10,10 +10,15 @@ import AlbumCard from '@/components/AlbumCard';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { fetchFollowState, followArtist, unfollowArtist } from '@/lib/follows';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+
+const isPublicItem = (item) => {
+  const status = String(item?.status || '').toLowerCase();
+  return status === 'published' || status === 'public';
+};
 
 const ArtistProfile = () => {
   const { artistId } = useParams();
@@ -25,16 +30,20 @@ const ArtistProfile = () => {
     (async () => {
       try {
         const { data } = await apiClient.get(`/api/artists/${artistId}`);
-        const tracks = (data?.tracks || []).map((t) => ({
-          ...t,
-          preview_url: resolveApiUrl(t?.preview_url),
-          file_url: resolveApiUrl(t?.file_url),
-          cover_url: resolveApiUrl(t?.cover_url)
-        }));
-        const albums = (data?.albums || []).map((a) => ({
-          ...a,
-          cover_url: resolveApiUrl(a?.cover_url)
-        }));
+        const tracks = (data?.tracks || [])
+          .filter(isPublicItem)
+          .map((t) => ({
+            ...t,
+            preview_url: resolveApiUrl(t?.preview_url),
+            file_url: null,
+            cover_url: resolveApiUrl(t?.cover_url)
+          }));
+        const albums = (data?.albums || [])
+          .filter(isPublicItem)
+          .map((a) => ({
+            ...a,
+            cover_url: resolveApiUrl(a?.cover_url)
+          }));
         setArtist({
           ...data,
           picture: artistAvatarSrc(data),
@@ -74,7 +83,7 @@ const ArtistProfile = () => {
       else await unfollowArtist(artistId);
     } catch (e) {
       setFollowing(!next);
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
 

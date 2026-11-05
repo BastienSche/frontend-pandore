@@ -5,8 +5,15 @@ import { motion } from 'framer-motion';
 import { Save, Settings, User, Bell, Shield, Headphones, Sparkles, ImagePlus, Loader2 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
-import { apiClient } from '@/lib/apiClient';
+import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { artistAvatarSrc } from '@/lib/artistAvatar';
+import {
+  defaultListenerSettings,
+  emitSettingsChanged,
+  loadLocalSettings,
+  saveLocalSettings,
+  settingsFromApi
+} from '@/lib/accountSettings';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,44 +24,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 
-const LS_KEY = 'kloud_account_settings';
-const LEGACY_LS_KEY = 'pandore_account_settings';
-
-const loadLocalSettings = () => {
-  try {
-    const raw = window.localStorage.getItem(LS_KEY) || window.localStorage.getItem(LEGACY_LS_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
-
-const saveLocalSettings = (value) => {
-  window.localStorage.setItem(LS_KEY, JSON.stringify(value));
-  window.localStorage.setItem(LEGACY_LS_KEY, JSON.stringify(value));
-};
-
-const defaultListenerSettings = {
-  playback: {
-    autoplay: true,
-    normalizeVolume: true,
-    highQualityStreaming: true
-  },
-  notifications: {
-    newReleases: true,
-    recommendations: true,
-    purchases: true,
-    likes: true
-  },
-  privacy: {
-    shareListeningActivity: false,
-    personalizedAds: false
-  }
-};
-
 const AccountSettings = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, switchRole } = useAuth();
+  const { user, loading: authLoading, switchRole, updateUser } = useAuth();
+  const hydratedUserId = useRef(null);
+  const profileHydratedId = useRef(null);
 
   const [activeTab, setActiveTab] = useState('account');
   const [saving, setSaving] = useState(false);
@@ -70,56 +44,47 @@ const AccountSettings = () => {
     avatar_url: '',
     links: ['']
   });
-  const [artistProfileExists, setArtistProfileExists] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarDragOver, setAvatarDragOver] = useState(false);
   const avatarInputRef = useRef(null);
+  const listenerAvatarInputRef = useRef(null);
 
   // Listener settings (local)
   const [listenerSettings, setListenerSettings] = useState(defaultListenerSettings);
+  const [listenerPicture, setListenerPicture] = useState('');
 
-  const isArtist = useMemo(() => user?.role === 'artist', [user]);
+  const isArtist = useMemo(() => user?.role === 'artist', [user?.role]);
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user?.user_id) {
+      hydratedUserId.current = null;
+      profileHydratedId.current = null;
       navigate('/login');
       return;
     }
+    if (hydratedUserId.current === user.user_id) return;
+    hydratedUserId.current = user.user_id;
 
     setRoleTargetIsArtist(user.role === 'artist');
     setArtistName(user.artist_name || '');
+    setListenerPicture(user.picture || '');
 
     (async () => {
       try {
         const { data } = await apiClient.get('/api/users/me/settings');
-        setListenerSettings({
-          playback: {
-            autoplay: data?.autoplay ?? true,
-            normalizeVolume: data?.normalize_volume ?? true,
-            highQualityStreaming: data?.high_quality_streaming ?? true
-          },
-          notifications: {
-            newReleases: data?.notifications_new_releases ?? true,
-            recommendations: data?.notifications_recommendations ?? true,
-            purchases: data?.notifications_purchases ?? true,
-            likes: data?.notifications_likes ?? true
-          },
-          privacy: {
-            shareListeningActivity: data?.privacy_share_listening_activity ?? false,
-            personalizedAds: data?.privacy_personalized_ads ?? false
-          }
-        });
+        setListenerSettings(settingsFromApi(data));
       } catch {
         const local = loadLocalSettings();
         if (local) setListenerSettings({ ...defaultListenerSettings, ...local });
       }
     })();
-  }, [authLoading, user, navigate]);
+  }, [authLoading, user?.user_id, navigate]);
 
   useEffect(() => {
-    if (!user) return;
-    if (user.role !== 'artist') return;
+    if (!user?.user_id || user.role !== 'artist') return;
+    if (profileHydratedId.current === user.user_id) return;
+    profileHydratedId.current = user.user_id;
 
     (async () => {
       try {
@@ -130,19 +95,16 @@ const AccountSettings = () => {
           avatar_url: data?.avatar_url || '',
           links: (data?.links?.length ? data.links : ['']).map((l) => l || '')
         });
-        setArtistProfileExists(true);
-      } catch (e) {
-        // profile may not exist yet
+      } catch {
         setArtistProfile({
           name: user.artist_name || user.name || '',
           bio: '',
           avatar_url: '',
           links: ['']
         });
-        setArtistProfileExists(false);
       }
     })();
-  }, [user]);
+  }, [user?.user_id, user?.role]);
 
   const applyRoleChange = async () => {
     if (!user) return;
@@ -162,12 +124,8 @@ const AccountSettings = () => {
     toast.success('Mode Auditeur activé');
   };
 
-  const uploadAvatarFile = async (file) => {
+  const uploadImageFile = async (file, onUrl) => {
     if (!file) return;
-    if (user?.role !== 'artist') {
-      toast.error("Enregistre d'abord le mode artiste, puis dépose l'image");
-      return;
-    }
     if (!String(file.type || '').startsWith('image/')) {
       toast.error('Dépose une image (JPG, PNG, WebP…)');
       return;
@@ -183,10 +141,10 @@ const AccountSettings = () => {
       const { data } = await apiClient.post('/api/upload/cover', fd);
       const url = data?.cover_url || '';
       if (!url) throw new Error('missing cover url');
-      setArtistProfile((prev) => ({ ...prev, avatar_url: url }));
-      toast.success('Avatar ajouté — enregistre le profil pour le publier');
+      onUrl(url);
+      toast.success('Photo ajoutée — enregistre pour la publier');
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Impossible d'envoyer l'image");
+      toast.error(formatApiError(error, "Impossible d'envoyer l'image"));
     } finally {
       setAvatarUploading(false);
     }
@@ -196,7 +154,14 @@ const AccountSettings = () => {
     event.preventDefault();
     setAvatarDragOver(false);
     const file = event.dataTransfer?.files?.[0];
-    uploadAvatarFile(file);
+    uploadImageFile(file, (url) => setArtistProfile((prev) => ({ ...prev, avatar_url: url })));
+  };
+
+  const onListenerAvatarDrop = (event) => {
+    event.preventDefault();
+    setAvatarDragOver(false);
+    const file = event.dataTransfer?.files?.[0];
+    uploadImageFile(file, setListenerPicture);
   };
 
   const saveArtistProfile = async () => {
@@ -212,19 +177,33 @@ const AccountSettings = () => {
       return;
     }
 
-    if (artistProfileExists) {
+    try {
       await apiClient.put('/api/artist/profile', payload);
-    } else {
-      await apiClient.post('/api/artist/profile', payload);
-      setArtistProfileExists(true);
+    } catch (error) {
+      if (error?.response?.status === 404) {
+        await apiClient.post('/api/artist/profile', payload);
+      } else {
+        throw error;
+      }
     }
   };
 
   const saveAll = async () => {
     setSaving(true);
     try {
-      await applyRoleChange();
+      const alreadyArtist = user?.role === 'artist';
+      const nextName = artistName.trim();
+      const roleChanged = roleTargetIsArtist !== alreadyArtist;
+      const artistNameChanged = roleTargetIsArtist && nextName && nextName !== (user?.artist_name || '');
+      if (roleChanged || artistNameChanged) {
+        await applyRoleChange();
+      }
+      if ((listenerPicture || '') !== (user?.picture || '')) {
+        const { data } = await apiClient.put('/api/users/me', { picture: listenerPicture || '' });
+        if (data) updateUser(data);
+      }
       saveLocalSettings(listenerSettings);
+      emitSettingsChanged(listenerSettings);
       await apiClient.put('/api/users/me/settings', {
         autoplay: !!listenerSettings.playback.autoplay,
         normalize_volume: !!listenerSettings.playback.normalizeVolume,
@@ -241,7 +220,7 @@ const AccountSettings = () => {
       }
       toast.success('Réglages enregistrés');
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Erreur lors de l'enregistrement");
+      toast.error(formatApiError(error, "Erreur lors de l'enregistrement"));
     } finally {
       setSaving(false);
     }
@@ -315,6 +294,69 @@ const AccountSettings = () => {
                   <CardTitle>Profil</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>Photo</Label>
+                    <button
+                      type="button"
+                      onClick={() => listenerAvatarInputRef.current?.click()}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setAvatarDragOver(true);
+                      }}
+                      onDragLeave={() => setAvatarDragOver(false)}
+                      onDrop={onListenerAvatarDrop}
+                      disabled={avatarUploading}
+                      className={`group flex items-center gap-4 rounded-2xl border border-dashed px-4 py-3 text-left transition-colors ${
+                        avatarDragOver
+                          ? 'border-cyan-400 bg-cyan-500/10'
+                          : 'border-white/15 bg-white/5 hover:border-cyan-400/40 hover:bg-white/[0.07]'
+                      }`}
+                      data-testid="listener-avatar-dropzone"
+                    >
+                      <span className="relative w-16 h-16 rounded-full overflow-hidden border border-white/15 shrink-0 bg-black/30">
+                        {listenerPicture ? (
+                          <img src={resolveApiUrl(listenerPicture)} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="w-full h-full flex items-center justify-center text-lg text-muted-foreground">
+                            {(user.name || user.email || '?').charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                        {avatarUploading && (
+                          <span className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 animate-spin text-cyan-300" />
+                          </span>
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-2 text-sm font-medium">
+                          <ImagePlus className="w-4 h-4 text-cyan-300" />
+                          Ajouter une photo
+                        </span>
+                        <span className="block text-xs text-muted-foreground mt-1">
+                          JPG, PNG, WebP · 8 Mo max
+                        </span>
+                      </span>
+                    </button>
+                    <input
+                      ref={listenerAvatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        uploadImageFile(e.target.files?.[0], setListenerPicture);
+                        e.target.value = '';
+                      }}
+                    />
+                    {listenerPicture ? (
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setListenerPicture('')}
+                      >
+                        Retirer la photo
+                      </button>
+                    ) : null}
+                  </div>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Nom</Label>
@@ -556,7 +598,9 @@ const AccountSettings = () => {
                           accept="image/*"
                           className="hidden"
                           onChange={(e) => {
-                            uploadAvatarFile(e.target.files?.[0]);
+                            uploadImageFile(e.target.files?.[0], (url) =>
+                              setArtistProfile((p) => ({ ...p, avatar_url: url }))
+                            );
                             e.target.value = '';
                           }}
                         />

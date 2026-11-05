@@ -78,7 +78,7 @@ const NousDecouvrir = () => {
                   </span>
                 </h1>
                 <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-3xl leading-relaxed">
-                  Kloud est un projet né à Marseille, avec une idée simple : remettre la{' '}
+                  Kloud est un projet né à Marseille, avec une idée simple : remettre la{' '}
                   <span className="text-foreground font-medium">propriété</span> au centre de la musique numérique.
                 </p>
                 <p className="mt-3 text-lg md:text-xl text-muted-foreground max-w-3xl leading-relaxed">
@@ -135,7 +135,7 @@ const NousDecouvrir = () => {
               <div className="lg:col-span-8">
                 <p className="text-muted-foreground leading-relaxed text-base md:text-lg">
                   On aime le streaming pour découvrir. Mais on n’aime pas l’idée qu’une discographie entière disparaisse si tu arrêtes de payer.
-                  Kloud part de là : <span className="text-foreground font-medium">si tu aimes vraiment, tu peux posséder</span>.
+                  Kloud part de là : <span className="text-foreground font-medium">si tu aimes vraiment, tu peux posséder</span>.
                 </p>
                 <p className="mt-4 text-muted-foreground leading-relaxed text-base md:text-lg">
                   Acheter un morceau, c’est un geste simple. Ça crée un lien, ça respecte le travail, et ça remet de la valeur là où elle doit être.
@@ -170,7 +170,7 @@ const NousDecouvrir = () => {
                 <div className="text-sm uppercase tracking-[0.22em] text-muted-foreground">Origine</div>
                 <h3 className="mt-2 text-3xl font-semibold tracking-tight">Marseille</h3>
                 <p className="mt-4 text-muted-foreground leading-relaxed text-base md:text-lg">
-                  Marseille c’est le réel : ça se voit quand c’est faux, et ça se sent quand c’est bon. On garde cette logique dans le produit :
+                  Marseille c’est le réel : ça se voit quand c’est faux, et ça se sent quand c’est bon. On garde cette logique dans le produit :
                   pas d’habillage inutile, pas de promesse floue — du concret et du style.
                 </p>
               </div>
@@ -182,19 +182,19 @@ const NousDecouvrir = () => {
                   <div className="flex items-start gap-3">
                     <div className="mt-1 h-2 w-2 rounded-full bg-cyan-400/80" />
                     <div className="text-muted-foreground leading-relaxed text-base md:text-lg">
-                      <span className="text-foreground font-medium">Propriété</span> : ce que tu achètes, tu le gardes.
+                      <span className="text-foreground font-medium">Propriété</span> : ce que tu achètes, tu le gardes.
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="mt-1 h-2 w-2 rounded-full bg-purple-400/80" />
                     <div className="text-muted-foreground leading-relaxed text-base md:text-lg">
-                      <span className="text-foreground font-medium">Clarté</span> : un geste, un résultat. Pas de détour.
+                      <span className="text-foreground font-medium">Clarté</span> : un geste, un résultat. Pas de détour.
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="mt-1 h-2 w-2 rounded-full bg-pink-400/80" />
                     <div className="text-muted-foreground leading-relaxed text-base md:text-lg">
-                      <span className="text-foreground font-medium">Esthétique</span> : un produit peut être simple et beau, sans faire semblant.
+                      <span className="text-foreground font-medium">Esthétique</span> : un produit peut être simple et beau, sans faire semblant.
                     </div>
                   </div>
                 </div>
@@ -207,7 +207,7 @@ const NousDecouvrir = () => {
               <div className="min-w-0">
                 <h3 className="text-3xl md:text-4xl font-semibold tracking-tight">Envie de voir ?</h3>
                 <p className="mt-4 text-muted-foreground leading-relaxed max-w-2xl text-base md:text-lg">
-                  Cette page est volontairement hors menu. Un lien suffit. Si tu es là, c’est que tu voulais comprendre le projet — merci.
+                  Cette page est volontairement hors menu. Un lien suffit. Si tu es là, c’est que tu voulais comprendre le projet — merci.
                 </p>
               </div>
               <div className="flex gap-3 shrink-0">

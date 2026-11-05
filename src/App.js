@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { Toaster } from '@/components/ui/sonner';
@@ -29,12 +29,29 @@ import Concours from '@/pages/Concours';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
 import ContestAnnounceModal from '@/components/ContestAnnounceModal';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
+import { consumePostLoginPath, rememberPostLoginPath, safeInternalPath } from '@/lib/postLoginRedirect';
 import '@/App.css';
 
 const ProtectedRoute = ({ children }) => {
   const { loading, isAuthenticated } = useAuth();
+  const location = useLocation();
   if (loading) return null;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    const from = `${location.pathname}${location.search}`;
+    rememberPostLoginPath(from);
+    return <Navigate to="/login" replace state={{ from }} />;
+  }
+  return children;
+};
+
+const GuestRoute = ({ children }) => {
+  const { loading, isAuthenticated } = useAuth();
+  const location = useLocation();
+  if (loading) return null;
+  if (isAuthenticated) {
+    const next = safeInternalPath(location.state?.from) || consumePostLoginPath('/browse');
+    return <Navigate to={next} replace />;
+  }
   return children;
 };
 
@@ -45,8 +62,22 @@ function AppRouter() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/ui" element={<UiKit />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route
+          path="/login"
+          element={
+            <GuestRoute>
+              <Login />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <GuestRoute>
+              <Register />
+            </GuestRoute>
+          }
+        />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />

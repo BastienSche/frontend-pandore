@@ -7,9 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { formatApiError } from '@/lib/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import KloudLogo from '@/components/KloudLogo';
+import GoogleAuthButton from '@/components/GoogleAuthButton';
+import { consumePostLoginPath } from '@/lib/postLoginRedirect';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -27,10 +30,10 @@ const Register = () => {
     
     try {
       await register(email, password, name, isArtist ? artistName : null);
-      toast.success('Inscription réussie ! Veuillez vous connecter.');
-      navigate('/login');
+      toast.success('Inscription réussie !');
+      navigate(consumePostLoginPath('/browse'));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur lors de l\'inscription');
+      toast.error(formatApiError(error, 'Erreur lors de l\'inscription'));
     } finally {
       setLoading(false);
     }
@@ -188,6 +191,17 @@ const Register = () => {
               )}
             </Button>
           </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <p className="relative text-center text-xs uppercase tracking-wider text-muted-foreground">
+              <span className="bg-transparent px-3 backdrop-blur-sm">ou</span>
+            </p>
+          </div>
+
+          <GoogleAuthButton label="S'inscrire avec Google" disabled={loading} testId="google-register-button" />
 
           {/* Login Link */}
           <p className="text-center text-sm text-muted-foreground">

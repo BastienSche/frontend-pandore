@@ -1,13 +1,22 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { recordTrackPlay } from '@/lib/recordPlay';
+import { apiClient, getAccessToken, getRefreshToken, withAudioAccessToken } from '@/lib/apiClient';
+import {
+  SETTINGS_CHANGED_EVENT,
+  readPlayerPrefs,
+  saveLocalSettings,
+  settingsFromApi,
+} from '@/lib/accountSettings';
 
 const AudioPlayerContext = createContext();
 
 /** @typedef {'preview' | 'library'} PlaybackMode */
 
+const inferPlaybackMode = (track) => (track?.file_url ? 'library' : 'preview');
+
 const resolveAudioUrl = (track, mode) => {
-  if (mode === 'library' && track?.file_url) return track.file_url;
+  if (mode === 'library' && track?.file_url) return withAudioAccessToken(track.file_url);
   return track?.preview_url;
 };
 
@@ -18,7 +27,7 @@ const resolveStartTime = (track, mode) => {
 
 /** Fenêtre d’écoute en mode browse (même URL que le fichier complet). */
 const resolvePreviewDurationSec = (track) => {
-  const v = track?.preview_duration_sec ?? track?.preview_length_sec ?? track?.preview_seconds;
+  const v = track?.preview_duration ?? track?.preview_duration_sec ?? track?.preview_length_sec ?? track?.preview_seconds;
   if (v != null && Number.isFinite(Number(v)) && Number(v) > 0) return Number(v);
   return 15;
 };
@@ -118,9 +127,50 @@ export const AudioPlayerProvider = ({ children }) => {
   const playRecordedForTrackRef = useRef(new Set());
   const playGenRef = useRef(0);
   const playTrackRef = useRef(null);
+  const prefsRef = useRef(readPlayerPrefs());
+  const [normalizeVolume, setNormalizeVolume] = useState(() => readPlayerPrefs().normalizeVolume);
 
   useEffect(() => {
-    audioRef.current.preload = 'auto';
+    const applyPrefs = (settings) => {
+      const prefs = readPlayerPrefs(settings);
+      prefsRef.current = prefs;
+      setNormalizeVolume(prefs.normalizeVolume);
+      audioRef.current.preload = prefs.highQualityStreaming ? 'auto' : 'metadata';
+    };
+
+    applyPrefs();
+
+    const loadRemote = async () => {
+      if (!getAccessToken() && !getRefreshToken()) return;
+      try {
+        const { data } = await apiClient.get('/api/users/me/settings');
+        const next = settingsFromApi(data);
+        saveLocalSettings(next);
+        applyPrefs(next);
+      } catch {
+        applyPrefs();
+      }
+    };
+    loadRemote();
+
+    const onChanged = (event) => {
+      applyPrefs(event?.detail);
+    };
+    const onAuth = () => {
+      if (!getAccessToken() && !getRefreshToken()) {
+        applyPrefs();
+        return;
+      }
+      loadRemote();
+    };
+    window.addEventListener(SETTINGS_CHANGED_EVENT, onChanged);
+    window.addEventListener('kloud-auth-changed', onAuth);
+    window.addEventListener('pandore-auth-changed', onAuth);
+    return () => {
+      window.removeEventListener(SETTINGS_CHANGED_EVENT, onChanged);
+      window.removeEventListener('kloud-auth-changed', onAuth);
+      window.removeEventListener('pandore-auth-changed', onAuth);
+    };
   }, []);
 
   useEffect(() => {
@@ -182,12 +232,12 @@ export const AudioPlayerProvider = ({ children }) => {
     };
     const handleLoadedMetadata = () => setDuration(audio.duration);
     const handleEnded = () => {
-      if (queue.length && queueIndex < queue.length - 1) {
+      if (prefsRef.current.autoplay && queue.length && queueIndex < queue.length - 1) {
         const nextIndex = queueIndex + 1;
         setQueueIndex(nextIndex);
         const nextTrack = queue[nextIndex];
         if (nextTrack) {
-          playTrackRef.current?.(nextTrack, { mode: playbackModeRef.current });
+          playTrackRef.current?.(nextTrack, { mode: inferPlaybackMode(nextTrack) });
           return;
         }
       }
@@ -206,8 +256,9 @@ export const AudioPlayerProvider = ({ children }) => {
   }, [queue, queueIndex]);
 
   useEffect(() => {
-    audioRef.current.volume = volume;
-  }, [volume]);
+    const factor = normalizeVolume ? 0.8 : 1;
+    audioRef.current.volume = Math.max(0, Math.min(1, volume * factor));
+  }, [volume, normalizeVolume]);
 
   useEffect(() => {
     const tid = currentTrack?.track_id;
@@ -240,7 +291,9 @@ export const AudioPlayerProvider = ({ children }) => {
 
     const sameTrack = currentTrack?.track_id === track.track_id;
     const explicitMode = options.mode !== undefined;
-    const mode = explicitMode ? (options.mode ?? 'preview') : (sameTrack ? playbackMode : 'preview');
+    const mode = explicitMode
+      ? (options.mode ?? inferPlaybackMode(track))
+      : (sameTrack ? playbackMode : inferPlaybackMode(track));
     const url = resolveAudioUrl(track, mode);
     const startTime = resolveStartTime(track, mode);
 
@@ -293,10 +346,10 @@ export const AudioPlayerProvider = ({ children }) => {
   const setQueue = (tracks, startIndex = 0, options = {}) => {
     const nextQueue = Array.isArray(tracks) ? tracks : [];
     const idx = Math.max(0, Math.min(startIndex, Math.max(0, nextQueue.length - 1)));
-    const mode = options.mode ?? 'preview';
+    const startTrack = nextQueue[idx];
+    const mode = options.mode ?? inferPlaybackMode(startTrack);
     setQueueState(nextQueue);
     setQueueIndex(idx);
-    const startTrack = nextQueue[idx];
     if (startTrack) playTrack(startTrack, { mode });
   };
 
@@ -306,7 +359,7 @@ export const AudioPlayerProvider = ({ children }) => {
     if (nextIndex === queueIndex) return;
     setQueueIndex(nextIndex);
     const t = queue[nextIndex];
-    if (t) playTrack(t, { mode: playbackMode });
+    if (t) playTrack(t, { mode: inferPlaybackMode(t) });
   };
 
   const prev = () => {
@@ -315,13 +368,48 @@ export const AudioPlayerProvider = ({ children }) => {
     if (prevIndex === queueIndex) return;
     setQueueIndex(prevIndex);
     const t = queue[prevIndex];
-    if (t) playTrack(t, { mode: playbackMode });
+    if (t) playTrack(t, { mode: inferPlaybackMode(t) });
   };
 
   const pause = () => {
     audioRef.current.pause();
     setIsPlaying(false);
   };
+
+  const stopPlayback = () => {
+    playGenRef.current += 1;
+    const audio = audioRef.current;
+    try {
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+    } catch {
+      /* ignore */
+    }
+    setIsPlaying(false);
+    setCurrentTrack(null);
+    setCurrentTime(0);
+    setDuration(0);
+    setQueueState([]);
+    setQueueIndex(0);
+    setPlaybackMode('preview');
+    currentTrackRef.current = null;
+    playRecordedForTrackRef.current = new Set();
+  };
+
+  useEffect(() => {
+    const onAuthChanged = () => {
+      if (!getAccessToken() && !getRefreshToken()) {
+        stopPlayback();
+      }
+    };
+    window.addEventListener('kloud-auth-changed', onAuthChanged);
+    window.addEventListener('pandore-auth-changed', onAuthChanged);
+    return () => {
+      window.removeEventListener('kloud-auth-changed', onAuthChanged);
+      window.removeEventListener('pandore-auth-changed', onAuthChanged);
+    };
+  }, []);
 
   const seek = (time) => {
     audioRef.current.currentTime = time;
@@ -339,6 +427,7 @@ export const AudioPlayerProvider = ({ children }) => {
       playbackMode,
       playTrack,
       pause,
+      stopPlayback,
       seek,
       setQueue,
       next,

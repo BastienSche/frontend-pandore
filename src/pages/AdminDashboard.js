@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { apiClient, formatApiError } from '@/lib/apiClient';
+import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 
 const toLocalInput = (iso) => {
   if (!iso) return '';
@@ -124,6 +124,8 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [q, setQ] = useState('');
   const lastFetchRef = useRef(0);
+  const catalogTracksRef = useRef([]);
+  const catalogAlbumsRef = useRef([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,25 +134,37 @@ const AdminDashboard = () => {
       setLoading(true);
       setError('');
       try {
-        const [ov, pt, lg, tr, al, fb, st, ct] = await Promise.all([
+        const settled = await Promise.allSettled([
           apiClient.get('/api/admin/overview'),
           apiClient.get('/api/admin/payment-transactions?limit=200'),
           apiClient.get('/api/admin/logs?limit=200'),
           apiClient.get('/api/admin/tracks?limit=300'),
           apiClient.get('/api/admin/albums?limit=300'),
           apiClient.get('/api/admin/feedback?limit=300'),
-          apiClient.get('/api/admin/storage').catch(() => ({ data: null })),
-          apiClient.get('/api/admin/contests').catch(() => ({ data: { items: [] } }))
+          apiClient.get('/api/admin/storage'),
+          apiClient.get('/api/admin/contests')
         ]);
         if (cancelled) return;
-        setOverview(ov.data);
-        setTxns(pt.data?.items || []);
-        setLogs(lg.data?.items || []);
-        setTracks(tr.data?.items || []);
-        setAlbums(al.data?.items || []);
-        setFeedbackItems(fb.data?.items || []);
-        setStorage(st.data || null);
-        setContests(ct.data?.items || []);
+        const take = (index, fallback) =>
+          settled[index].status === 'fulfilled' ? settled[index].value.data : fallback;
+        setOverview(take(0, null));
+        setTxns(take(1, {})?.items || []);
+        setLogs(take(2, {})?.items || []);
+        const nextTracks = take(3, {})?.items || [];
+        const nextAlbums = take(4, {})?.items || [];
+        catalogTracksRef.current = nextTracks;
+        catalogAlbumsRef.current = nextAlbums;
+        setTracks(nextTracks);
+        setAlbums(nextAlbums);
+        setFeedbackItems(take(5, {})?.items || []);
+        setStorage(take(6, null));
+        setContests(take(7, {})?.items || []);
+        const failed = settled.filter((r) => r.status === 'rejected').length;
+        if (failed === settled.length) {
+          setError(formatApiError(settled[0].reason, 'Impossible de charger le dashboard'));
+        } else if (failed) {
+          toast.error('Certaines données admin n’ont pas pu être chargées');
+        }
       } catch (e) {
         if (!cancelled) setError(formatApiError(e));
       } finally {
@@ -163,6 +177,33 @@ const AdminDashboard = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const s = q.trim();
+    let cancelled = false;
+    if (!s) {
+      setTracks(catalogTracksRef.current);
+      setAlbums(catalogAlbumsRef.current);
+      return undefined;
+    }
+    const timer = window.setTimeout(async () => {
+      try {
+        const [tr, al] = await Promise.all([
+          apiClient.get('/api/admin/tracks', { params: { q: s, limit: 200 } }),
+          apiClient.get('/api/admin/albums', { params: { q: s, limit: 200 } }),
+        ]);
+        if (cancelled) return;
+        setTracks(tr.data?.items || []);
+        setAlbums(al.data?.items || []);
+      } catch (e) {
+        if (!cancelled) toast.error(formatApiError(e, 'Recherche impossible'));
+      }
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [q]);
 
   const refreshContests = async () => {
     try {
@@ -238,63 +279,66 @@ const AdminDashboard = () => {
   const diskFree = Number(storage?.disk_free_bytes || 0);
   const diskPct = diskTotal > 0 ? Math.min(100, Math.max(0, (diskUsed / diskTotal) * 100)) : 0;
 
-  const filteredTracks = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return tracks;
-    return tracks.filter((t) => {
-      const hay = `${t?.track_id || ''} ${t?.title || ''} ${t?.artist_name || ''} ${t?.status || ''}`.toLowerCase();
-      return hay.includes(s);
-    });
-  }, [tracks, q]);
-
-  const filteredAlbums = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return albums;
-    return albums.filter((a) => {
-      const hay = `${a?.album_id || ''} ${a?.title || ''} ${a?.artist_name || ''} ${a?.status || ''}`.toLowerCase();
-      return hay.includes(s);
-    });
-  }, [albums, q]);
 
   const exportCsv = async (kind) => {
     const now = Date.now();
     if (now - lastFetchRef.current < 800) return;
     lastFetchRef.current = now;
-    const path = kind === 'tracks' ? '/api/admin/tracks.csv' : '/api/admin/albums.csv';
-    const resp = await apiClient.get(path, { responseType: 'text' });
-    const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kloud-${kind}-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    try {
+      const path = kind === 'tracks' ? '/api/admin/tracks.csv' : '/api/admin/albums.csv';
+      const resp = await apiClient.get(path, { responseType: 'text' });
+      const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `kloud-${kind}-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(formatApiError(e, 'Export impossible'));
+    }
   };
 
   const patchTrack = async (trackId, patch) => {
-    const resp = await apiClient.patch(`/api/admin/tracks/${trackId}`, patch);
-    setTracks((prev) => prev.map((t) => (t.track_id === trackId ? resp.data : t)));
+    try {
+      const resp = await apiClient.patch(`/api/admin/tracks/${trackId}`, patch);
+      setTracks((prev) => prev.map((t) => (t.track_id === trackId ? resp.data : t)));
+    } catch (e) {
+      toast.error(formatApiError(e, 'Mise à jour du titre impossible'));
+    }
   };
 
   const deleteTrack = async (trackId) => {
     // eslint-disable-next-line no-alert
     if (!window.confirm(`Supprimer le track ${trackId} ?`)) return;
-    await apiClient.delete(`/api/admin/tracks/${trackId}`);
-    setTracks((prev) => prev.filter((t) => t.track_id !== trackId));
+    try {
+      await apiClient.delete(`/api/admin/tracks/${trackId}`);
+      setTracks((prev) => prev.filter((t) => t.track_id !== trackId));
+    } catch (e) {
+      toast.error(formatApiError(e, 'Suppression du titre impossible'));
+    }
   };
 
   const patchAlbum = async (albumId, patch) => {
-    const resp = await apiClient.patch(`/api/admin/albums/${albumId}`, patch);
-    setAlbums((prev) => prev.map((a) => (a.album_id === albumId ? resp.data : a)));
+    try {
+      const resp = await apiClient.patch(`/api/admin/albums/${albumId}`, patch);
+      setAlbums((prev) => prev.map((a) => (a.album_id === albumId ? resp.data : a)));
+    } catch (e) {
+      toast.error(formatApiError(e, 'Mise à jour de l’album impossible'));
+    }
   };
 
   const deleteAlbum = async (albumId) => {
     // eslint-disable-next-line no-alert
     if (!window.confirm(`Supprimer l’album ${albumId} ?`)) return;
-    await apiClient.delete(`/api/admin/albums/${albumId}`);
-    setAlbums((prev) => prev.filter((a) => a.album_id !== albumId));
+    try {
+      await apiClient.delete(`/api/admin/albums/${albumId}`);
+      setAlbums((prev) => prev.filter((a) => a.album_id !== albumId));
+    } catch (e) {
+      toast.error(formatApiError(e, 'Suppression de l’album impossible'));
+    }
   };
 
   return (
@@ -495,14 +539,14 @@ const AdminDashboard = () => {
                     <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <div className="text-sm text-muted-foreground">Brut</div>
-                        <div className="mt-2 text-3xl font-bold">{eur(money.gross_cents)}</div>
+                        <div className="mt-2 text-3xl font-bold">{eur(money.gross_cents_30d ?? money.gross_cents)}</div>
                         <div className="mt-4">
                           <MiniBarChart series={series} valueKey="gross_cents" />
                         </div>
                       </div>
                       <div>
                         <div className="text-sm text-muted-foreground">Fees Kloud</div>
-                        <div className="mt-2 text-3xl font-bold">{eur(money.platform_fees_cents)}</div>
+                        <div className="mt-2 text-3xl font-bold">{eur(money.platform_fees_cents_30d ?? money.platform_fees_cents)}</div>
                         <div className="mt-4">
                           <MiniBarChart series={series} valueKey="fee_cents" />
                         </div>
@@ -514,7 +558,7 @@ const AdminDashboard = () => {
                   </div>
 
                   <div className="glass-heavy rounded-[32px] p-8 border border-white/10 shadow-[0_16px_60px_rgba(0,0,0,0.18)]">
-                    <div className="text-sm text-muted-foreground">Synthèse</div>
+                    <div className="text-sm text-muted-foreground">Synthèse (tout le temps)</div>
                     <div className="mt-2 text-2xl font-semibold tracking-tight">Revenus & net vendeur</div>
                     <div className="mt-6 space-y-4">
                       <div className="flex items-center justify-between">
@@ -614,7 +658,7 @@ const AdminDashboard = () => {
 
             {activeTab === 'tracks' && (
               <div className="glass-heavy rounded-[32px] p-8 border border-white/10 shadow-[0_16px_60px_rgba(0,0,0,0.18)]">
-                <div className="text-2xl font-semibold tracking-tight">Tracks ({filteredTracks.length})</div>
+                <div className="text-2xl font-semibold tracking-tight">Tracks ({tracks.length})</div>
                 <div className="mt-4 max-h-[560px] overflow-auto rounded-2xl border border-white/10">
                   <Table>
                     <TableHeader>
@@ -628,7 +672,7 @@ const AdminDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredTracks.slice(0, 500).map((t) => (
+                      {tracks.slice(0, 500).map((t) => (
                         <TableRow key={t.track_id}>
                           <TableCell className="font-medium">{t.track_id}</TableCell>
                           <TableCell>{t.title || '—'}</TableCell>
@@ -688,7 +732,7 @@ const AdminDashboard = () => {
 
             {activeTab === 'albums' && (
               <div className="glass-heavy rounded-[32px] p-8 border border-white/10 shadow-[0_16px_60px_rgba(0,0,0,0.18)]">
-                <div className="text-2xl font-semibold tracking-tight">Albums ({filteredAlbums.length})</div>
+                <div className="text-2xl font-semibold tracking-tight">Albums ({albums.length})</div>
                 <div className="mt-4 max-h-[560px] overflow-auto rounded-2xl border border-white/10">
                   <Table>
                     <TableHeader>
@@ -702,7 +746,7 @@ const AdminDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredAlbums.slice(0, 500).map((a) => (
+                      {albums.slice(0, 500).map((a) => (
                         <TableRow key={a.album_id}>
                           <TableCell className="font-medium">{a.album_id}</TableCell>
                           <TableCell>{a.title || '—'}</TableCell>
@@ -832,7 +876,7 @@ const AdminDashboard = () => {
                             <TableCell>
                               {f.image_url ? (
                                 <a
-                                  href={f.image_url}
+                                  href={resolveApiUrl(f.image_url)}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="text-cyan-300 hover:text-cyan-200 underline underline-offset-4"

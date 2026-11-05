@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
-import { formatPriceLabel } from '@/lib/pricing';
+import { albumTrackCount, formatItemPriceLabel } from '@/lib/pricing';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 
 const mixLabel = (v) => {
@@ -96,7 +96,7 @@ const AlbumCard = ({ album }) => {
             data-testid={`album-tracks-count-${album.album_id}`}
           >
             <Disc className="w-3 h-3 mr-1.5" />
-            {album.track_ids?.length || 0} titres
+            {albumTrackCount(album)} titres
           </Badge>
 
           {availabilityLabel(album.availability) && (
@@ -133,7 +133,7 @@ const AlbumCard = ({ album }) => {
               className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400"
               data-testid={`album-price-${album.album_id}`}
             >
-              {formatPriceLabel(album.price)}
+              {formatItemPriceLabel(album)}
             </span>
             
             <Button 

@@ -7,13 +7,14 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
-import { getCheckoutRedirectUrl } from '@/lib/checkoutRedirect';
+import { apiClient, fetchTracksByIds, formatApiError, resolveApiUrl } from '@/lib/apiClient';
+import { startCheckoutRedirect } from '@/lib/checkoutRedirect';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
-import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
+import { formatItemPriceLabel, isFreePrice } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
+import { rememberPostLoginPath } from '@/lib/postLoginRedirect';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,7 +37,7 @@ const AlbumDetail = () => {
   const { albumId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { currentTrack, isPlaying, playTrack, setQueue } = useAudioPlayer();
   const [album, setAlbum] = useState(null);
   const [tracks, setTracks] = useState([]);
@@ -71,17 +72,20 @@ const AlbumDetail = () => {
         if (!trackIds.length) {
           setTracks([]);
         } else {
-          const trackResults = await Promise.all(
-            trackIds.map((id) => apiClient.get(`/api/tracks/${id}`).then((r) => r.data).catch(() => null))
-          );
+          const trackResults = await fetchTracksByIds(trackIds);
           if (cancelled) return;
+          const isOwner = Boolean(user?.user_id && data?.artist_id && user.user_id === data.artist_id);
           setTracks(
             trackResults
-              .filter(Boolean)
+              .filter((t) => {
+                if (isOwner) return true;
+                const status = String(t?.status || '').toLowerCase();
+                return status === 'published' || status === 'public';
+              })
               .map((t) => ({
                 ...t,
                 preview_url: resolveApiUrl(t?.preview_url),
-                file_url: resolveApiUrl(t?.file_url),
+                file_url: null,
                 cover_url: resolveApiUrl(t?.cover_url)
               }))
           );
@@ -98,7 +102,7 @@ const AlbumDetail = () => {
     return () => {
       cancelled = true;
     };
-  }, [albumId, navigate, isAuthenticated]);
+  }, [albumId, navigate, isAuthenticated, user?.user_id]);
 
   useEffect(() => {
     if (!albumId) return;
@@ -124,7 +128,7 @@ const AlbumDetail = () => {
       else await unlike('album', albumId);
     } catch (e) {
       setLiked(!next);
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
 
@@ -135,6 +139,7 @@ const AlbumDetail = () => {
     }
     if (!isAuthenticated) {
       toast.info('Connecte-toi ou crée un compte pour acheter cet album.');
+      rememberPostLoginPath(location.pathname);
       navigate('/login', {
         state: {
           from: location.pathname
@@ -173,9 +178,9 @@ const AlbumDetail = () => {
           origin_url: originUrl,
           amount_cents: amountCents
         });
-        const payUrl = getCheckoutRedirectUrl(data);
-        if (payUrl) window.location.href = payUrl;
-        else toast.success('Checkout créé');
+        if (!startCheckoutRedirect(data)) {
+          toast.error('Paiement indisponible pour le moment');
+        }
         return;
       }
 
@@ -193,14 +198,11 @@ const AlbumDetail = () => {
         item_id: albumId,
         origin_url: originUrl
       });
-      const payUrl = getCheckoutRedirectUrl(data);
-      if (payUrl) {
-        window.location.href = payUrl;
-      } else {
-        toast.success('Checkout créé');
+      if (!startCheckoutRedirect(data)) {
+        toast.error('Paiement indisponible pour le moment');
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Erreur lors de l'achat");
+      toast.error(formatApiError(error, "Erreur lors de l'achat"));
     } finally {
       setPurchasing(false);
     }
@@ -222,7 +224,7 @@ const AlbumDetail = () => {
 
   if (!album) return null;
 
-  const priceDisplay = formatPriceLabel(album.price);
+  const priceDisplay = formatItemPriceLabel(album);
   const totalDuration = tracks.reduce((sum, track) => sum + (track.duration || 0), 0);
   const hours = Math.floor(totalDuration / 3600);
   const minutes = Math.floor((totalDuration % 3600) / 60);

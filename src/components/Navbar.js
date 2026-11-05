@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion, useDragControls } from 'framer-motion';
 import KloudLogo from '@/components/KloudLogo';
 import NotificationBell from '@/components/NotificationBell';
+import { resolveApiUrl } from '@/lib/apiClient';
 
 const userInitial = (u) => {
   if (!u) return '?';
@@ -33,6 +34,21 @@ const Navbar = () => {
   
   const [isExpanded, setIsExpanded] = useState(true);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isMobileNav, setIsMobileNav] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobileNav(mq.matches);
+    update();
+    if (mq.addEventListener) mq.addEventListener('change', update);
+    else mq.addListener(update);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', update);
+      else mq.removeListener(update);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -120,7 +136,7 @@ const Navbar = () => {
             </Button>
           ))}
 
-          {user ? <NotificationBell compact /> : null}
+          {user && isMobileNav ? <NotificationBell compact /> : null}
 
           {user ? (
             <DropdownMenu>
@@ -131,7 +147,7 @@ const Navbar = () => {
                   data-testid="mobile-user-menu-trigger"
                 >
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src={user.picture} />
+                    <AvatarImage src={resolveApiUrl(user.picture)} />
                     <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-xs">
                       {userInitial(user)}
                     </AvatarFallback>
@@ -144,7 +160,7 @@ const Navbar = () => {
               >
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
                   <Avatar className="w-9 h-9">
-                    <AvatarImage src={user.picture} />
+                    <AvatarImage src={resolveApiUrl(user.picture)} />
                     <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-xs">
                       {userInitial(user)}
                     </AvatarFallback>
@@ -343,7 +359,7 @@ const Navbar = () => {
               </Button>
             </motion.div>
 
-            {user && <NotificationBell />}
+            {user && !isMobileNav && <NotificationBell />}
 
             {/* User Menu */}
             {user ? (
@@ -355,7 +371,7 @@ const Navbar = () => {
                     data-testid="user-menu-trigger"
                   >
                     <Avatar className="w-8 h-8 border border-white/10">
-                      <AvatarImage src={user.picture} />
+                      <AvatarImage src={resolveApiUrl(user.picture)} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-sm">
                         {userInitial(user)}
                       </AvatarFallback>
@@ -368,7 +384,7 @@ const Navbar = () => {
                 >
                   <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={user.picture} />
+                      <AvatarImage src={resolveApiUrl(user.picture)} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
                         {userInitial(user)}
                       </AvatarFallback>

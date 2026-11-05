@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { albumTrackCount } from '@/lib/pricing';
 
 const LibraryAlbumCard = ({ album, onPlayAlbum, playingAlbumId }) => {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ const LibraryAlbumCard = ({ album, onPlayAlbum, playingAlbumId }) => {
     }
   };
 
-  const n = album.track_ids?.length ?? 0;
+  const n = albumTrackCount(album);
 
   return (
     <div

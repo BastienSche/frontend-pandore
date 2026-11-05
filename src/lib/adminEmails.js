@@ -1,12 +1,17 @@
-/** Seuls ces deux comptes peuvent ouvrir /admin. */
+/** Comptes allowlist (comparaison exacte, casse ignorée). */
 export const ADMIN_EMAILS = [
   'bastien.schektman@gmail.com',
   'merwan.snk@gmail.com',
   'merwane.snk@gmail.com',
 ];
 
+export function canonicalEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+/** Identité de boîte Gmail (points / +tag). Ne pas utiliser pour l'admin. */
 export function normalizeEmail(email) {
-  const raw = String(email || '').trim().toLowerCase();
+  const raw = canonicalEmail(email);
   if (!raw.includes('@')) return raw;
   const at = raw.lastIndexOf('@');
   let local = raw.slice(0, at);
@@ -18,8 +23,8 @@ export function normalizeEmail(email) {
   return `${local}@${domain}`;
 }
 
-const ADMIN_EMAIL_SET = new Set(ADMIN_EMAILS.map(normalizeEmail));
+const ADMIN_EMAIL_SET = new Set(ADMIN_EMAILS.map(canonicalEmail));
 
 export function isAdminEmail(email) {
-  return ADMIN_EMAIL_SET.has(normalizeEmail(email));
+  return ADMIN_EMAIL_SET.has(canonicalEmail(email));
 }

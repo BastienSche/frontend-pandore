@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Play, Trash2, Music } from 'lucide-react';
 
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, fetchTracksByIds, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Button } from '@/components/ui/button';
@@ -39,16 +39,9 @@ const PlaylistDetail = () => {
         setPlaylist(p);
 
         const ids = p?.track_ids || [];
-        if (!ids.length) {
-          setTracks([]);
-        } else {
-          const results = await Promise.all(
-            ids.map((id) => apiClient.get(`/api/tracks/${id}`).then((r) => r.data).catch(() => null))
-          );
-          setTracks(results.filter(Boolean));
-        }
+        setTracks(ids.length ? await fetchTracksByIds(ids) : []);
       } catch (e) {
-        toast.error(e.response?.data?.detail || 'Playlist introuvable');
+        toast.error(formatApiError(e, 'Playlist introuvable'));
         navigate('/playlists');
       } finally {
         setLoading(false);
@@ -71,7 +64,7 @@ const PlaylistDetail = () => {
       }));
       toast.success('Retiré de la playlist');
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
 

@@ -20,7 +20,7 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, downloadAuthenticatedFile, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
 import { formatTrackDuration } from '@/lib/libraryCollection';
@@ -59,7 +59,7 @@ const LibraryTrackOwned = () => {
         const { data } = await apiClient.get(`/api/tracks/${trackId}`);
         if (cancelled) return;
         const previewUrl = resolveApiUrl(data?.preview_url);
-        const fileUrl = resolveApiUrl(data?.file_url) || previewUrl;
+        const fileUrl = resolveApiUrl(data?.file_url) || null;
         setTrack({
           ...data,
           preview_url: previewUrl,
@@ -104,7 +104,7 @@ const LibraryTrackOwned = () => {
       else await unlike('track', trackId);
     } catch (e) {
       setLiked(!next);
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
 
@@ -125,7 +125,7 @@ const LibraryTrackOwned = () => {
       toast.success('Ajouté à la playlist');
       setPlaylistDialogOpen(false);
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     } finally {
       setAddingToPlaylist(false);
     }
@@ -146,24 +146,18 @@ const LibraryTrackOwned = () => {
       setNewPlaylistDescription('');
       toast.success('Playlist créée');
     } catch (e2) {
-      toast.error(e2.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e2, 'Erreur'));
     }
   };
 
-  const handleDownload = () => {
-    const audioUrl = track?.file_url || track?.preview_url;
+  const handleDownload = async () => {
+    const audioUrl = track?.file_url;
     if (!audioUrl) {
       toast.error('Fichier indisponible');
       return;
     }
     try {
-      const link = document.createElement('a');
-      link.href = audioUrl;
-      const safe = (track.title || 'track').replace(/[/\\?%*:|"<>]/g, '-');
-      link.setAttribute('download', safe);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      await downloadAuthenticatedFile(audioUrl, track.title || 'track');
       toast.success('Téléchargement commencé');
     } catch {
       toast.error('Erreur lors du téléchargement');
@@ -438,7 +432,7 @@ const LibraryTrackOwned = () => {
                     try {
                       await loadPlaylists();
                     } catch (e) {
-                      toast.error(e.response?.data?.detail || 'Impossible de charger les playlists');
+                      toast.error(formatApiError(e, 'Impossible de charger les playlists'));
                     }
                   }
                 }}

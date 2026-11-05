@@ -7,13 +7,14 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
-import { getCheckoutRedirectUrl } from '@/lib/checkoutRedirect';
+import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
+import { startCheckoutRedirect } from '@/lib/checkoutRedirect';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
-import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
+import { formatItemPriceLabel, isFreePrice } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
+import { rememberPostLoginPath } from '@/lib/postLoginRedirect';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -79,12 +80,8 @@ const TrackDetail = () => {
           ...data,
           track_id: data?.track_id ?? data?.id ?? trackId,
           preview_start_time: data?.preview_start_time ?? data?.preview_start_sec ?? 0,
-          preview_duration_sec: data?.preview_duration_sec ?? data?.preview_length_sec ?? null,
-          preview_url: data?.preview_url
-            ? resolveApiUrl(data?.preview_url)
-            : data?.file_url
-              ? resolveApiUrl(data?.file_url)
-              : null,
+          preview_duration_sec: data?.preview_duration ?? data?.preview_duration_sec ?? data?.preview_length_sec ?? null,
+          preview_url: data?.preview_url ? resolveApiUrl(data?.preview_url) : null,
           file_url: data?.file_url ? resolveApiUrl(data?.file_url) : null,
           cover_url: data?.cover_url ? resolveApiUrl(data?.cover_url) : null
         });
@@ -126,7 +123,7 @@ const TrackDetail = () => {
       else await unlike('track', trackId);
     } catch (e) {
       setLiked(!next);
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
 
@@ -137,6 +134,7 @@ const TrackDetail = () => {
     }
     if (!isAuthenticated) {
       toast.info('Connecte-toi ou crée un compte pour acheter ce titre.');
+      rememberPostLoginPath(location.pathname);
       navigate('/login', {
         state: {
           from: location.pathname
@@ -175,9 +173,9 @@ const TrackDetail = () => {
           origin_url: originUrl,
           amount_cents: amountCents
         });
-        const payUrl = getCheckoutRedirectUrl(data);
-        if (payUrl) window.location.href = payUrl;
-        else toast.success('Checkout créé');
+        if (!startCheckoutRedirect(data)) {
+          toast.error('Paiement indisponible pour le moment');
+        }
         return;
       }
 
@@ -195,14 +193,11 @@ const TrackDetail = () => {
         item_id: trackId,
         origin_url: originUrl
       });
-      const payUrl = getCheckoutRedirectUrl(data);
-      if (payUrl) {
-        window.location.href = payUrl;
-      } else {
-        toast.success('Checkout créé');
+      if (!startCheckoutRedirect(data)) {
+        toast.error('Paiement indisponible pour le moment');
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Erreur lors de l'achat");
+      toast.error(formatApiError(error, "Erreur lors de l'achat"));
     } finally {
       setPurchasing(false);
     }
@@ -225,7 +220,7 @@ const TrackDetail = () => {
       toast.success('Ajouté à la playlist');
       setPlaylistDialogOpen(false);
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     } finally {
       setAddingToPlaylist(false);
     }
@@ -246,7 +241,7 @@ const TrackDetail = () => {
       setNewPlaylistDescription('');
       toast.success('Playlist créée');
     } catch (e2) {
-      toast.error(e2.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e2, 'Erreur'));
     }
   };
 
@@ -267,7 +262,7 @@ const TrackDetail = () => {
   if (!track) return null;
 
   const isCurrentTrack = currentTrack?.track_id === track.track_id;
-  const priceDisplay = formatPriceLabel(track.price);
+  const priceDisplay = formatItemPriceLabel(track);
   const isFree = isFreePrice(track?.price);
   const isPayWhatYouWant = !!track?.is_free_price;
   const minCents = track?.min_price != null ? Number(track.min_price) : null;
@@ -575,7 +570,7 @@ const TrackDetail = () => {
                     try {
                       await loadPlaylists();
                     } catch (e) {
-                      toast.error(e.response?.data?.detail || 'Impossible de charger les playlists');
+                      toast.error(formatApiError(e, 'Impossible de charger les playlists'));
                     }
                   }
                 }}

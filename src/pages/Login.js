@@ -6,9 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { formatApiError } from '@/lib/apiClient';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import KloudLogo from '@/components/KloudLogo';
+import GoogleAuthButton from '@/components/GoogleAuthButton';
+import { consumePostLoginPath, safeInternalPath } from '@/lib/postLoginRedirect';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -25,10 +28,10 @@ const Login = () => {
     try {
       await login(email, password);
       toast.success('Connexion réussie !');
-      const nextPath = location.state?.from || '/browse';
+      const nextPath = safeInternalPath(location.state?.from) || consumePostLoginPath('/browse');
       navigate(nextPath);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur de connexion');
+      toast.error(formatApiError(error, 'Erreur de connexion'));
     } finally {
       setLoading(false);
     }
@@ -133,6 +136,17 @@ const Login = () => {
               )}
             </Button>
           </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <p className="relative text-center text-xs uppercase tracking-wider text-muted-foreground">
+              <span className="bg-transparent px-3 backdrop-blur-sm">ou</span>
+            </p>
+          </div>
+
+          <GoogleAuthButton disabled={loading} />
 
           {/* Register Link */}
           <p className="text-center text-sm text-muted-foreground">

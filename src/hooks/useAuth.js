@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import {
   apiClient,
   clearTokens,
+  getAccessToken,
   getRefreshToken,
   persistTokens,
 } from '@/lib/apiClient';
@@ -11,6 +12,7 @@ const AuthContext = createContext(null);
 
 const STORAGE_USER_KEY = 'kloud_user';
 const LEGACY_USER_KEY = 'pandore_user';
+const ACCOUNT_SETTINGS_KEYS = ['kloud_account_settings', 'pandore_account_settings'];
 const AUTH_CHANGED_EVENT = 'kloud-auth-changed';
 const LEGACY_AUTH_CHANGED_EVENT = 'pandore-auth-changed';
 
@@ -37,6 +39,7 @@ const persistSession = ({ user, token, refreshToken } = {}) => {
 const clearSession = () => {
   window.localStorage.removeItem(STORAGE_USER_KEY);
   window.localStorage.removeItem(LEGACY_USER_KEY);
+  ACCOUNT_SETTINGS_KEYS.forEach((key) => window.localStorage.removeItem(key));
   clearTokens();
 };
 
@@ -46,17 +49,26 @@ const emitAuthChanged = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => loadStoredUser());
+  const [user, setUser] = useState(() =>
+    getAccessToken() || getRefreshToken() ? loadStoredUser() : null
+  );
   const [loading, setLoading] = useState(true);
 
-  const checkAuth = async () => {
+  const checkAuth = async ({ strict = false } = {}) => {
     setLoading(true);
     try {
       const { data } = await apiClient.get('/api/auth/me');
       setUser(data);
       persistSession({ user: data });
       return data;
-    } catch {
+    } catch (error) {
+      const hasSession = Boolean(getAccessToken() || getRefreshToken());
+      if (!hasSession || strict) {
+        clearSession();
+        setUser(null);
+        if (strict) throw error;
+        return null;
+      }
       const stored = loadStoredUser();
       setUser(stored);
       return stored;
@@ -96,8 +108,10 @@ export const AuthProvider = ({ children }) => {
     const nextUser = data?.user || null;
     const token = data?.access_token || data?.token || null;
     const refreshToken = data?.refresh_token || null;
-    if (token || refreshToken) persistSession({ user: nextUser, token, refreshToken });
-    else if (nextUser) persistUser(nextUser);
+    if (!token && !refreshToken) {
+      throw new Error('Connexion incomplète : token manquant');
+    }
+    persistSession({ user: nextUser, token, refreshToken });
     if (nextUser) setUser(nextUser);
     emitAuthChanged();
     return data;
@@ -105,11 +119,8 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (email, password, name, artistName = null) => {
     const payload = { email, password, name, artist_name: artistName || null };
-    const { data } = await apiClient.post('/api/auth/register', payload);
-    setUser(data);
-    persistSession({ user: data });
-    emitAuthChanged();
-    return data;
+    await apiClient.post('/api/auth/register', payload);
+    return login(email, password);
   };
 
   const logout = async () => {
@@ -123,6 +134,13 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       emitAuthChanged();
     }
+  };
+
+  const updateUser = (patch) => {
+    const updated = { ...(user || {}), ...(patch || {}) };
+    setUser(updated);
+    persistSession({ user: updated });
+    return updated;
   };
 
   const switchRole = async (artistName = null) => {
@@ -144,7 +162,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAuthenticated = !!user;
-  const isAdmin = isAdminEmail(user?.email);
+  const isAdmin = Boolean(user?.is_admin) || isAdminEmail(user?.email);
 
   const value = useMemo(
     () => ({
@@ -155,6 +173,7 @@ export const AuthProvider = ({ children }) => {
       logout,
       checkAuth,
       switchRole,
+      updateUser,
       isAuthenticated,
       isAdmin,
     }),

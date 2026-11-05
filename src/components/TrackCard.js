@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
-import { formatPriceLabel } from '@/lib/pricing';
+import { formatItemPriceLabel } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 
@@ -179,7 +179,7 @@ const TrackCard = ({ track }) => {
                 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
                 data-testid={`track-price-${track.track_id}`}
               >
-                {formatPriceLabel(track.price)}
+                {formatItemPriceLabel(track)}
               </span>
               <Button
                 variant="ghost"
