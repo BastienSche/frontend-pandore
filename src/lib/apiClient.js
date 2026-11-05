@@ -35,17 +35,14 @@ if (typeof window !== 'undefined' && baseURL && /\.internal(\/|$)/i.test(baseURL
   );
 }
 
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production' && !baseURL) {
-  // eslint-disable-next-line no-console
-  console.error(
-    '[Kloud] REACT_APP_API_URL est vide au build : les appels /api partiront sur le mauvais hôte. ' +
-      'Définis REACT_APP_API_URL (URL publique HTTPS du backend) dans Netlify / Vercel / CI.'
-  );
-}
+// Une base vide est voulue en prod Docker : les appels /api restent sur le même hôte,
+// et Caddy les proxifie vers le backend.
 
 const TOKEN_KEYS = ['kloud_token', 'pandore_token'];
 const REFRESH_TOKEN_KEYS = ['kloud_refresh_token', 'pandore_refresh_token'];
+const USER_KEYS = ['kloud_user', 'pandore_user'];
 const AUTH_CHANGED_EVENT = 'kloud-auth-changed';
+let sessionRefreshBlocked = false;
 
 export function getAccessToken() {
   if (typeof window === 'undefined') return null;
@@ -59,6 +56,7 @@ export function getRefreshToken() {
 
 export function persistTokens({ token, refreshToken } = {}) {
   if (typeof window === 'undefined') return;
+  if (token || refreshToken) sessionRefreshBlocked = false;
   if (token) {
     window.localStorage.setItem('kloud_token', token);
     window.localStorage.setItem('pandore_token', token);
@@ -72,6 +70,11 @@ export function persistTokens({ token, refreshToken } = {}) {
 export function clearTokens() {
   if (typeof window === 'undefined') return;
   [...TOKEN_KEYS, ...REFRESH_TOKEN_KEYS].forEach((k) => window.localStorage.removeItem(k));
+}
+
+function clearStoredUser() {
+  if (typeof window === 'undefined') return;
+  USER_KEYS.forEach((k) => window.localStorage.removeItem(k));
 }
 
 function isAuthRefreshUrl(url = '') {
@@ -150,6 +153,7 @@ apiClient.interceptors.response.use(
       status !== 401 ||
       !original ||
       original._retry ||
+      sessionRefreshBlocked ||
       isAuthRefreshUrl(url) ||
       typeof window === 'undefined'
     ) {
@@ -168,8 +172,13 @@ apiClient.interceptors.response.use(
       original.headers.Authorization = `Bearer ${nextAccess}`;
       return apiClient(original);
     } catch (refreshError) {
-      clearTokens();
-      window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+      const refreshStatus = refreshError?.response?.status;
+      if (refreshStatus === 401 || refreshStatus === 403) {
+        sessionRefreshBlocked = true;
+        clearTokens();
+        clearStoredUser();
+        window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+      }
       return Promise.reject(refreshError);
     }
   }

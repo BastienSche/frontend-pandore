@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { fetchFollowState, followArtist, unfollowArtist } from '@/lib/follows';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 
@@ -36,7 +37,7 @@ const ArtistProfile = () => {
         }));
         setArtist({
           ...data,
-          picture: resolveApiUrl(data?.picture),
+          picture: artistAvatarSrc(data),
           tracks,
           albums
         });

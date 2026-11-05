@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Save, Settings, User, Bell, Shield, Headphones, Sparkles } from 'lucide-react';
+import { Save, Settings, User, Bell, Shield, Headphones, Sparkles, ImagePlus, Loader2 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/apiClient';
+import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -70,6 +71,9 @@ const AccountSettings = () => {
     links: ['']
   });
   const [artistProfileExists, setArtistProfileExists] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarDragOver, setAvatarDragOver] = useState(false);
+  const avatarInputRef = useRef(null);
 
   // Listener settings (local)
   const [listenerSettings, setListenerSettings] = useState(defaultListenerSettings);
@@ -156,6 +160,43 @@ const AccountSettings = () => {
 
     await switchRole(null);
     toast.success('Mode Auditeur activé');
+  };
+
+  const uploadAvatarFile = async (file) => {
+    if (!file) return;
+    if (user?.role !== 'artist') {
+      toast.error("Enregistre d'abord le mode artiste, puis dépose l'image");
+      return;
+    }
+    if (!String(file.type || '').startsWith('image/')) {
+      toast.error('Dépose une image (JPG, PNG, WebP…)');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Image trop lourde (8 Mo max)');
+      return;
+    }
+    setAvatarUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const { data } = await apiClient.post('/api/upload/cover', fd);
+      const url = data?.cover_url || '';
+      if (!url) throw new Error('missing cover url');
+      setArtistProfile((prev) => ({ ...prev, avatar_url: url }));
+      toast.success('Avatar ajouté — enregistre le profil pour le publier');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Impossible d'envoyer l'image");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const onAvatarDrop = (event) => {
+    event.preventDefault();
+    setAvatarDragOver(false);
+    const file = event.dataTransfer?.files?.[0];
+    uploadAvatarFile(file);
   };
 
   const saveArtistProfile = async () => {
@@ -462,22 +503,79 @@ const AccountSettings = () => {
                     <CardTitle>Profil artiste</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid md:grid-cols-[auto_1fr] gap-4 items-start">
+                      <div className="space-y-2">
+                        <Label>Avatar</Label>
+                        <button
+                          type="button"
+                          onClick={() => avatarInputRef.current?.click()}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setAvatarDragOver(true);
+                          }}
+                          onDragLeave={() => setAvatarDragOver(false)}
+                          onDrop={onAvatarDrop}
+                          disabled={avatarUploading}
+                          className={`group flex items-center gap-4 rounded-2xl border border-dashed px-4 py-3 text-left transition-colors ${
+                            avatarDragOver
+                              ? 'border-cyan-400 bg-cyan-500/10'
+                              : 'border-white/15 bg-white/5 hover:border-cyan-400/40 hover:bg-white/[0.07]'
+                          }`}
+                          data-testid="artist-avatar-dropzone"
+                        >
+                          <span className="relative w-16 h-16 rounded-full overflow-hidden border border-white/15 shrink-0 bg-black/30">
+                            <img
+                              src={artistAvatarSrc({
+                                avatar_url: artistProfile.avatar_url,
+                                user_id: user?.user_id,
+                                picture: user?.picture,
+                                artist_name: artistProfile.name || user?.artist_name
+                              })}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                            {avatarUploading && (
+                              <span className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <Loader2 className="w-5 h-5 animate-spin text-cyan-300" />
+                              </span>
+                            )}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="flex items-center gap-2 text-sm font-medium">
+                              <ImagePlus className="w-4 h-4 text-cyan-300" />
+                              Glisse une image
+                            </span>
+                            <span className="block text-xs text-muted-foreground mt-1">
+                              ou clique pour choisir · JPG, PNG, WebP · 8 Mo max
+                            </span>
+                          </span>
+                        </button>
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            uploadAvatarFile(e.target.files?.[0]);
+                            e.target.value = '';
+                          }}
+                        />
+                        {artistProfile.avatar_url ? (
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => setArtistProfile((p) => ({ ...p, avatar_url: '' }))}
+                          >
+                            Revenir au masque par défaut
+                          </button>
+                        ) : null}
+                      </div>
                       <div className="space-y-2">
                         <Label>Nom affiché</Label>
                         <Input
                           value={artistProfile.name}
                           onChange={(e) => setArtistProfile((p) => ({ ...p, name: e.target.value }))}
                           placeholder="Nom d'artiste"
-                          className="h-12 rounded-xl bg-white/5 border-white/10"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Avatar (URL)</Label>
-                        <Input
-                          value={artistProfile.avatar_url}
-                          onChange={(e) => setArtistProfile((p) => ({ ...p, avatar_url: e.target.value }))}
-                          placeholder="https://..."
                           className="h-12 rounded-xl bg-white/5 border-white/10"
                         />
                       </div>

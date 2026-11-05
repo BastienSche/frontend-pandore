@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { fetchLikesSummary } from '@/lib/likes';
 import { fetchMyFollows } from '@/lib/follows';
 
@@ -54,11 +55,11 @@ const Playlists = () => {
       );
       const likedFromApi = (likes.artists || []).map((a) => ({
         ...a,
-        picture: resolveApiUrl(a?.picture)
+        picture: artistAvatarSrc(a)
       }));
       const followedResolved = followed.map((a) => ({
         ...a,
-        picture: resolveApiUrl(a?.picture)
+        picture: artistAvatarSrc(a)
       }));
       const byId = new Map();
       for (const a of followedResolved) {
