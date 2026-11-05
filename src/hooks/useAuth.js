@@ -57,6 +57,10 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = async ({ strict = false } = {}) => {
     setLoading(true);
     try {
+      if (!getAccessToken() && !getRefreshToken()) {
+        setUser(null);
+        return null;
+      }
       const { data } = await apiClient.get('/api/auth/me');
       setUser(data);
       persistSession({ user: data });

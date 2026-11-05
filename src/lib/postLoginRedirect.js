@@ -30,3 +30,8 @@ export function consumePostLoginPath(fallback = '/browse') {
   }
   return safeInternalPath(stored) || fallback;
 }
+
+export function goToLogin(navigate, fromPath) {
+  const from = rememberPostLoginPath(fromPath) || fromPath || '/';
+  navigate('/login', { state: { from } });
+}

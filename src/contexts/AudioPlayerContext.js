@@ -17,7 +17,8 @@ const inferPlaybackMode = (track) => (track?.file_url ? 'library' : 'preview');
 
 const resolveAudioUrl = (track, mode) => {
   if (mode === 'library' && track?.file_url) return withAudioAccessToken(track.file_url);
-  return track?.preview_url;
+  // Catalogue : fichier réel d'abord — un clip preview périmé lançait un autre son.
+  return track?.file_url || track?.preview_url || null;
 };
 
 const resolveStartTime = (track, mode) => {
@@ -36,14 +37,6 @@ const cacheBustUrl = (url) => {
   if (!url) return url;
   const sep = url.includes('?') ? '&' : '?';
   return `${url}${sep}_r=${Date.now()}`;
-};
-
-const resolvedSrc = (url) => {
-  try {
-    return new URL(url, window.location.href).href;
-  } catch {
-    return url;
-  }
 };
 
 /**
@@ -101,11 +94,6 @@ const loadAndPlay = (audio, url, startTime, generation, generationRef) => {
     audio.addEventListener('loadedmetadata', onMeta);
     audio.addEventListener('error', onErr);
 
-    const nextSrc = resolvedSrc(url);
-    if (audio.src === nextSrc && audio.readyState >= 1 && !audio.error) {
-      onMeta();
-      return;
-    }
     audio.src = url;
     audio.load();
   });
@@ -185,6 +173,13 @@ export const AudioPlayerProvider = ({ children }) => {
     const audio = audioRef.current;
     const gen = ++playGenRef.current;
     try {
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+    } catch {
+      /* ignore */
+    }
+    try {
       await loadAndPlay(audio, url, startTime, gen, playGenRef);
       if (playGenRef.current !== gen) return;
       setIsPlaying(true);
@@ -232,12 +227,17 @@ export const AudioPlayerProvider = ({ children }) => {
     };
     const handleLoadedMetadata = () => setDuration(audio.duration);
     const handleEnded = () => {
-      if (prefsRef.current.autoplay && queue.length && queueIndex < queue.length - 1) {
+      if (
+        prefsRef.current.autoplay &&
+        playbackModeRef.current !== 'preview' &&
+        queue.length &&
+        queueIndex < queue.length - 1
+      ) {
         const nextIndex = queueIndex + 1;
         setQueueIndex(nextIndex);
         const nextTrack = queue[nextIndex];
         if (nextTrack) {
-          playTrackRef.current?.(nextTrack, { mode: inferPlaybackMode(nextTrack) });
+          playTrackRef.current?.(nextTrack, { mode: inferPlaybackMode(nextTrack), fromQueue: true });
           return;
         }
       }
@@ -289,13 +289,20 @@ export const AudioPlayerProvider = ({ children }) => {
     const audio = audioRef.current;
     if (!track) return;
 
-    const sameTrack = currentTrack?.track_id === track.track_id;
+    const incomingId = String(track?.track_id || '').trim();
+    const currentId = String(currentTrackRef.current?.track_id || '').trim();
+    const sameTrack = Boolean(incomingId && incomingId === currentId);
     const explicitMode = options.mode !== undefined;
     const mode = explicitMode
       ? (options.mode ?? inferPlaybackMode(track))
-      : (sameTrack ? playbackMode : inferPlaybackMode(track));
+      : (sameTrack ? playbackModeRef.current : inferPlaybackMode(track));
     const url = resolveAudioUrl(track, mode);
     const startTime = resolveStartTime(track, mode);
+
+    if (!options.fromQueue) {
+      setQueueState([track]);
+      setQueueIndex(0);
+    }
 
     if (sameTrack && !explicitMode) {
       if (isPlaying) {
@@ -350,7 +357,7 @@ export const AudioPlayerProvider = ({ children }) => {
     const mode = options.mode ?? inferPlaybackMode(startTrack);
     setQueueState(nextQueue);
     setQueueIndex(idx);
-    if (startTrack) playTrack(startTrack, { mode });
+    if (startTrack) playTrack(startTrack, { mode, fromQueue: true });
   };
 
   const next = () => {
@@ -359,7 +366,7 @@ export const AudioPlayerProvider = ({ children }) => {
     if (nextIndex === queueIndex) return;
     setQueueIndex(nextIndex);
     const t = queue[nextIndex];
-    if (t) playTrack(t, { mode: inferPlaybackMode(t) });
+    if (t) playTrack(t, { mode: inferPlaybackMode(t), fromQueue: true });
   };
 
   const prev = () => {
@@ -368,7 +375,7 @@ export const AudioPlayerProvider = ({ children }) => {
     if (prevIndex === queueIndex) return;
     setQueueIndex(prevIndex);
     const t = queue[prevIndex];
-    if (t) playTrack(t, { mode: inferPlaybackMode(t) });
+    if (t) playTrack(t, { mode: inferPlaybackMode(t), fromQueue: true });
   };
 
   const pause = () => {
@@ -399,7 +406,7 @@ export const AudioPlayerProvider = ({ children }) => {
 
   useEffect(() => {
     const onAuthChanged = () => {
-      if (!getAccessToken() && !getRefreshToken()) {
+      if (!getAccessToken() && !getRefreshToken() && playbackModeRef.current === 'library') {
         stopPlayback();
       }
     };

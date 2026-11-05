@@ -14,7 +14,7 @@ import { formatItemPriceLabel, isFreePrice } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
-import { rememberPostLoginPath } from '@/lib/postLoginRedirect';
+import { goToLogin, rememberPostLoginPath } from '@/lib/postLoginRedirect';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
@@ -114,6 +114,11 @@ const AlbumDetail = () => {
   }, [albumId]);
 
   const toggleLike = async () => {
+    if (!isAuthenticated) {
+      toast.info('Connecte-toi pour ajouter aux favoris.');
+      goToLogin(navigate, location.pathname);
+      return;
+    }
     const next = !liked;
     setLiked(next);
     try {

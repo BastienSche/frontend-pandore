@@ -93,7 +93,9 @@ function isAuthRefreshUrl(url = '') {
     url.includes('/auth/register') ||
     url.includes('/auth/refresh') ||
     url.includes('/auth/forgot-password') ||
-    url.includes('/auth/reset-password')
+    url.includes('/auth/reset-password') ||
+    url.includes('/likes/state') ||
+    url.includes('/follows/state')
   );
 }
 
@@ -135,17 +137,73 @@ function formatDetail(detail) {
   return String(detail);
 }
 
+const API_ERROR_FR = {
+  'Not authenticated': 'Connecte-toi pour continuer',
+  'Invalid credentials': 'Email ou mot de passe incorrect',
+  'Invalid token': 'Session invalide',
+  'Invalid token type': 'Session invalide',
+  'Invalid session': 'Session invalide',
+  'Invalid refresh token': 'Session expirée, reconnecte-toi',
+  'Refresh token expired': 'Session expirée, reconnecte-toi',
+  'Missing refresh token': 'Session expirée, reconnecte-toi',
+  'Token expired': 'Session expirée, reconnecte-toi',
+  'Session expired': 'Session expirée, reconnecte-toi',
+  'User not found': 'Compte introuvable',
+  'Email already registered': 'Cet email est déjà utilisé',
+  'Admin only': 'Accès réservé aux administrateurs',
+  'Not authorized': 'Action non autorisée',
+  'Track not found': 'Titre introuvable',
+  'Album not found': 'Album introuvable',
+  'Playlist not found': 'Playlist introuvable',
+  'Profile not found': 'Profil introuvable',
+  'File not found': 'Fichier introuvable',
+  'Invalid file id': 'Fichier invalide',
+  'Empty file': 'Fichier vide',
+  'No fields to update': 'Aucun champ à mettre à jour',
+  'Only artists can create tracks': 'Seuls les artistes peuvent créer des titres',
+  'Only artists can create albums': 'Seuls les artistes peuvent créer des albums',
+  'Only artists can upload audio': 'Seuls les artistes peuvent envoyer de l’audio',
+  'Only artists can create profiles': 'Seuls les artistes peuvent créer un profil',
+  'Only artists can update profiles': 'Seuls les artistes peuvent modifier un profil',
+  'Profile already exists': 'Ce profil existe déjà',
+  'Artist name required for artist role': 'Le nom d’artiste est requis',
+  'Invalid role': 'Rôle invalide',
+  'Invalid OAuth state': 'Connexion Google interrompue',
+  'Missing code': 'Connexion Google incomplète',
+  'Missing access token': 'Connexion incomplète',
+  'Token exchange failed': 'Connexion Google impossible',
+  'Failed to fetch user info': 'Impossible de récupérer le compte Google',
+  'Contest not found': 'Concours introuvable',
+  'Audio file could not be served': 'Impossible de lire ce fichier audio',
+};
+
+function translateApiMessage(raw) {
+  const msg = String(raw || '').trim();
+  if (!msg) return '';
+  if (API_ERROR_FR[msg]) return API_ERROR_FR[msg];
+  const minLen = msg.match(/string should have at least (\d+)/i);
+  if (minLen) return `Doit faire au moins ${minLen[1]} caractères`;
+  if (/field required/i.test(msg)) return 'Champ requis';
+  if (/value is not a valid/i.test(msg)) return 'Valeur invalide';
+  if (/not authenticated/i.test(msg)) return 'Connecte-toi pour continuer';
+  return msg;
+}
+
 /** Message lisible pour les toasts (422 FastAPI, réponse vide, 501 proxy, etc.) */
 export function formatApiError(error, fallback = 'Erreur réseau') {
+  const status = error?.response?.status;
   const d = error?.response?.data;
+  let raw = '';
   if (d && typeof d === 'object' && d.detail != null) {
-    return formatDetail(d.detail) || fallback;
+    raw = formatDetail(d.detail);
+  } else if (typeof d === 'string' && d.trim()) {
+    raw = d;
   }
-  if (typeof d === 'string' && d.trim()) return d;
-  if (error?.response?.status) {
-    return `Erreur serveur (${error.response.status})`;
-  }
-  if (error?.message) return error.message;
+  const translated = translateApiMessage(raw);
+  if (translated) return translated;
+  if (status === 401) return 'Connecte-toi pour continuer';
+  if (status) return `Erreur serveur (${status})`;
+  if (error?.message) return translateApiMessage(error.message) || error.message;
   return fallback;
 }
 
@@ -190,7 +248,8 @@ apiClient.interceptors.response.use(
       original._retry ||
       sessionRefreshBlocked ||
       isAuthRefreshUrl(url) ||
-      typeof window === 'undefined'
+      typeof window === 'undefined' ||
+      (!getAccessToken() && !getRefreshToken())
     ) {
       return Promise.reject(error);
     }

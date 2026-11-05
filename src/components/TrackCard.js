@@ -3,12 +3,15 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { Play, Pause, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { formatItemPriceLabel } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { goToLogin } from '@/lib/postLoginRedirect';
+import { useAuth } from '@/hooks/useAuth';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -26,12 +29,18 @@ const availabilityLabel = (v) => {
 
 const TrackCard = ({ track }) => {
   const { currentTrack, isPlaying, playTrack } = useAudioPlayer();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isCurrentTrack = currentTrack?.track_id === track.track_id;
   const [liked, setLiked] = useState(false);
   const [coverError, setCoverError] = useState(false);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      setLiked(false);
+      return undefined;
+    }
     let mounted = true;
     (async () => {
       try {
@@ -44,10 +53,15 @@ const TrackCard = ({ track }) => {
     return () => {
       mounted = false;
     };
-  }, [track.track_id]);
+  }, [authLoading, isAuthenticated, track.track_id]);
 
   const toggleLike = async (e) => {
     e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.info('Connecte-toi pour ajouter aux favoris.');
+      goToLogin(navigate, location.pathname);
+      return;
+    }
     const next = !liked;
     setLiked(next);
     try {

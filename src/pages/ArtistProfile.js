@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Music, Disc, Heart, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { fetchFollowState, followArtist, unfollowArtist } from '@/lib/follows';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { goToLogin } from '@/lib/postLoginRedirect';
+import { useAuth } from '@/hooks/useAuth';
 
 const isListedCatalogItem = (item) => {
   const status = String(item?.status || 'published').toLowerCase();
@@ -22,6 +24,9 @@ const isListedCatalogItem = (item) => {
 
 const ArtistProfile = () => {
   const { artistId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const [artist, setArtist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
@@ -74,6 +79,11 @@ const ArtistProfile = () => {
   }, [artistId]);
 
   const toggleFollow = async () => {
+    if (!isAuthenticated) {
+      toast.info('Connecte-toi pour suivre cet artiste.');
+      goToLogin(navigate, location.pathname);
+      return;
+    }
     const next = !following;
     setFollowing(next);
     try {

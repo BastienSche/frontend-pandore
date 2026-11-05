@@ -1,7 +1,8 @@
-import { apiClient } from '@/lib/apiClient';
+import { apiClient, getAccessToken, getRefreshToken } from '@/lib/apiClient';
 
 export async function fetchLikeState(itemType, ids) {
   if (!ids?.length) return {};
+  if (!getAccessToken() && !getRefreshToken()) return {};
   const { data } = await apiClient.get('/api/likes/state', {
     params: { item_type: itemType, ids: ids.join(',') }
   });

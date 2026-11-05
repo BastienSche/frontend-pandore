@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Music, Heart, Disc } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { albumTrackCount, formatItemPriceLabel } from '@/lib/pricing';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { goToLogin } from '@/lib/postLoginRedirect';
+import { useAuth } from '@/hooks/useAuth';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -24,10 +27,16 @@ const availabilityLabel = (v) => {
 
 const AlbumCard = ({ album }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [liked, setLiked] = useState(false);
   const [coverError, setCoverError] = useState(false);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      setLiked(false);
+      return undefined;
+    }
     let mounted = true;
     (async () => {
       try {
@@ -40,10 +49,15 @@ const AlbumCard = ({ album }) => {
     return () => {
       mounted = false;
     };
-  }, [album.album_id]);
+  }, [authLoading, isAuthenticated, album.album_id]);
 
   const toggleLike = async (e) => {
     e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.info('Connecte-toi pour ajouter aux favoris.');
+      goToLogin(navigate, location.pathname);
+      return;
+    }
     const next = !liked;
     setLiked(next);
     try {

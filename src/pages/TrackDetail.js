@@ -14,8 +14,8 @@ import { formatItemPriceLabel, isFreePrice } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
-import { rememberPostLoginPath } from '@/lib/postLoginRedirect';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { goToLogin, rememberPostLoginPath } from '@/lib/postLoginRedirect';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
@@ -115,7 +115,16 @@ const TrackDetail = () => {
     };
   }, [trackId]);
 
+  const requireAccount = (message) => {
+    toast.info(message);
+    goToLogin(navigate, location.pathname);
+  };
+
   const toggleLike = async () => {
+    if (!isAuthenticated) {
+      requireAccount('Connecte-toi pour ajouter aux favoris.');
+      return;
+    }
     const next = !liked;
     setLiked(next);
     try {
@@ -124,6 +133,20 @@ const TrackDetail = () => {
     } catch (e) {
       setLiked(!next);
       toast.error(formatApiError(e, 'Erreur'));
+    }
+  };
+
+  const openPlaylistDialog = async () => {
+    if (!isAuthenticated) {
+      requireAccount('Connecte-toi pour ajouter ce titre à une playlist.');
+      return;
+    }
+    setCreatingPlaylist(false);
+    setPlaylistDialogOpen(true);
+    try {
+      await loadPlaylists();
+    } catch (e) {
+      toast.error(formatApiError(e, 'Impossible de charger les playlists'));
     }
   };
 
@@ -210,6 +233,10 @@ const TrackDetail = () => {
   };
 
   const handleAddToPlaylist = async () => {
+    if (!isAuthenticated) {
+      requireAccount('Connecte-toi pour ajouter ce titre à une playlist.');
+      return;
+    }
     if (!selectedPlaylistId) {
       toast.error('Choisis une playlist');
       return;
@@ -228,6 +255,10 @@ const TrackDetail = () => {
 
   const handleCreatePlaylist = async (e) => {
     e.preventDefault();
+    if (!isAuthenticated) {
+      requireAccount('Connecte-toi pour créer une playlist.');
+      return;
+    }
     if (!newPlaylistName.trim()) return;
     try {
       const { data } = await apiClient.post('/api/playlists', {
@@ -328,7 +359,7 @@ const TrackDetail = () => {
               {/* Meta */}
               <div className="flex-1 min-w-0 space-y-5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge className="bg-cyan-500/15 text-cyan-300 border-cyan-500/25">Track</Badge>
+                  <Badge className="bg-cyan-500/15 text-cyan-300 border-cyan-500/25">Titre</Badge>
                   {splitGenreTags(track.genre).map((g, i) => (
                     <Badge key={`genre-${i}`} variant="secondary" className="bg-white/5 border-white/10 whitespace-nowrap max-w-[min(100%,14rem)] truncate" title={g}>
                       {g}
@@ -431,7 +462,7 @@ const TrackDetail = () => {
                   </Button>
                 </motion.div>
                 <div>
-                  <p className="font-medium">Preview {previewDurationSec} secondes</p>
+                  <p className="font-medium">Extrait {previewDurationSec} secondes</p>
                   <p className="text-sm text-muted-foreground">
                     De {track.preview_start_time ?? 0}s à {Math.round(
                       (Number(track.preview_start_time) || 0) + previewDurationSec
@@ -562,29 +593,26 @@ const TrackDetail = () => {
               </Button>
 
               {/* Add to playlist */}
+              <Button
+                variant="outline"
+                className="w-full h-14 rounded-full bg-white/5 border-white/10 hover:bg-white/10"
+                data-testid="add-to-playlist-button"
+                onClick={openPlaylistDialog}
+              >
+                <ListPlus className="w-5 h-5 mr-2" />
+                Ajouter à une playlist
+              </Button>
               <Dialog
                 open={playlistDialogOpen}
-                onOpenChange={async (open) => {
-                  setPlaylistDialogOpen(open);
-                  if (open) {
-                    try {
-                      await loadPlaylists();
-                    } catch (e) {
-                      toast.error(formatApiError(e, 'Impossible de charger les playlists'));
-                    }
+                onOpenChange={(open) => {
+                  if (open && !isAuthenticated) {
+                    requireAccount('Connecte-toi pour ajouter ce titre à une playlist.');
+                    return;
                   }
+                  setPlaylistDialogOpen(open);
+                  if (!open) setCreatingPlaylist(false);
                 }}
               >
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full h-14 rounded-full bg-white/5 border-white/10 hover:bg-white/10"
-                    data-testid="add-to-playlist-button"
-                  >
-                    <ListPlus className="w-5 h-5 mr-2" />
-                    Ajouter à une playlist
-                  </Button>
-                </DialogTrigger>
                 <DialogContent className="glass-heavy border-white/10 rounded-3xl">
                   <DialogHeader>
                     <DialogTitle className="text-2xl">Ajouter à une playlist</DialogTitle>
