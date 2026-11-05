@@ -5,11 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { albumTrackCount } from '@/lib/pricing';
+import CoverImage from '@/components/CoverImage';
 
 const LibraryAlbumCard = ({ album, onPlayAlbum, playingAlbumId }) => {
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
-  const [coverError, setCoverError] = useState(false);
   const loading = playingAlbumId === album.album_id;
 
   useEffect(() => {
@@ -50,19 +50,12 @@ const LibraryAlbumCard = ({ album, onPlayAlbum, playingAlbumId }) => {
         className="relative aspect-square cursor-pointer"
         onClick={() => navigate(`/library/albums/${album.album_id}`)}
       >
-        {album.cover_url && !coverError ? (
-          <img
-            src={album.cover_url}
-            alt={album.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
-            onError={() => setCoverError(true)}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-purple-500/25 via-pink-500/15 to-orange-500/20 flex items-center justify-center">
-            <Disc className="w-16 h-16 text-white/25" />
-          </div>
-        )}
+        <CoverImage
+          src={album.cover_url}
+          alt={album.title}
+          className="w-full h-full"
+          imgClassName="transition-transform duration-500 group-hover:scale-105"
+        />
         <div className="absolute bottom-3 left-3 right-3 flex flex-col gap-2">
           <p className="font-semibold text-white text-sm md:text-base line-clamp-2 [text-shadow:0_1px_3px_rgba(0,0,0,0.95),0_0_12px_rgba(0,0,0,0.6)]">
             {album.title}

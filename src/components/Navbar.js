@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion, useDragControls } from 'framer-motion';
 import KloudLogo from '@/components/KloudLogo';
 import NotificationBell from '@/components/NotificationBell';
-import { resolveApiUrl } from '@/lib/apiClient';
+import { artistAvatarSrc } from '@/lib/artistAvatar';
 
 const userInitial = (u) => {
   if (!u) return '?';
@@ -147,7 +147,7 @@ const Navbar = () => {
                   data-testid="mobile-user-menu-trigger"
                 >
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src={resolveApiUrl(user.picture)} />
+                    <AvatarImage src={artistAvatarSrc(user)} />
                     <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-xs">
                       {userInitial(user)}
                     </AvatarFallback>
@@ -160,7 +160,7 @@ const Navbar = () => {
               >
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
                   <Avatar className="w-9 h-9">
-                    <AvatarImage src={resolveApiUrl(user.picture)} />
+                    <AvatarImage src={artistAvatarSrc(user)} />
                     <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-xs">
                       {userInitial(user)}
                     </AvatarFallback>
@@ -371,7 +371,7 @@ const Navbar = () => {
                     data-testid="user-menu-trigger"
                   >
                     <Avatar className="w-8 h-8 border border-white/10">
-                      <AvatarImage src={resolveApiUrl(user.picture)} />
+                      <AvatarImage src={artistAvatarSrc(user)} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-sm">
                         {userInitial(user)}
                       </AvatarFallback>
@@ -384,7 +384,7 @@ const Navbar = () => {
                 >
                   <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={resolveApiUrl(user.picture)} />
+                      <AvatarImage src={artistAvatarSrc(user)} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
                         {userInitial(user)}
                       </AvatarFallback>

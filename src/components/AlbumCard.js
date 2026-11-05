@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Music, Heart, Disc } from 'lucide-react';
+import { Heart, Disc } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
@@ -10,6 +10,7 @@ import { albumTrackCount, formatItemPriceLabel } from '@/lib/pricing';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { goToLogin } from '@/lib/postLoginRedirect';
 import { useAuth } from '@/hooks/useAuth';
+import CoverImage from '@/components/CoverImage';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -30,7 +31,6 @@ const AlbumCard = ({ album }) => {
   const location = useLocation();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [liked, setLiked] = useState(false);
-  const [coverError, setCoverError] = useState(false);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) {
@@ -90,19 +90,12 @@ const AlbumCard = ({ album }) => {
             </div>
           )}
 
-          {album.cover_url && !coverError ? (
-            <img
-              src={album.cover_url}
-              alt={album.title}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              loading="lazy"
-              onError={() => setCoverError(true)}
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 flex items-center justify-center">
-              <Disc className="w-16 h-16 text-white/30" />
-            </div>
-          )}
+          <CoverImage
+            src={album.cover_url}
+            alt={album.title}
+            className="w-full h-full"
+            imgClassName="transition-transform duration-700 group-hover:scale-110"
+          />
 
           {/* Track Count Badge */}
           <Badge 

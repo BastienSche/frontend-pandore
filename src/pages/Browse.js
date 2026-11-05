@@ -10,6 +10,7 @@ import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { apiClient, formatApiError, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
+import { artistAvatarSrc } from '@/lib/artistAvatar';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -45,6 +46,11 @@ const mapAlbum = (a) => ({
   cover_url: resolveApiUrl(a?.cover_url)
 });
 
+const mapArtist = (a) => ({
+  ...a,
+  picture: artistAvatarSrc(a)
+});
+
 const Browse = () => {
   const [catalog, setCatalog] = useState({ tracks: [], albums: [], artists: [] });
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,7 +71,7 @@ const Browse = () => {
         setCatalog({
           tracks: normalizeApiList(tracksResp.data).map(mapTrack),
           albums: normalizeApiList(albumsResp.data).filter(isListedCatalogItem).map(mapAlbum),
-          artists: normalizeApiList(artistsResp.data)
+          artists: normalizeApiList(artistsResp.data).map(mapArtist)
         });
       } catch (error) {
         if (!cancelled) toast.error(formatApiError(error, 'Erreur lors du chargement'));
@@ -97,7 +103,7 @@ const Browse = () => {
         setSearchResults({
           tracks: normalizeApiList(data?.tracks).map(mapTrack),
           albums: normalizeApiList(data?.albums).filter(isListedCatalogItem).map(mapAlbum),
-          artists: normalizeApiList(data?.artists)
+          artists: normalizeApiList(data?.artists).map(mapArtist)
         });
       } catch (error) {
         if (!cancelled) {
@@ -283,7 +289,7 @@ const Browse = () => {
                       <div className="group relative text-center">
                         <div className="relative mx-auto w-36 h-36 md:w-40 md:h-40">
                           <Avatar className="w-full h-full border-2 border-white/10 group-hover:border-cyan-400/50 transition-colors duration-300 shadow-2xl">
-                            <AvatarImage src={artist.picture || artist.avatar_url} className="object-cover" />
+                            <AvatarImage src={artist.picture} className="object-cover" />
                             <AvatarFallback className="text-3xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
                               {artist.artist_name?.[0] || artist.name?.[0] || '?'}
                             </AvatarFallback>

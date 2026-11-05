@@ -33,9 +33,11 @@ function customAvatar(url) {
   return value;
 }
 
-/** Avatar choisi par l’artiste, sinon un masque par défaut lié à son id. */
+/** Avatar choisi par l’artiste, sinon le masque stocké / calculé. */
 export function artistAvatarSrc(artist) {
   const custom = customAvatar(artist?.avatar_url) || customAvatar(artist?.picture);
   if (custom) return resolveApiUrl(custom);
+  const stored = String(artist?.avatar_url || artist?.picture || '').trim();
+  if (stored.includes('/avatars/mask-')) return stored;
   return defaultArtistAvatar(artist?.user_id || artist?.artist_id || artist?.artist_name || '');
 }

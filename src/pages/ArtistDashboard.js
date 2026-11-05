@@ -5,7 +5,7 @@ import {
   Upload, Music, Disc, Plus, Edit, Trash2, Loader2, 
   TrendingUp, DollarSign, Play, Clock, Eye, EyeOff,
   BarChart3, PieChart, Users, Heart, ChevronRight,
-  FileAudio, Image, Save, X, Library
+  FileAudio, Image, Save, X, Library, Wallet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,7 @@ import { splitGenreTags } from '@/lib/genreTags';
 import { fieldFocusRingSelect, fieldInnerSurface, fieldRing } from '@/lib/fieldStyles';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import CoverImage from '@/components/CoverImage';
 
 const parsePriceEuroInput = (raw) => {
   const v = String(raw ?? '').trim();
@@ -341,13 +342,7 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => {
     <div className="flex flex-wrap items-center gap-3 md:gap-4">
       {/* Cover */}
       <div className="relative">
-        {track.cover_url ? (
-          <img src={track.cover_url} alt={track.title} className="w-16 h-16 rounded-xl object-cover" />
-        ) : (
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center">
-            <Music className="w-6 h-6 text-muted-foreground" />
-          </div>
-        )}
+        <CoverImage src={track.cover_url} alt={track.title} className="w-16 h-16 rounded-xl" />
         {track.status === 'draft' && (
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full border-2 border-background" />
         )}
@@ -454,13 +449,7 @@ const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
   >
     <div className="flex flex-wrap items-center gap-3 md:gap-4">
       <div className="relative">
-        {album.cover_url ? (
-          <img src={album.cover_url} alt={album.title} className="w-16 h-16 rounded-xl object-cover" />
-        ) : (
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-            <Disc className="w-6 h-6 text-muted-foreground" />
-          </div>
-        )}
+        <CoverImage src={album.cover_url} alt={album.title} className="w-16 h-16 rounded-xl" />
         {album.status === 'draft' && (
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full border-2 border-background" />
         )}
@@ -604,6 +593,8 @@ const ArtistDashboard = () => {
   const [connectStatus, setConnectStatus] = useState(null);
   const [connectBalance, setConnectBalance] = useState(null);
   const [connectActionLoading, setConnectActionLoading] = useState(false);
+  const [wallet, setWallet] = useState(null);
+  const [payoutLoading, setPayoutLoading] = useState(false);
 
   const loadConnectStatus = async () => {
     try {
@@ -627,9 +618,21 @@ const ArtistDashboard = () => {
     }
   };
 
+  const loadWallet = async () => {
+    try {
+      const { data } = await apiClient.get('/api/artist/wallet');
+      setWallet(data);
+      return data;
+    } catch {
+      setWallet(null);
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (authLoading || !user || user.role !== 'artist') return;
     loadConnectStatus();
+    loadWallet();
   }, [user, authLoading]);
 
   const startStripeOnboarding = async () => {
@@ -665,6 +668,24 @@ const ArtistDashboard = () => {
     }
   };
 
+  const withdrawWallet = async () => {
+    if (wallet?.withdraw_blocked_reason === 'connect_required') {
+      await startStripeOnboarding();
+      return;
+    }
+    setPayoutLoading(true);
+    try {
+      const { data } = await apiClient.post('/api/artist/wallet/payout');
+      const euros = (Number(data?.amount_cents || 0) / 100).toFixed(2);
+      toast.success(`Retrait de ${euros} € envoyé vers Stripe`);
+      await Promise.all([loadWallet(), loadConnectStatus()]);
+    } catch (e) {
+      toast.error(formatApiError(e, 'Retrait impossible'));
+    } finally {
+      setPayoutLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (authLoading || !user || user.role !== 'artist') return;
     const flag = searchParams.get('connect');
@@ -678,7 +699,8 @@ const ArtistDashboard = () => {
       }
       if (flag === 'return') {
         const status = await loadConnectStatus();
-        if (status?.charges_enabled) {
+        await loadWallet();
+        if (status?.charges_enabled || status?.payouts_enabled) {
           toast.success('Compte Stripe activé');
         } else if (status?.details_submitted) {
           toast.success('Informations Stripe envoyées — validation en cours');
@@ -1448,27 +1470,35 @@ const ArtistDashboard = () => {
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-semibold flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-emerald-400" />
-                    Paiements & versements (Stripe Connect)
+                    <Wallet className="w-5 h-5 text-emerald-400" />
+                    Cagnotte & retraits
                   </h3>
                   <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-                    Les achats passent par Stripe : la part vendeur (après commission plateforme{' '}
-                    {connectStatus?.platform_fee_percent ?? '—'}%) est créditée sur ton compte connecté.
-                    Les virements vers ton IBAN sont gérés par Stripe (Express). Le seuil minimum avant premier
-                    virement dépend du pays et du compte — indicatif souvent autour de{' '}
-                    {connectBalance?.min_payout_hint_euros ?? 20}
-                    € ; détail dans l&apos;espace Stripe Express.
+                    Les acheteurs paient Kloud tout de suite, même sans Stripe. Ta part (après commission{' '}
+                    {wallet?.platform_fee_percent ?? connectStatus?.platform_fee_percent ?? '—'}
+                    %) est mise de côté ici. À partir de {wallet?.min_payout_euros ?? 10} €, tu peux la retirer
+                    sur ton IBAN en activant Stripe Connect.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 shrink-0">
-                  {!connectStatus?.has_account || !connectStatus?.charges_enabled ? (
+                  {wallet?.can_withdraw ? (
+                    <Button
+                      className="rounded-full bg-emerald-600 hover:bg-emerald-500"
+                      disabled={payoutLoading}
+                      onClick={withdrawWallet}
+                    >
+                      {payoutLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Retirer {(Number(wallet.available_cents || 0) / 100).toFixed(2)} €
+                    </Button>
+                  ) : null}
+                  {!(wallet?.connect_ready || connectStatus?.charges_enabled || connectStatus?.payouts_enabled) ? (
                     <Button
                       className="rounded-full bg-emerald-600 hover:bg-emerald-500"
                       disabled={connectActionLoading}
                       onClick={startStripeOnboarding}
                     >
                       {connectActionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Activer les paiements
+                      {connectStatus?.has_account ? 'Terminer Stripe Connect' : 'Activer Stripe Connect'}
                     </Button>
                   ) : (
                     <Button variant="outline" className="rounded-full" onClick={openStripeExpress}>
@@ -1477,28 +1507,59 @@ const ArtistDashboard = () => {
                   )}
                 </div>
               </div>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <div className="rounded-xl bg-white/5 p-4 sm:col-span-1">
+                  <p className="text-muted-foreground">Cagnotte Kloud</p>
+                  <p className="text-2xl font-semibold text-emerald-300">
+                    {(Number(wallet?.available_cents || 0) / 100).toFixed(2)} €
+                  </p>
+                </div>
+                <div className="rounded-xl bg-white/5 p-4">
+                  <p className="text-muted-foreground">Déjà retiré</p>
+                  <p className="text-lg font-semibold">
+                    {(Number(wallet?.paid_out_cents || 0) / 100).toFixed(2)} €
+                  </p>
+                </div>
+                <div className="rounded-xl bg-white/5 p-4">
+                  <p className="text-muted-foreground">Seuil de retrait</p>
+                  <p className="text-lg font-semibold">{wallet?.min_payout_euros ?? 10} €</p>
+                </div>
+              </div>
+              {wallet && Number(wallet.available_cents || 0) < Number(wallet.min_payout_cents || 1000) && (
+                <div className="mt-4">
+                  <Progress
+                    value={Math.min(
+                      100,
+                      (Number(wallet.available_cents || 0) / Math.max(1, Number(wallet.min_payout_cents || 1000))) * 100
+                    )}
+                    className="h-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Encore{' '}
+                    {(
+                      Math.max(0, Number(wallet.min_payout_cents || 1000) - Number(wallet.available_cents || 0)) / 100
+                    ).toFixed(2)}{' '}
+                    € avant de pouvoir retirer.
+                  </p>
+                </div>
+              )}
               {connectStatus?.has_account && connectStatus?.charges_enabled && connectBalance && (
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div className="rounded-xl bg-white/5 p-4">
-                    <p className="text-muted-foreground">Disponible (Stripe)</p>
+                    <p className="text-muted-foreground">Chez Stripe (disponible)</p>
                     <p className="text-lg font-semibold">
                       {(Number(connectBalance.available_cents || 0) / 100).toFixed(2)}{' '}
                       {String(connectBalance.currency || 'eur').toUpperCase()}
                     </p>
                   </div>
                   <div className="rounded-xl bg-white/5 p-4">
-                    <p className="text-muted-foreground">En attente</p>
+                    <p className="text-muted-foreground">Chez Stripe (en attente)</p>
                     <p className="text-lg font-semibold">
                       {(Number(connectBalance.pending_cents || 0) / 100).toFixed(2)}{' '}
                       {String(connectBalance.currency || 'eur').toUpperCase()}
                     </p>
                   </div>
                 </div>
-              )}
-              {connectStatus && connectStatus.connect_enabled === false && (
-                <p className="text-xs text-amber-500/90 mt-3">
-                  Connect désactivé côté API (STRIPE_CONNECT_ENABLED) — les ventes restent sur le compte plateforme.
-                </p>
               )}
             </div>
 
@@ -1514,13 +1575,7 @@ const ArtistDashboard = () => {
                 {(stats?.top_tracks || tracks.slice(0, 5)).map((track, idx) => (
                   <div key={track.track_id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors">
                     <span className="text-2xl font-bold text-muted-foreground w-8">#{idx + 1}</span>
-                    {track.cover_url ? (
-                      <img src={track.cover_url} alt={track.title} className="w-12 h-12 rounded-lg object-cover" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                        <Music className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                    )}
+                    <CoverImage src={track.cover_url} alt={track.title} className="w-12 h-12 rounded-lg" />
                     <div className="flex-1">
                       <p className="font-medium">{track.title}</p>
                       <p className="text-sm text-muted-foreground">{track.genre}</p>
@@ -1682,13 +1737,7 @@ const ArtistDashboard = () => {
                       <tr key={track.track_id} className="hover:bg-white/5">
                         <td className="py-4">
                           <div className="flex items-center gap-3">
-                            {track.cover_url ? (
-                              <img src={track.cover_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
-                                <Music className="w-4 h-4" />
-                              </div>
-                            )}
+                            <CoverImage src={track.cover_url} alt="" className="w-10 h-10 rounded-lg" />
                             <span className="font-medium">{track.title}</span>
                           </div>
                         </td>

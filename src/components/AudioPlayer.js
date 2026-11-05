@@ -4,6 +4,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Library } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import CoverImage from '@/components/CoverImage';
 
 const AUDIO_PLAYER_POS_KEY = 'kloud:audioPlayerPos:v1';
 const LEGACY_AUDIO_PLAYER_POS_KEY = 'pandore:audioPlayerPos:v1';
@@ -169,22 +170,20 @@ const AudioPlayer = () => {
           <div className="flex items-center gap-2.5 md:gap-6">
             {/* Track Info */}
             <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-              {currentTrack.cover_url && (
-                <motion.div
-                  animate={{ rotate: isPlaying ? 360 : 0 }}
-                  transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                  className="relative"
-                >
-                  <img
-                    src={currentTrack.cover_url}
-                    alt={currentTrack.title}
-                    className="w-10 h-10 md:w-16 md:h-16 rounded-2xl object-cover shadow-lg"
-                  />
-                  {isPlaying && (
-                    <div className="absolute inset-0 rounded-2xl border-2 border-cyan-500/50 animate-pulse" />
-                  )}
-                </motion.div>
-              )}
+              <motion.div
+                animate={{ rotate: isPlaying ? 360 : 0 }}
+                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                className="relative shrink-0"
+              >
+                <CoverImage
+                  src={currentTrack.cover_url}
+                  alt={currentTrack.title}
+                  className="w-10 h-10 md:w-16 md:h-16 rounded-2xl shadow-lg"
+                />
+                {isPlaying && (
+                  <div className="absolute inset-0 rounded-2xl border-2 border-cyan-500/50 animate-pulse" />
+                )}
+              </motion.div>
               <div className="min-w-0">
                 <h4 
                   className="font-semibold text-xs sm:text-sm md:text-base truncate"

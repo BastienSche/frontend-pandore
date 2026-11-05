@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import CoverImage from '@/components/CoverImage';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -341,18 +342,12 @@ const TrackDetail = () => {
                 transition={{ duration: 0.45, delay: 0.1 }}
                 className="relative shrink-0"
               >
-                {track.cover_url ? (
-                  <img
-                    src={track.cover_url}
-                    alt={track.title}
-                    className="w-56 h-56 md:w-72 md:h-72 rounded-3xl shadow-2xl object-cover"
-                    data-testid="track-cover-large"
-                  />
-                ) : (
-                  <div className="w-56 h-56 md:w-72 md:h-72 rounded-3xl glass flex items-center justify-center border border-white/10">
-                    <Music className="w-20 h-20 text-muted-foreground/30" />
-                  </div>
-                )}
+                <CoverImage
+                  src={track.cover_url}
+                  alt={track.title}
+                  className="w-56 h-56 md:w-72 md:h-72 rounded-3xl shadow-2xl"
+                  data-testid="track-cover-large"
+                />
                 <div className="absolute -inset-2 rounded-3xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 blur-2xl -z-10" />
               </motion.div>
 

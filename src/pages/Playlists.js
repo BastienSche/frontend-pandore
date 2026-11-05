@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Music, Play, Edit, Trash2, Lock, Globe, Heart, User, Disc } from 'lucide-react';
+import { Plus, Music, Play, Edit, Trash2, Lock, Globe, Heart, User, Disc, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -11,18 +11,33 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, fetchTracksByIds, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { fetchLikesSummary } from '@/lib/likes';
 import { fetchMyFollows } from '@/lib/follows';
+import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+import { shuffleTracks } from '@/lib/libraryCollection';
+import CoverImage from '@/components/CoverImage';
+
+const resolvePlaylistTracks = (tracks) =>
+  (tracks || [])
+    .map((t) => ({
+      ...t,
+      preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
+      file_url: resolveApiUrl(t?.file_url),
+      cover_url: resolveApiUrl(t?.cover_url)
+    }))
+    .filter((t) => t.file_url || t.preview_url);
 
 const Playlists = () => {
   const navigate = useNavigate();
+  const { setQueue } = useAudioPlayer();
   const [playlists, setPlaylists] = useState([]);
   const [likedTracks, setLikedTracks] = useState([]);
   const [likedAlbums, setLikedAlbums] = useState([]);
   const [followedArtists, setFollowedArtists] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [playingPlaylistId, setPlayingPlaylistId] = useState(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newPlaylist, setNewPlaylist] = useState({ name: '', description: '' });
   const [editingPlaylist, setEditingPlaylist] = useState(null);
@@ -101,9 +116,32 @@ const Playlists = () => {
     }
   };
 
-  const openEdit = (playlist) => {
+  const openEdit = (e, playlist) => {
+    e.stopPropagation();
     setEditingPlaylist(playlist);
     setEditForm({ name: playlist.name || '', description: playlist.description || '' });
+  };
+
+  const playPlaylistShuffle = async (e, playlist) => {
+    e.stopPropagation();
+    const ids = playlist?.track_ids || [];
+    if (!ids.length) {
+      toast.error('Cette playlist est vide');
+      return;
+    }
+    setPlayingPlaylistId(playlist.playlist_id);
+    try {
+      const tracks = resolvePlaylistTracks(await fetchTracksByIds(ids));
+      if (!tracks.length) {
+        toast.error('Aucun titre lisible dans cette playlist');
+        return;
+      }
+      setQueue(shuffleTracks(tracks), 0);
+    } catch (error) {
+      toast.error(formatApiError(error, 'Impossible de lire la playlist'));
+    } finally {
+      setPlayingPlaylistId(null);
+    }
   };
 
   const handleEditSubmit = async (e) => {
@@ -231,7 +269,17 @@ const Playlists = () => {
             {playlists.map(playlist => (
               <Card
                 key={playlist.playlist_id}
-                className="group glass-heavy hover:border-white/20 transition-colors rounded-3xl"
+                role="link"
+                tabIndex={0}
+                onClick={() => navigate(`/playlist/${playlist.playlist_id}`)}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigate(`/playlist/${playlist.playlist_id}`);
+                  }
+                }}
+                className="group glass-heavy hover:border-white/20 transition-colors rounded-3xl cursor-pointer"
                 data-testid={`playlist-card-${playlist.playlist_id}`}
               >
                 <CardHeader>
@@ -267,17 +315,22 @@ const Playlists = () => {
                     <div className="flex flex-wrap gap-2">
                       <Button
                         className="flex-1 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 border-0"
-                        onClick={() => navigate(`/playlist/${playlist.playlist_id}`)}
+                        disabled={playingPlaylistId === playlist.playlist_id}
+                        onClick={(e) => playPlaylistShuffle(e, playlist)}
                         data-testid={`play-playlist-${playlist.playlist_id}`}
                       >
-                        <Play className="w-4 h-4 mr-2" />
+                        {playingPlaylistId === playlist.playlist_id ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Play className="w-4 h-4 mr-2" />
+                        )}
                         Lire
                       </Button>
                       <Button
                         variant="outline"
                         size="icon"
                         className="rounded-full glass border-white/15 hover:bg-white/10 hover:border-white/25"
-                        onClick={() => openEdit(playlist)}
+                        onClick={(e) => openEdit(e, playlist)}
                         data-testid={`edit-playlist-${playlist.playlist_id}`}
                       >
                         <Edit className="w-4 h-4" />
@@ -286,7 +339,10 @@ const Playlists = () => {
                         variant="outline"
                         size="icon"
                         className="rounded-full glass border-white/15 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30"
-                        onClick={() => handleDeletePlaylist(playlist.playlist_id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePlaylist(playlist.playlist_id);
+                        }}
                         data-testid={`delete-playlist-${playlist.playlist_id}`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -322,20 +378,12 @@ const Playlists = () => {
                     className="group text-left rounded-2xl overflow-hidden glass-heavy border border-white/10 hover:border-cyan-500/30 transition-colors"
                     data-testid={`liked-track-${track.track_id}`}
                   >
-                    <div className="aspect-square bg-white/5 relative">
-                      {track.cover_url ? (
-                        <img
-                          src={track.cover_url}
-                          alt=""
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Music className="w-12 h-12 text-white/20" />
-                        </div>
-                      )}
-                    </div>
+                    <CoverImage
+                      src={track.cover_url}
+                      alt=""
+                      className="aspect-square"
+                      imgClassName="transition-transform duration-300 group-hover:scale-105"
+                    />
                     <div className="p-3">
                       <p className="font-medium truncate text-sm group-hover:text-cyan-300 transition-colors">
                         {track.title}
@@ -370,20 +418,12 @@ const Playlists = () => {
                     className="group text-left rounded-2xl overflow-hidden glass-heavy border border-white/10 hover:border-violet-500/30 transition-colors"
                     data-testid={`liked-album-${album.album_id}`}
                   >
-                    <div className="aspect-square bg-white/5 relative">
-                      {album.cover_url ? (
-                        <img
-                          src={album.cover_url}
-                          alt=""
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Disc className="w-12 h-12 text-white/20" />
-                        </div>
-                      )}
-                    </div>
+                    <CoverImage
+                      src={album.cover_url}
+                      alt=""
+                      className="aspect-square"
+                      imgClassName="transition-transform duration-300 group-hover:scale-105"
+                    />
                     <div className="p-3">
                       <p className="font-medium truncate text-sm group-hover:text-violet-300 transition-colors">
                         {album.title}

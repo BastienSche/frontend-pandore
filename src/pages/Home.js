@@ -753,7 +753,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {!isAuthenticated && (
       <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="cyan" size={600} x="50%" y="50%" blur={150} />
         
@@ -783,6 +783,7 @@ const Home = () => {
           </motion.div>
         </div>
       </section>
+      )}
 
       {/* Spacer for audio player */}
       <div className="h-32" />

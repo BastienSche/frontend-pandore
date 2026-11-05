@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Play, Pause, Download, Music } from 'lucide-react';
+import React from 'react';
+import { Play, Pause, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { formatTrackDuration } from '@/lib/libraryCollection';
+import CoverImage from '@/components/CoverImage';
 
 const LibraryTrackRow = ({
   track,
@@ -13,7 +14,6 @@ const LibraryTrackRow = ({
   index
 }) => {
   const navigate = useNavigate();
-  const [coverError, setCoverError] = useState(false);
   const hasFile = Boolean(track.file_url || track.preview_url);
 
   return (
@@ -30,19 +30,7 @@ const LibraryTrackRow = ({
       </span>
 
       <div className="relative h-12 w-12 md:h-14 md:w-14 shrink-0 rounded-xl overflow-hidden bg-white/5">
-        {track.cover_url && !coverError ? (
-          <img
-            src={track.cover_url}
-            alt=""
-            className="h-full w-full object-cover"
-            loading="lazy"
-            onError={() => setCoverError(true)}
-          />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center">
-            <Music className="w-6 h-6 text-white/25" />
-          </div>
-        )}
+        <CoverImage src={track.cover_url} alt="" className="h-full w-full" />
       </div>
 
       <button

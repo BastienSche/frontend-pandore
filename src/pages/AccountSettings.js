@@ -314,8 +314,15 @@ const AccountSettings = () => {
                       data-testid="listener-avatar-dropzone"
                     >
                       <span className="relative w-16 h-16 rounded-full overflow-hidden border border-white/15 shrink-0 bg-black/30">
-                        {listenerPicture ? (
-                          <img src={resolveApiUrl(listenerPicture)} alt="" className="w-full h-full object-cover" />
+                        {listenerPicture || user?.picture ? (
+                          <img
+                            src={artistAvatarSrc({
+                              picture: listenerPicture || user?.picture,
+                              user_id: user?.user_id
+                            })}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
                           <span className="w-full h-full flex items-center justify-center text-lg text-muted-foreground">
                             {(user.name || user.email || '?').charAt(0).toUpperCase()}

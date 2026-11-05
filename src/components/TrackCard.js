@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { Play, Pause, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -12,6 +11,7 @@ import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { goToLogin } from '@/lib/postLoginRedirect';
 import { useAuth } from '@/hooks/useAuth';
+import CoverImage from '@/components/CoverImage';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -34,7 +34,6 @@ const TrackCard = ({ track }) => {
   const location = useLocation();
   const isCurrentTrack = currentTrack?.track_id === track.track_id;
   const [liked, setLiked] = useState(false);
-  const [coverError, setCoverError] = useState(false);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) {
@@ -85,28 +84,29 @@ const TrackCard = ({ track }) => {
           className="relative aspect-square cursor-pointer" 
           onClick={() => navigate(`/track/${track.track_id}`)}
         >
-          {/* Overlays (no layout impact) */}
-          {mixLabel(track.mix_version) && (
-            <div className="absolute top-3 left-3 z-20">
+          <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1.5 max-w-[70%]">
+            {mixLabel(track.mix_version) && (
               <div className="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
                 {mixLabel(track.mix_version)}
               </div>
-            </div>
-          )}
+            )}
+            {splitGenreTags(track.genre).slice(0, 2).map((g, i) => (
+              <div
+                key={`${track.track_id}-cover-genre-${i}`}
+                className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white/95 max-w-full truncate"
+                title={g}
+              >
+                {g}
+              </div>
+            ))}
+          </div>
 
-          {track.cover_url && !coverError ? (
-            <img
-              src={track.cover_url}
-              alt={track.title}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              loading="lazy"
-              onError={() => setCoverError(true)}
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-cyan-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center">
-              <Play className="w-16 h-16 text-white/30" />
-            </div>
-          )}
+          <CoverImage
+            src={track.cover_url}
+            alt={track.title}
+            className="w-full h-full"
+            imgClassName="transition-transform duration-700 group-hover:scale-110"
+          />
 
           {availabilityLabel(track.availability) && (
             <div className="absolute bottom-0 inset-x-0 z-10">
@@ -144,7 +144,7 @@ const TrackCard = ({ track }) => {
 
           {/* Now Playing Indicator */}
           {isCurrentTrack && isPlaying && (
-            <div className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-cyan-500/30">
+            <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-cyan-500/30">
               <div className="flex gap-0.5">
                 <span className="w-1 h-3 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
                 <span className="w-1 h-4 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
@@ -173,38 +173,22 @@ const TrackCard = ({ track }) => {
             </p>
           </div>
           
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5 pr-1 sm:overflow-x-auto sm:whitespace-nowrap sm:flex-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {splitGenreTags(track.genre).map((g, i) => (
-                  <Badge
-                    key={`${track.track_id}-genre-${i}`}
-                    variant="secondary"
-                    className="shrink-0 whitespace-nowrap text-xs leading-tight bg-white/5 border border-white/10 text-muted-foreground max-w-[11rem] truncate"
-                    title={g}
-                  >
-                    {g}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-              <span
-                className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
-                data-testid={`track-price-${track.track_id}`}
-              >
-                {formatItemPriceLabel(track)}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full w-8 h-8 hover:bg-pink-500/10 hover:text-pink-400 transition-colors"
-                data-testid={`track-like-button-${track.track_id}`}
-                onClick={toggleLike}
-              >
-                <Heart className={`w-4 h-4 ${heartIconActiveClass(liked)}`} />
-              </Button>
-            </div>
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
+              data-testid={`track-price-${track.track_id}`}
+            >
+              {formatItemPriceLabel(track)}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full w-8 h-8 hover:bg-pink-500/10 hover:text-pink-400 transition-colors"
+              data-testid={`track-like-button-${track.track_id}`}
+              onClick={toggleLike}
+            >
+              <Heart className={`w-4 h-4 ${heartIconActiveClass(liked)}`} />
+            </Button>
           </div>
         </div>
       </div>
