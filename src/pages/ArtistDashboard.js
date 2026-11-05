@@ -25,7 +25,6 @@ import { fieldFocusRingSelect, fieldInnerSurface, fieldRing } from '@/lib/fieldS
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import CoverImage from '@/components/CoverImage';
-import ArtistDatasPlus from '@/components/ArtistDatasPlus';
 
 const parsePriceEuroInput = (raw) => {
   const v = String(raw ?? '').trim();
@@ -1375,7 +1374,7 @@ const ArtistDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 relative z-10">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="mb-8">
-          <TabsList className="bg-slate-50 border border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none rounded-2xl sm:rounded-full p-1.5 w-full sm:w-auto h-auto grid grid-cols-2 sm:inline-flex sm:h-9">
+          <TabsList className="bg-slate-50 border border-slate-200 text-foreground shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none rounded-2xl sm:rounded-full p-1.5 w-full sm:w-auto h-auto grid grid-cols-1 sm:inline-flex sm:h-9">
             <TabsTrigger 
               value="overview" 
               className="gap-2 rounded-xl sm:rounded-full justify-start sm:justify-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 px-3 sm:px-6 py-2 sm:py-1"
@@ -1407,14 +1406,6 @@ const ArtistDashboard = () => {
             >
               <TrendingUp className="w-4 h-4" />
               Statistiques
-            </TabsTrigger>
-            <TabsTrigger
-              value="datas"
-              className="gap-2 rounded-xl sm:rounded-full justify-start sm:justify-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500/20 data-[state=active]:to-emerald-500/20 px-3 sm:px-6 py-2 sm:py-1"
-              data-testid="tab-datas"
-            >
-              <PieChart className="w-4 h-4" />
-              Datas +
             </TabsTrigger>
           </TabsList>
           </div>
@@ -1771,10 +1762,6 @@ const ArtistDashboard = () => {
                 </table>
               </div>
             </div>
-          </TabsContent>
-
-          <TabsContent value="datas" className="space-y-8">
-            <ArtistDatasPlus active={activeTab === 'datas'} />
           </TabsContent>
         </Tabs>
       </div>

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
+import AdminDatasPlus from '@/components/AdminDatasPlus';
 
 const toLocalInput = (iso) => {
   if (!iso) return '';
@@ -385,6 +386,7 @@ const AdminDashboard = () => {
               <div className="flex items-center gap-2 flex-wrap">
                 {[
                   { id: 'overview', label: 'Aperçu' },
+                  { id: 'datas', label: 'Datas +' },
                   { id: 'contests', label: 'Concours' },
                   { id: 'tracks', label: 'Tracks' },
                   { id: 'albums', label: 'Albums' },
@@ -446,6 +448,12 @@ const AdminDashboard = () => {
           </div>
         ) : (
           <>
+            {activeTab === 'datas' && (
+              <div className="pb-16">
+                <AdminDatasPlus active={activeTab === 'datas'} />
+              </div>
+            )}
+
             {activeTab === 'overview' && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

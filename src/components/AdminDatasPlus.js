@@ -7,7 +7,6 @@ import {
   MapPin,
   Radio,
   ShoppingBag,
-  UserPlus,
   Users
 } from 'lucide-react';
 import {
@@ -93,7 +92,7 @@ const Panel = ({ title, subtitle, children, className = '' }) => (
   </div>
 );
 
-const ArtistDatasPlus = ({ active }) => {
+const AdminDatasPlus = ({ active }) => {
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -105,7 +104,7 @@ const ArtistDatasPlus = ({ active }) => {
     const load = async (silent = false) => {
       if (!silent) setLoading(true);
       try {
-        const { data: next } = await apiClient.get('/api/artist/analytics', { params: { days } });
+        const { data: next } = await apiClient.get('/api/admin/analytics', { params: { days } });
         if (!cancelled) {
           setData(next);
           setError('');
@@ -126,7 +125,7 @@ const ArtistDatasPlus = ({ active }) => {
 
   const daily = data?.daily || [];
   const hasDailySignal = daily.some(
-    (d) => d.plays || d.likes || d.follows || d.purchases || d.visitors
+    (d) => d.plays || d.likes || d.follows || d.purchases || d.visitors || d.signups
   );
   const funnelMax = Math.max(1, ...(data?.funnel || []).map((f) => Number(f.n) || 0));
   const live = data?.live || {};
@@ -148,12 +147,12 @@ const ArtistDatasPlus = ({ active }) => {
   }
 
   return (
-    <div className="space-y-6" data-testid="artist-datas-plus">
+    <div className="space-y-6" data-testid="admin-datas-plus">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Datas +</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Audience en direct, temps passé, rétention d’achat, likes / follows / ventes au jour le jour.
+            Stats internes de tout Kloud — live, temps passé, zones, rétention d’achat. Réservé admin / dev.
           </p>
         </div>
         <div className="flex gap-2">
@@ -189,18 +188,18 @@ const ArtistDatasPlus = ({ active }) => {
           color="cyan"
         />
         <Kpi
-          label="Rétention achat"
-          value={`${retention.play_to_buy_pct ?? 0}%`}
-          hint={`${retention.unique_buyers || 0} acheteurs / ${retention.unique_listeners || 0} auditeurs`}
-          icon={ShoppingBag}
-          color="purple"
+          label="Comptes"
+          value={data?.accounts?.users ?? 0}
+          hint={`${data?.accounts?.artists || 0} artistes · ${data?.accounts?.admins || 0} admin`}
+          icon={Users}
+          color="orange"
         />
         <Kpi
-          label="Follows"
-          value={data?.totals?.follows ?? 0}
-          hint={`${retention.play_to_follow_pct ?? 0}% des auditeurs suivent`}
-          icon={UserPlus}
-          color="pink"
+          label="Rétention achat"
+          value={`${retention.signup_to_buy_pct ?? retention.play_to_buy_pct ?? 0}%`}
+          hint={`${retention.unique_buyers || 0} acheteurs / ${data?.accounts?.users || 0} comptes`}
+          icon={ShoppingBag}
+          color="purple"
         />
       </div>
 
@@ -208,7 +207,7 @@ const ArtistDatasPlus = ({ active }) => {
         <Panel
           className="lg:col-span-2"
           title="Personnes connectées maintenant"
-          subtitle="Visiteurs sur tes pages ou en train d’écouter tes titres (rafraîchi toutes les 25 s)."
+          subtitle="Tout le site — rafraîchi toutes les 25 s."
         >
           <div className="flex items-center gap-2 mb-4">
             <span className="relative flex h-3 w-3">
@@ -234,7 +233,7 @@ const ArtistDatasPlus = ({ active }) => {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-sm text-muted-foreground">Personne en direct sur tes pages pour l’instant.</p>
+              <p className="text-sm text-muted-foreground">Personne en direct sur le site pour l’instant.</p>
             )}
           </div>
         </Panel>
@@ -261,7 +260,7 @@ const ArtistDatasPlus = ({ active }) => {
 
       <Panel
         title="Activité quotidienne"
-        subtitle={`Écoutes, likes, follows et achats sur ${days} jours.`}
+        subtitle={`Écoutes, likes, follows, achats et inscriptions sur ${days} jours.`}
       >
         <div className="h-72">
           {hasDailySignal ? (
@@ -276,6 +275,7 @@ const ArtistDatasPlus = ({ active }) => {
                 <Area type="monotone" dataKey="likes" name="Likes" stroke="#f472b6" fill="#f472b633" />
                 <Area type="monotone" dataKey="follows" name="Follows" stroke="#a78bfa" fill="#a78bfa33" />
                 <Area type="monotone" dataKey="purchases" name="Achats" stroke="#34d399" fill="#34d39933" />
+                <Area type="monotone" dataKey="signups" name="Inscriptions" stroke="#fb923c" fill="#fb923c33" />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -314,7 +314,7 @@ const ArtistDatasPlus = ({ active }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Panel title="Funnel & rétention" subtitle="Chemin auditeur → like → follow → achat (comptes connectés).">
+        <Panel title="Funnel & rétention" subtitle="Chemin site entier : compte → écoute → like → follow → achat.">
           <div className="space-y-3">
             {(data?.funnel || []).map((step) => (
               <div key={step.step}>
@@ -396,7 +396,7 @@ const ArtistDatasPlus = ({ active }) => {
                   <th className="pb-3">Où</th>
                   <th className="pb-3">Page</th>
                   <th className="pb-3 text-right">Temps</th>
-                  <th className="pb-3 text-right">Compte</th>
+                    <th className="pb-3 text-right">User</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -411,7 +411,9 @@ const ArtistDatasPlus = ({ active }) => {
                     </td>
                     <td className="py-2.5 truncate max-w-[220px] text-muted-foreground">{row.path}</td>
                     <td className="py-2.5 text-right tabular-nums">{formatDuration(row.dwell_sec)}</td>
-                    <td className="py-2.5 text-right">{row.logged_in ? 'Oui' : 'Invité'}</td>
+                    <td className="py-2.5 text-right font-mono text-xs">
+                      {row.logged_in ? row.user_id || 'Oui' : 'Invité'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -419,7 +421,7 @@ const ArtistDatasPlus = ({ active }) => {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Les prochaines visites sur tes pages alimenteront ce journal (heure, zone, durée).
+            Les visites du site alimentent ce journal (heure, zone, durée, compte).
           </p>
         )}
       </Panel>
@@ -427,4 +429,4 @@ const ArtistDatasPlus = ({ active }) => {
   );
 };
 
-export default ArtistDatasPlus;
+export default AdminDatasPlus;
