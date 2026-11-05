@@ -111,16 +111,17 @@ const AccountSettings = () => {
 
     const wantsArtist = roleTargetIsArtist;
     if (wantsArtist) {
-      if (!artistName?.trim()) {
+      const nextName = (artistName || user.artist_name || '').trim();
+      if (!nextName) {
         toast.error("Le nom d'artiste est requis");
         return;
       }
-      await switchRole(artistName.trim());
+      await switchRole('artist', nextName);
       toast.success('Mode Artiste activé');
       return;
     }
 
-    await switchRole(null);
+    await switchRole('user');
     toast.success('Mode Auditeur activé');
   };
 
@@ -186,6 +187,8 @@ const AccountSettings = () => {
         throw error;
       }
     }
+    setArtistName(payload.name);
+    updateUser({ artist_name: payload.name });
   };
 
   const saveAll = async () => {
@@ -396,7 +399,7 @@ const AccountSettings = () => {
                     />
                   </div>
 
-                  {roleTargetIsArtist && (
+                  {roleTargetIsArtist && !String(user.artist_name || '').trim() && (
                     <div className="space-y-2">
                       <Label>Nom d&apos;artiste</Label>
                       <Input
@@ -407,9 +410,15 @@ const AccountSettings = () => {
                         data-testid="settings-artist-name"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Requis pour activer le mode Artiste.
+                        Une seule fois — tu pourras le changer ensuite dans l’onglet Artiste.
                       </p>
                     </div>
+                  )}
+                  {roleTargetIsArtist && String(user.artist_name || '').trim() && (
+                    <p className="text-sm text-muted-foreground">
+                      Pseudo actuel : <span className="text-foreground font-medium">{user.artist_name}</span>
+                      {' — '}modifiable dans l’onglet Artiste.
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -622,13 +631,16 @@ const AccountSettings = () => {
                         ) : null}
                       </div>
                       <div className="space-y-2">
-                        <Label>Nom affiché</Label>
+                        <Label>Nom d&apos;artiste</Label>
                         <Input
                           value={artistProfile.name}
                           onChange={(e) => setArtistProfile((p) => ({ ...p, name: e.target.value }))}
                           placeholder="Nom d'artiste"
                           className="h-12 rounded-xl bg-white/5 border-white/10"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          C’est ton pseudo public. Tu peux le changer ici, pas à chaque passage en mode Artiste.
+                        </p>
                       </div>
                     </div>
 

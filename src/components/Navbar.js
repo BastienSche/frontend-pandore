@@ -56,15 +56,29 @@ const Navbar = () => {
   };
 
   const handleRoleSwitch = async () => {
-    const currentRole = user.role;
-    const newRole = currentRole === 'artist' ? 'user' : 'artist';
-    
-    if (newRole === 'artist' && !user.artist_name) {
-      const artistName = prompt('Entrez votre nom d\'artiste:');
-      if (!artistName) return;
-      await switchRole(artistName);
-    } else {
-      await switchRole(newRole === 'artist' ? user.artist_name : null);
+    const newRole = user.role === 'artist' ? 'user' : 'artist';
+    try {
+      if (newRole === 'artist') {
+        const existing = String(user.artist_name || '').trim();
+        if (existing) {
+          await switchRole('artist');
+        } else {
+          try {
+            await switchRole('artist');
+          } catch (error) {
+            if (error?.response?.status !== 400) throw error;
+            const artistName = window.prompt('Choisis ton nom d’artiste (une seule fois) :');
+            if (!String(artistName || '').trim()) return;
+            await switchRole('artist', artistName.trim());
+          }
+        }
+        if (!location.pathname.startsWith('/artist-dashboard')) navigate('/artist-dashboard');
+        return;
+      }
+      await switchRole('user');
+      if (location.pathname.startsWith('/artist-dashboard')) navigate('/browse');
+    } catch (error) {
+      window.alert(error?.response?.data?.detail || 'Impossible de changer de mode.');
     }
   };
 

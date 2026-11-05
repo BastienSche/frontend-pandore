@@ -147,16 +147,17 @@ export const AuthProvider = ({ children }) => {
     return updated;
   };
 
-  const switchRole = async (artistName = null) => {
+  const switchRole = async (nextRole, artistName = null) => {
+    const role = nextRole === 'artist' ? 'artist' : 'user';
     const params = new URLSearchParams();
-    const newRole = artistName ? 'artist' : 'user';
-    params.set('new_role', newRole);
-    if (artistName) params.set('artist_name', artistName);
+    params.set('new_role', role);
+    const name = String(artistName || '').trim();
+    if (name) params.set('artist_name', name);
     const { data } = await apiClient.put(`/api/auth/role?${params.toString()}`);
     const updated = {
       ...(user || {}),
       role: data.role,
-      artist_name: data.artist_name,
+      artist_name: data.artist_name || user?.artist_name || name || null,
       is_admin: data.is_admin ?? user?.is_admin,
     };
     setUser(updated);
