@@ -1208,7 +1208,6 @@ const ArtistDashboard = () => {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col md:flex-row md:items-end md:justify-between gap-6"
-            data-kloud-tour="artist-dashboard"
           >
             <div>
               <Badge className="mb-4 bg-purple-500/20 text-purple-400 border-purple-500/30">
@@ -1230,6 +1229,7 @@ const ArtistDashboard = () => {
                 className="rounded-full px-8 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 border-0 shadow-[0_0_30px_rgba(139,92,246,0.3)]"
                 onClick={() => { resetForm(); setEditingTrack(null); setShowTrackDialog(true); }}
                 data-testid="new-track-button"
+                data-kloud-tour="artist-dashboard"
               >
                 <Plus className="w-5 h-5 mr-2" />
                 Nouveau track

@@ -121,11 +121,16 @@ export function sortCatalogItems(items, sortId) {
   return list;
 }
 
-export function filterCatalogItems(items, { ownedMode, recency, genre, hideAlbumTracks, ownership, kind }) {
+export function isPayWhatYouWant(item) {
+  return Boolean(item?.is_free_price || item?.isFreePrice);
+}
+
+export function filterCatalogItems(items, { ownedMode, recency, genre, hideAlbumTracks, ownership, kind, payWhatYouWant }) {
   return (items || []).filter((item) => {
     if (kind === 'track' && hideAlbumTracks && item?.album_id) return false;
     if (!matchesGenre(item, genre)) return false;
     if (!matchesRecency(item, recency)) return false;
+    if (payWhatYouWant && !isPayWhatYouWant(item)) return false;
     if (ownedMode === 'discover' || ownedMode === 'owned') {
       const owned = kind === 'album' ? isOwnedAlbum(item, ownership) : isOwnedTrack(item, ownership);
       if (ownedMode === 'discover' && owned) return false;

@@ -8,25 +8,27 @@ export const PRODUCT_TOURS = {
       id: 'bio',
       path: '/settings?tab=artist',
       target: 'artist-bio',
-      text: 'Ta vitrine, en quelques mots.'
+      text: 'Ici tu présentes ton univers.',
+      stay: true
     },
     {
       id: 'dashboard',
       path: '/artist-dashboard',
       target: 'artist-dashboard',
-      text: 'Publie tes titres ici.'
+      text: 'Ici tu publies un titre.'
     },
     {
       id: 'connect',
       path: '/artist-dashboard',
       target: 'artist-connect',
-      text: 'Active Stripe pour encaisser.'
+      text: 'Ici tu actives Stripe.'
     },
     {
       id: 'browse',
       path: '/browse',
       target: 'browse-discover',
-      text: 'Voilà comment on te découvre.'
+      text: 'Ici on te trouve.',
+      stay: true
     }
   ],
   listener: [
@@ -34,19 +36,20 @@ export const PRODUCT_TOURS = {
       id: 'browse',
       path: '/browse',
       target: 'browse-discover',
-      text: 'Filtre, trie, trouve le son.'
+      text: 'Ici tu cherches un son.',
+      stay: true
     },
     {
       id: 'buy',
       path: '/browse',
       target: 'browse-buy',
-      text: 'Clique un titre pour l’acheter.'
+      text: 'Ici tu achètes un titre.'
     },
     {
       id: 'playlists',
       path: '/playlists',
       target: 'playlists',
-      text: 'Tes sons, tes playlists.'
+      text: 'Ici tu crées ta playlist.'
     }
   ]
 };

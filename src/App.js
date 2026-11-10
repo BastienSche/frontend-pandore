@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
@@ -38,7 +38,25 @@ import CookieBanner from '@/components/CookieBanner';
 import ProductTour from '@/components/ProductTour';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { ARTIST_ONBOARDING_PATH, consumePostLoginPath, rememberPostLoginPath, safeInternalPath } from '@/lib/postLoginRedirect';
+import { listPathKey, peekListPosition } from '@/lib/listNavigation';
 import '@/App.css';
+
+function ScrollToTop() {
+  const { pathname, search } = useLocation();
+
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    if (peekListPosition(listPathKey(pathname, search))) return;
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [pathname, search]);
+
+  return null;
+}
 
 const ProtectedRoute = ({ children }) => {
   const { loading, isAuthenticated } = useAuth();
@@ -70,6 +88,7 @@ const GuestRoute = ({ children }) => {
 function AppRouter() {
   return (
     <>
+      <ScrollToTop />
       <Navbar />
       <AnalyticsTracker />
       <div className="flex-1">

@@ -182,7 +182,7 @@ const Playlists = () => {
       {/* Header */}
       <div className="relative pt-28 pb-10 px-4 md:px-8">
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between" data-kloud-tour="playlists">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
               <Badge className="mb-4 bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
                 Playlists
@@ -203,6 +203,7 @@ const Playlists = () => {
                   size="lg"
                   className="rounded-full px-8 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 border-0 shadow-[0_0_30px_rgba(16,185,129,0.25)]"
                   data-testid="create-playlist-button"
+                  data-kloud-tour="playlists"
                 >
                   <Plus className="w-5 h-5 mr-2" />
                   Nouvelle playlist
@@ -263,6 +264,7 @@ const Playlists = () => {
             <Button
               onClick={() => setShowCreateDialog(true)}
               className="rounded-full px-10 h-12 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 border-0"
+              data-kloud-tour="playlists"
             >
               <Plus className="w-5 h-5 mr-2" />
               Créer une playlist

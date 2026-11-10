@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Search, Disc, Music, User } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, Disc, Music, User, Sparkles, HeartHandshake } from 'lucide-react';
 import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
+import CoverImage from '@/components/CoverImage';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -13,41 +13,37 @@ import { apiClient, formatApiError, resolveApiUrl, normalizeApiList } from '@/li
 import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
 import { useAuth } from '@/hooks/useAuth';
+import { formatItemPriceLabel } from '@/lib/pricing';
 import {
-  BROWSE_SORTS,
-  OWNED_FILTERS,
-  RECENCY_FILTERS,
-  collectGenres,
-  defaultBrowseFilters,
   filterCatalogItems,
   isOwnedAlbum,
   isOwnedTrack,
-  loadBrowseFilters,
-  saveBrowseFilters,
+  isPayWhatYouWant,
   sortCatalogItems
 } from '@/lib/catalogBrowse';
 import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
 import { rememberListPosition } from '@/lib/listNavigation';
 
 const BROWSE_SEARCH_KEY = 'kloud:browseSearch';
-const BROWSE_TAB_KEY = 'kloud:browseTab';
+const BROWSE_TAB_KEY = 'kloud:browseTabV2';
+const BROWSE_UI_KEY = 'kloud:browseDiscover';
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 }
-  }
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } }
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4 }
-  }
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } }
 };
+
+const TABS = [
+  { id: 'mix', label: 'Tout' },
+  { id: 'tracks', label: 'Titres' },
+  { id: 'albums', label: 'Albums' },
+  { id: 'artists', label: 'Artistes' }
+];
 
 const isListedCatalogItem = (item) => {
   const status = String(item?.status || 'published').toLowerCase();
@@ -71,12 +67,173 @@ const mapArtist = (a) => ({
   picture: artistAvatarSrc(a)
 });
 
+const readStoredTab = () => {
+  try {
+    const tab = sessionStorage.getItem(BROWSE_TAB_KEY);
+    if (tab === 'mix' || tab === 'tracks' || tab === 'albums' || tab === 'artists') return tab;
+  } catch {
+    // ignore
+  }
+  return 'mix';
+};
+
+const readStoredUi = () => {
+  try {
+    const raw = sessionStorage.getItem(BROWSE_UI_KEY);
+    const saved = raw ? JSON.parse(raw) : {};
+    return {
+      newest: saved.newest !== false,
+      pwyw: Boolean(saved.pwyw)
+    };
+  } catch {
+    return { newest: true, pwyw: false };
+  }
+};
+
 const chipClass = (active) =>
-  `h-9 rounded-full px-4 text-sm border transition-colors ${
+  `h-9 rounded-full px-4 text-sm inline-flex items-center gap-1.5 border transition-colors whitespace-nowrap ${
     active
       ? 'bg-gradient-to-r from-cyan-500/25 to-purple-500/25 border-cyan-400/40 text-foreground'
       : 'bg-white/5 border-white/10 text-muted-foreground hover:border-white/25 hover:text-foreground'
   }`;
+
+const tabClass = (active) =>
+  `h-9 rounded-full px-4 text-sm font-medium transition-colors ${
+    active ? 'bg-white/15 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+  }`;
+
+const SectionHead = ({ title, hint, onMore }) => (
+  <div className="flex items-end justify-between gap-3 mb-3">
+    <div>
+      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+      {hint ? <p className="text-xs text-muted-foreground mt-0.5">{hint}</p> : null}
+    </div>
+    {onMore ? (
+      <button
+        type="button"
+        onClick={onMore}
+        className="text-xs text-muted-foreground hover:text-cyan-300 transition-colors"
+      >
+        Voir tout
+      </button>
+    ) : null}
+  </div>
+);
+
+const EmptyState = ({ icon: Icon, title, hint, tour }) => (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    className="text-center py-16 glass-heavy rounded-3xl"
+    data-kloud-tour={tour}
+  >
+    <Icon className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+    <p className="text-base text-muted-foreground">{title}</p>
+    {hint ? <p className="text-sm text-muted-foreground/60 mt-1">{hint}</p> : null}
+  </motion.div>
+);
+
+const ArtistChip = ({ artist }) => (
+  <Link
+    to={`/artist/${artist.user_id}`}
+    data-testid={`artist-card-${artist.user_id}`}
+    onClick={() => rememberListPosition({ selector: `[data-testid="artist-card-${artist.user_id}"]` })}
+    className="group flex flex-col items-center text-center min-w-0"
+  >
+    <Avatar className="w-[4.5rem] h-[4.5rem] border border-white/10 group-hover:border-cyan-400/50 transition-colors shadow-lg">
+      <AvatarImage src={artist.picture} className="object-cover" />
+      <AvatarFallback className="text-lg bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
+        {artist.artist_name?.[0] || artist.name?.[0] || '?'}
+      </AvatarFallback>
+    </Avatar>
+    <h3 className="mt-2 text-sm font-medium truncate w-full group-hover:text-cyan-400 transition-colors">
+      {artist.artist_name || artist.name}
+    </h3>
+  </Link>
+);
+
+const SpotlightTrack = ({ track, owned }) => {
+  const navigate = useNavigate();
+  const open = () => {
+    rememberListPosition({ selector: '[data-testid="browse-spotlight"]' });
+    navigate(`/track/${track.track_id}`);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={open}
+      data-testid="browse-spotlight"
+      data-kloud-tour="browse-buy"
+      className="relative w-full h-full min-h-[240px] overflow-hidden rounded-[1.75rem] text-left group"
+    >
+      <CoverImage
+        src={track.cover_url}
+        alt={track.title}
+        className="absolute inset-0"
+        imgClassName="transition-transform duration-700 group-hover:scale-105"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/20" />
+      <div className="absolute top-4 left-4 flex items-center gap-2">
+        <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-cyan-500/80 text-white">
+          À la une
+        </span>
+        {owned ? (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/80 text-white">
+            Acquis
+          </span>
+        ) : null}
+      </div>
+      <div className="absolute bottom-0 inset-x-0 p-5 md:p-6">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/90 mb-1">Sortie</p>
+        <h2 className="text-2xl md:text-3xl font-bold leading-tight line-clamp-2">{track.title}</h2>
+        <p className="mt-1 text-sm text-white/75 truncate">{track.artist_name}</p>
+        <p className="mt-2 text-sm font-semibold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-purple-300">
+          {formatItemPriceLabel(track)}
+        </p>
+      </div>
+    </button>
+  );
+};
+
+const SpotlightAlbum = ({ album, owned }) => (
+  <Link
+    to={`/album/${album.album_id}`}
+    onClick={() => rememberListPosition({ selector: `[data-testid="browse-spotlight-album"]` })}
+    data-testid="browse-spotlight-album"
+    className="flex min-h-[118px] overflow-hidden rounded-2xl glass-heavy group"
+  >
+    <CoverImage src={album.cover_url} alt={album.title} className="w-[118px] shrink-0 h-full" />
+    <div className="flex-1 min-w-0 p-3.5 flex flex-col justify-center">
+      <p className="text-[10px] uppercase tracking-widest text-purple-300 mb-1">Album</p>
+      <h3 className="font-semibold truncate group-hover:text-purple-300 transition-colors">{album.title}</h3>
+      <p className="text-xs text-muted-foreground truncate">{album.artist_name}</p>
+      <p className="mt-1.5 text-xs font-semibold text-purple-300">
+        {owned ? 'Acquis' : formatItemPriceLabel(album)}
+      </p>
+    </div>
+  </Link>
+);
+
+const SpotlightArtist = ({ artist }) => (
+  <Link
+    to={`/artist/${artist.user_id}`}
+    onClick={() => rememberListPosition({ selector: `[data-testid="browse-spotlight-artist-${artist.user_id}"]` })}
+    data-testid={`browse-spotlight-artist-${artist.user_id}`}
+    className="flex items-center gap-3 rounded-2xl glass-heavy p-3 group min-w-0 h-full"
+  >
+    <Avatar className="w-12 h-12 shrink-0 border border-white/10">
+      <AvatarImage src={artist.picture} className="object-cover" />
+      <AvatarFallback>{artist.artist_name?.[0] || artist.name?.[0] || '?'}</AvatarFallback>
+    </Avatar>
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-widest text-emerald-300">Artiste</p>
+      <p className="font-medium truncate group-hover:text-cyan-300 transition-colors">
+        {artist.artist_name || artist.name}
+      </p>
+    </div>
+  </Link>
+);
 
 const Browse = () => {
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -88,33 +245,12 @@ const Browse = () => {
       return '';
     }
   });
-  const [browseTab, setBrowseTab] = useState(() => {
-    try {
-      const tab = sessionStorage.getItem(BROWSE_TAB_KEY);
-      return tab === 'albums' || tab === 'artists' ? tab : 'tracks';
-    } catch {
-      return 'tracks';
-    }
-  });
+  const [browseTab, setBrowseTab] = useState(readStoredTab);
+  const [ui, setUi] = useState(readStoredUi);
   const [searchResults, setSearchResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [ownership, setOwnership] = useState({ trackIds: new Set(), albumIds: new Set() });
-  const [filters, setFilters] = useState(() => defaultBrowseFilters(false));
-  const skipFilterSave = useRef(true);
-
-  useEffect(() => {
-    skipFilterSave.current = true;
-    setFilters(loadBrowseFilters(isAuthenticated));
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (skipFilterSave.current) {
-      skipFilterSave.current = false;
-      return;
-    }
-    saveBrowseFilters(filters);
-  }, [filters]);
 
   useEffect(() => {
     let cancelled = false;
@@ -202,61 +338,82 @@ const Browse = () => {
   const sourceAlbums = searchResults ? searchResults.albums : catalog.albums;
   const sourceArtists = searchResults ? searchResults.artists : catalog.artists;
   const busy = loading || (Boolean(searchQuery.trim()) && searching && !searchResults);
+  const tracks = useMemo(() => {
+    const sortId = ui.newest ? 'newest' : 'popular';
+    return sortCatalogItems(
+      filterCatalogItems(sourceTracks, {
+        ownedMode: isAuthenticated ? 'discover' : 'all',
+        recency: 'all',
+        genre: '',
+        hideAlbumTracks: false,
+        ownership,
+        payWhatYouWant: ui.pwyw,
+        kind: 'track'
+      }),
+      sortId
+    );
+  }, [sourceTracks, ownership, isAuthenticated, ui.newest, ui.pwyw]);
 
-  const availableGenres = useMemo(
-    () => collectGenres([...sourceTracks, ...sourceAlbums]),
-    [sourceTracks, sourceAlbums]
-  );
-
-  const tracks = useMemo(
-    () =>
-      sortCatalogItems(
-        filterCatalogItems(sourceTracks, {
-          ownedMode: isAuthenticated ? filters.owned : 'all',
-          recency: filters.recency,
-          genre: filters.genre,
-          hideAlbumTracks: filters.hideAlbumTracks,
-          ownership,
-          kind: 'track'
-        }),
-        filters.sort
-      ),
-    [sourceTracks, filters, ownership, isAuthenticated]
-  );
-
-  const albums = useMemo(
-    () =>
-      sortCatalogItems(
-        filterCatalogItems(sourceAlbums, {
-          ownedMode: isAuthenticated ? filters.owned : 'all',
-          recency: filters.recency,
-          genre: filters.genre,
-          hideAlbumTracks: false,
-          ownership,
-          kind: 'album'
-        }),
-        filters.sort
-      ),
-    [sourceAlbums, filters, ownership, isAuthenticated]
-  );
+  const albums = useMemo(() => {
+    const sortId = ui.newest ? 'newest' : 'popular';
+    return sortCatalogItems(
+      filterCatalogItems(sourceAlbums, {
+        ownedMode: isAuthenticated ? 'discover' : 'all',
+        recency: 'all',
+        genre: '',
+        hideAlbumTracks: false,
+        ownership,
+        payWhatYouWant: ui.pwyw,
+        kind: 'album'
+      }),
+      sortId
+    );
+  }, [sourceAlbums, ownership, isAuthenticated, ui.newest, ui.pwyw]);
 
   const artists = useMemo(() => {
     const recencyFiltered = filterCatalogItems(sourceArtists, {
       ownedMode: 'all',
-      recency: filters.recency,
+      recency: 'all',
       genre: '',
       hideAlbumTracks: false,
       ownership,
-      kind: 'artist'
+      kind: 'artist',
+      payWhatYouWant: false
     });
-    const sortId = filters.sort === 'title' || filters.sort === 'newest' ? filters.sort : 'title';
     return sortCatalogItems(
       recencyFiltered.map((a) => ({ ...a, title: a.artist_name || a.name })),
-      sortId
+      ui.newest ? 'newest' : 'title'
     );
-  }, [sourceArtists, filters.recency, filters.sort, ownership]);
+  }, [sourceArtists, ownership, ui.newest]);
 
-  const setFilter = (patch) => setFilters((prev) => ({ ...prev, ...patch }));
+  const pwywTracks = useMemo(
+    () => tracks.filter(isPayWhatYouWant).slice(0, 5),
+    [tracks]
+  );
+
+  const mix = useMemo(() => {
+    const spotlightTrack = tracks[0] || null;
+    const usedTrackIds = new Set(spotlightTrack ? [spotlightTrack.track_id] : []);
+    const spotlightAlbum = albums[0] || null;
+    const spotlightArtists = spotlightAlbum ? artists.slice(0, 2) : [];
+    const moreTracks = tracks.filter((t) => !usedTrackIds.has(t.track_id)).slice(0, 5);
+    const moreAlbums = albums.filter((a) => a.album_id !== spotlightAlbum?.album_id).slice(0, 4);
+    const moreArtists = artists
+      .filter((a) => !spotlightArtists.some((s) => s.user_id === a.user_id))
+      .slice(0, 8);
+    const extraPwyw = ui.pwyw
+      ? []
+      : pwywTracks.filter((t) => t.track_id !== spotlightTrack?.track_id).slice(0, 4);
+    return {
+      spotlightTrack,
+      spotlightAlbum,
+      spotlightArtists,
+      moreTracks,
+      moreAlbums,
+      moreArtists,
+      extraPwyw
+    };
+  }, [tracks, albums, artists, pwywTracks, ui.pwyw]);
 
   useEffect(() => {
     try {
@@ -274,292 +431,351 @@ const Browse = () => {
     }
   }, [browseTab]);
 
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(BROWSE_UI_KEY, JSON.stringify(ui));
+    } catch {
+      // ignore
+    }
+  }, [ui]);
+
   useListScrollRestoration(!busy);
+
+  const searchingHint = searchQuery.trim()
+    ? `Résultats pour « ${searchQuery.trim()} »`
+    : ui.newest
+      ? 'Les dernières sorties, mélangées'
+      : 'Les plus écoutés du moment';
+
+  const renderTrackGrid = (list, { tourFirst = false, testId } = {}) => {
+    if (busy) {
+      return (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="aspect-square rounded-3xl glass animate-pulse" />
+          ))}
+        </div>
+      );
+    }
+    if (!list.length) {
+      return (
+        <EmptyState
+          icon={Music}
+          title="Aucun titre trouvé"
+          hint="Essaie un autre filtre ou une autre recherche."
+          tour={tourFirst ? 'browse-buy' : undefined}
+        />
+      );
+    }
+    return (
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4"
+        data-testid={testId}
+      >
+        {list.map((track, index) => (
+          <motion.div
+            key={track.track_id}
+            variants={itemVariants}
+            data-kloud-tour={tourFirst && index === 0 ? 'browse-buy' : undefined}
+          >
+            <TrackCard track={track} owned={isAuthenticated && isOwnedTrack(track, ownership)} />
+          </motion.div>
+        ))}
+      </motion.div>
+    );
+  };
+
+  const renderAlbumGrid = (list, testId) => {
+    if (busy) {
+      return (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="aspect-square rounded-3xl glass animate-pulse" />
+          ))}
+        </div>
+      );
+    }
+    if (!list.length) {
+      return <EmptyState icon={Disc} title="Aucun album trouvé" hint="Essaie une autre recherche." />;
+    }
+    return (
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"
+        data-testid={testId}
+      >
+        {list.map((album) => (
+          <motion.div key={album.album_id} variants={itemVariants}>
+            <AlbumCard album={album} owned={isAuthenticated && isOwnedAlbum(album, ownership)} />
+          </motion.div>
+        ))}
+      </motion.div>
+    );
+  };
+
+  const renderArtistGrid = (list, { compact = false, testId } = {}) => {
+    if (busy) {
+      return (
+        <div className={`grid ${compact ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-8' : 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6'} gap-4`}>
+          {[...Array(compact ? 8 : 12)].map((_, i) => (
+            <div key={i} className="mx-auto w-16 h-16 rounded-full glass animate-pulse" />
+          ))}
+        </div>
+      );
+    }
+    if (!list.length) {
+      return <EmptyState icon={User} title="Aucun artiste trouvé" hint="Essaie une autre recherche." />;
+    }
+    return (
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className={`grid ${compact ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-8' : 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6'} gap-x-3 gap-y-5`}
+        data-testid={testId}
+      >
+        {list.map((artist) => (
+          <motion.div key={artist.user_id} variants={itemVariants}>
+            <ArtistChip artist={artist} />
+          </motion.div>
+        ))}
+      </motion.div>
+    );
+  };
+
+  const mixIsEmpty = !mix.spotlightTrack && !mix.spotlightAlbum && !artists.length;
 
   return (
     <div className="min-h-screen pb-32 relative overflow-hidden">
       <BubbleBackground />
-      <GlowOrb color="cyan" size={500} x="10%" y="20%" blur={120} />
-      <GlowOrb color="purple" size={400} x="90%" y="60%" blur={100} />
+      <GlowOrb color="cyan" size={460} x="8%" y="16%" blur={120} />
+      <GlowOrb color="purple" size={360} x="92%" y="58%" blur={100} />
 
-      <div className="relative pt-28 pb-16 px-6 md:px-12">
+      <div className="relative pt-24 pb-6 px-6 md:px-12">
         <div className="max-w-7xl mx-auto relative z-10">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.5 }}
+            className="mb-6"
           >
             <h1
-              className="text-5xl md:text-7xl font-bold tracking-tighter mb-4"
+              className="text-4xl md:text-5xl font-bold tracking-tighter"
               data-testid="browse-title"
             >
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
                 Découvrir
               </span>
             </h1>
-            <p className="text-lg text-muted-foreground mb-10 max-w-xl">
-              Explorez les dernières sorties et trouvez votre prochaine musique préférée
+            <p className="text-sm md:text-base text-muted-foreground mt-1.5">
+              {searchingHint}
             </p>
           </motion.div>
 
-          <div data-kloud-tour="browse-discover">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative max-w-2xl"
+          <div
+            className="glass-heavy rounded-2xl border border-white/10 p-2.5 md:p-3"
+            data-testid="browse-filters"
           >
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Rechercher des titres, albums, artistes ou genres..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-14 h-16 rounded-full text-base glass-heavy border-white/10 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 placeholder:text-muted-foreground/50"
-              data-testid="browse-search-input"
-            />
-          </motion.div>
-
-          <div className="mt-8 space-y-3" data-testid="browse-filters">
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="sr-only" htmlFor="browse-sort">
-                Trier
-              </label>
-              <select
-                id="browse-sort"
-                value={filters.sort}
-                onChange={(e) => setFilter({ sort: e.target.value })}
-                className="h-9 rounded-full bg-white/5 border border-white/10 px-4 text-sm"
-                data-testid="browse-sort"
+            <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
+              <div
+                className="flex items-center rounded-full bg-white/5 p-1 shrink-0 overflow-x-auto"
+                data-testid="browse-tabs"
+                role="tablist"
               >
-                {BROWSE_SORTS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {isAuthenticated &&
-                OWNED_FILTERS.map((option) => (
+                {TABS.map((tab) => (
                   <button
-                    key={option.id}
+                    key={tab.id}
                     type="button"
-                    className={chipClass(filters.owned === option.id)}
-                    onClick={() => setFilter({ owned: option.id })}
-                    data-testid={`browse-owned-${option.id}`}
+                    role="tab"
+                    aria-selected={browseTab === tab.id}
+                    className={tabClass(browseTab === tab.id)}
+                    onClick={() => setBrowseTab(tab.id)}
+                    data-testid={
+                      tab.id === 'tracks'
+                        ? 'tracks-tab'
+                        : tab.id === 'albums'
+                          ? 'albums-tab'
+                          : tab.id === 'artists'
+                            ? 'artists-tab'
+                            : 'mix-tab'
+                    }
                   >
-                    {option.label}
-                  </button>
-                ))}
-              {RECENCY_FILTERS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={chipClass(filters.recency === option.id)}
-                  onClick={() => setFilter({ recency: option.id })}
-                >
-                  {option.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                className={chipClass(filters.hideAlbumTracks)}
-                onClick={() => setFilter({ hideAlbumTracks: !filters.hideAlbumTracks })}
-                data-testid="browse-hide-album-tracks"
-              >
-                Sans pistes d’album
-              </button>
-            </div>
-            {availableGenres.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className={chipClass(!filters.genre)}
-                  onClick={() => setFilter({ genre: '' })}
-                >
-                  Tous genres
-                </button>
-                {availableGenres.map((genre) => (
-                  <button
-                    key={genre}
-                    type="button"
-                    className={chipClass(filters.genre === genre)}
-                    onClick={() => setFilter({ genre: filters.genre === genre ? '' : genre })}
-                  >
-                    {genre}
+                    {tab.label}
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Rechercher un titre, un album, un artiste…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-11 h-10 rounded-full text-sm bg-white/5 border-white/10 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 placeholder:text-muted-foreground/50"
+                  data-testid="browse-search-input"
+                  data-kloud-tour="browse-discover"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  className={chipClass(ui.newest)}
+                  onClick={() => setUi((prev) => ({ ...prev, newest: !prev.newest }))}
+                  data-testid="browse-filter-newest"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Nouveautés
+                </button>
+                <button
+                  type="button"
+                  className={chipClass(ui.pwyw)}
+                  onClick={() => setUi((prev) => ({ ...prev, pwyw: !prev.pwyw }))}
+                  data-testid="browse-filter-pwyw"
+                >
+                  <HeartHandshake className="w-3.5 h-3.5" />
+                  Prix libre
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 md:px-12 py-8 relative z-10">
-        <Tabs value={browseTab} onValueChange={setBrowseTab} className="w-full">
-          <TabsList
-            className="mb-10 !h-auto items-center bg-white/5 border border-white/10 rounded-full p-1.5 overflow-hidden"
-            data-testid="browse-tabs"
-          >
-            <TabsTrigger
-              value="tracks"
-              className="gap-2 rounded-full h-9 px-6 py-0 border border-transparent data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500/20 data-[state=active]:to-purple-500/20 data-[state=active]:border-cyan-500/30 data-[state=active]:shadow-none"
-              data-testid="tracks-tab"
-            >
-              <Music className="w-4 h-4" />
-              Titres ({tracks.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="albums"
-              className="gap-2 rounded-full h-9 px-6 py-0 border border-transparent data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/20 data-[state=active]:to-pink-500/20 data-[state=active]:border-purple-500/30 data-[state=active]:shadow-none"
-              data-testid="albums-tab"
-            >
-              <Disc className="w-4 h-4" />
-              Albums ({albums.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="artists"
-              className="gap-2 rounded-full h-9 px-6 py-0 border border-transparent data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500/20 data-[state=active]:to-cyan-500/20 data-[state=active]:border-emerald-500/30 data-[state=active]:shadow-none"
-              data-testid="artists-tab"
-            >
-              <User className="w-4 h-4" />
-              Artistes ({artists.length})
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="tracks" data-testid="tracks-grid">
+      <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-10 space-y-8">
+        {browseTab === 'mix' && (
+          <>
             {busy ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                {[...Array(10)].map((_, i) => (
-                  <div key={i} className="aspect-square rounded-3xl glass animate-pulse" />
-                ))}
+              <div className="grid md:grid-cols-12 gap-4">
+                <div className="md:col-span-7 h-[260px] rounded-[1.75rem] glass animate-pulse" />
+                <div className="md:col-span-5 space-y-3">
+                  <div className="h-[118px] rounded-2xl glass animate-pulse" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="h-[72px] rounded-2xl glass animate-pulse" />
+                    <div className="h-[72px] rounded-2xl glass animate-pulse" />
+                  </div>
+                </div>
               </div>
-            ) : tracks.length > 0 ? (
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6"
-              >
-                {tracks.map((track, index) => (
-                  <motion.div
-                    key={track.track_id}
-                    variants={itemVariants}
-                    data-kloud-tour={index === 0 ? 'browse-buy' : undefined}
-                  >
-                    <TrackCard track={track} owned={isAuthenticated && isOwnedTrack(track, ownership)} />
-                  </motion.div>
-                ))}
-              </motion.div>
+            ) : mixIsEmpty ? (
+              <EmptyState
+                icon={Music}
+                title="Rien à afficher pour l’instant"
+                hint="Essaie d’enlever un filtre, ou reviens un peu plus tard."
+                tour="browse-buy"
+              />
             ) : (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-20 glass-heavy rounded-3xl"
-                data-kloud-tour="browse-buy"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`grid gap-4 ${mix.spotlightAlbum || mix.spotlightArtists.length ? 'md:grid-cols-12' : ''}`}
               >
-                <Music className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-                <p className="text-lg text-muted-foreground">Aucun titre trouvé</p>
-                <p className="text-sm text-muted-foreground/60 mt-1">
-                  {filters.owned === 'discover'
-                    ? 'Tout est déjà dans ta bibliothèque, ou aucun titre ne correspond aux filtres.'
-                    : 'Essaie un autre filtre ou une autre recherche.'}
-                </p>
-              </motion.div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="albums" data-testid="albums-grid">
-            {busy ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                {[...Array(10)].map((_, i) => (
-                  <div key={i} className="aspect-square rounded-3xl glass animate-pulse" />
-                ))}
-              </div>
-            ) : albums.length > 0 ? (
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6"
-              >
-                {albums.map((album) => (
-                  <motion.div key={album.album_id} variants={itemVariants}>
-                    <AlbumCard album={album} owned={isAuthenticated && isOwnedAlbum(album, ownership)} />
-                  </motion.div>
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-20 glass-heavy rounded-3xl"
-              >
-                <Disc className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-                <p className="text-lg text-muted-foreground">Aucun album trouvé</p>
-                <p className="text-sm text-muted-foreground/60 mt-1">Essayez une autre recherche</p>
-              </motion.div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="artists" data-testid="artists-grid">
-            {busy ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                {[...Array(8)].map((_, i) => (
-                  <div key={i} className="mx-auto w-40 h-40 rounded-full glass animate-pulse" />
-                ))}
-              </div>
-            ) : artists.length > 0 ? (
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="grid grid-cols-2 md:grid-cols-4 gap-8"
-              >
-                {artists.map((artist) => (
-                  <motion.div key={artist.user_id} variants={itemVariants}>
+                <div className={mix.spotlightAlbum || mix.spotlightArtists.length ? 'md:col-span-7' : ''}>
+                  {mix.spotlightTrack ? (
+                    <SpotlightTrack
+                      track={mix.spotlightTrack}
+                      owned={isAuthenticated && isOwnedTrack(mix.spotlightTrack, ownership)}
+                    />
+                  ) : mix.spotlightAlbum ? (
                     <Link
-                      to={`/artist/${artist.user_id}`}
-                      data-testid={`artist-card-${artist.user_id}`}
-                      onClick={() =>
-                        rememberListPosition({
-                          selector: `[data-testid="artist-card-${artist.user_id}"]`
-                        })
-                      }
+                      to={`/album/${mix.spotlightAlbum.album_id}`}
+                      className="block h-full min-h-[240px] overflow-hidden rounded-[1.75rem]"
                     >
-                      <div className="group relative text-center">
-                        <div className="relative mx-auto w-36 h-36 md:w-40 md:h-40">
-                          <Avatar className="w-full h-full border-2 border-white/10 group-hover:border-cyan-400/50 transition-colors duration-300 shadow-2xl">
-                            <AvatarImage src={artist.picture} className="object-cover" />
-                            <AvatarFallback className="text-3xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
-                              {artist.artist_name?.[0] || artist.name?.[0] || '?'}
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                        <div className="mt-4 space-y-1">
-                          <h3 className="font-semibold text-lg group-hover:text-cyan-400 transition-colors truncate">
-                            {artist.artist_name || artist.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">Artiste</p>
-                        </div>
-                      </div>
+                      <CoverImage
+                        src={mix.spotlightAlbum.cover_url}
+                        alt={mix.spotlightAlbum.title}
+                        className="h-full min-h-[240px]"
+                      />
                     </Link>
-                  </motion.div>
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-20 glass-heavy rounded-3xl"
-              >
-                <User className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-                <p className="text-lg text-muted-foreground">Aucun artiste trouvé</p>
-                <p className="text-sm text-muted-foreground/60 mt-1">Essayez une autre recherche</p>
+                  ) : null}
+                </div>
+                {mix.spotlightAlbum || mix.spotlightArtists.length ? (
+                  <div className="md:col-span-5 flex flex-col gap-3">
+                    {mix.spotlightAlbum ? (
+                      <SpotlightAlbum
+                        album={mix.spotlightAlbum}
+                        owned={isAuthenticated && isOwnedAlbum(mix.spotlightAlbum, ownership)}
+                      />
+                    ) : null}
+                    {mix.spotlightArtists.length > 0 ? (
+                      <div
+                        className={`grid gap-3 flex-1 ${
+                          mix.spotlightArtists.length > 1 ? 'grid-cols-2' : 'grid-cols-1'
+                        }`}
+                      >
+                        {mix.spotlightArtists.map((artist) => (
+                          <SpotlightArtist key={artist.user_id} artist={artist} />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </motion.div>
             )}
-          </TabsContent>
-        </Tabs>
+
+            {mix.moreTracks.length > 0 && (
+              <section>
+                <SectionHead
+                  title="Sorties"
+                  hint="Titres à découvrir"
+                  onMore={() => setBrowseTab('tracks')}
+                />
+                {renderTrackGrid(mix.moreTracks, { testId: 'tracks-grid' })}
+              </section>
+            )}
+
+            {mix.moreAlbums.length > 0 && (
+              <section>
+                <SectionHead title="Albums" onMore={() => setBrowseTab('albums')} />
+                {renderAlbumGrid(mix.moreAlbums, 'albums-grid')}
+              </section>
+            )}
+
+            {mix.extraPwyw.length > 0 && (
+              <section>
+                <SectionHead
+                  title="Prix libre"
+                  hint="Tu choisis ce que tu mets"
+                  onMore={() => {
+                    setUi((prev) => ({ ...prev, pwyw: true }));
+                    setBrowseTab('tracks');
+                  }}
+                />
+                {renderTrackGrid(mix.extraPwyw)}
+              </section>
+            )}
+
+            {mix.moreArtists.length > 0 && (
+              <section>
+                <SectionHead title="Artistes" onMore={() => setBrowseTab('artists')} />
+                {renderArtistGrid(mix.moreArtists, { compact: true, testId: 'artists-grid' })}
+              </section>
+            )}
+          </>
+        )}
+
+        {browseTab === 'tracks' && (
+          <section data-testid="tracks-grid">
+            {renderTrackGrid(tracks.slice(0, 15), { tourFirst: true })}
+          </section>
+        )}
+
+        {browseTab === 'albums' && (
+          <section data-testid="albums-grid">
+            {renderAlbumGrid(albums.slice(0, 12))}
+          </section>
+        )}
+
+        {browseTab === 'artists' && (
+          <section data-testid="artists-grid">
+            {renderArtistGrid(artists.slice(0, 18), { compact: false })}
+          </section>
+        )}
       </div>
     </div>
   );

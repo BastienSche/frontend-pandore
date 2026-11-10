@@ -9,7 +9,9 @@ import {
   skipProductTour
 } from '@/lib/productTour';
 
-const PAD = 10;
+const PAD = 7;
+const MAX_W = 300;
+const MAX_H = 88;
 const pathOf = (location) => `${location.pathname}${location.search || ''}`;
 const samePath = (a, b) => {
   const left = String(a || '').replace(/\/$/, '') || '/';
@@ -17,15 +19,57 @@ const samePath = (a, b) => {
   return left === right;
 };
 
-const measure = (el) => {
+const pickHotEl = (el) => {
   if (!el) return null;
+  if (el.matches('button, a, input, textarea, [role="tab"], [role="button"]')) return el;
   const r = el.getBoundingClientRect();
+  if (r.width > 8 && r.height > 8 && r.width <= 380 && r.height <= 420) return el;
+  return (
+    el.querySelector('button, a, input, textarea, [role="tab"], [role="button"]') || el
+  );
+};
+
+const pickBestEl = (target) => {
+  const nodes = [...document.querySelectorAll(`[data-kloud-tour="${target}"]`)];
+  if (!nodes.length) return null;
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  return nodes
+    .map((node) => {
+      const r = node.getBoundingClientRect();
+      const area = Math.max(1, r.width * r.height);
+      const dx = r.left + r.width / 2 - cx;
+      const dy = r.top + r.height / 2 - cy;
+      return { node, score: area + (dx * dx + dy * dy) / 20 };
+    })
+    .sort((a, b) => a.score - b.score)[0].node;
+};
+
+const measure = (el) => {
+  const hot = pickHotEl(el);
+  if (!hot) return null;
+  const r = hot.getBoundingClientRect();
   if (r.width < 8 && r.height < 8) return null;
+
+  let width = r.width;
+  let height = r.height;
+  let left = r.left;
+  let top = r.top;
+
+  if (width > MAX_W) {
+    width = MAX_W;
+  }
+  if (height > MAX_H) {
+    top = r.bottom - MAX_H;
+    height = MAX_H;
+  }
+
   return {
-    top: Math.max(8, r.top - PAD),
-    left: Math.max(8, r.left - PAD),
-    width: Math.min(window.innerWidth - 16, r.width + PAD * 2),
-    height: Math.min(window.innerHeight - 16, r.height + PAD * 2)
+    top: Math.max(8, top - PAD),
+    left: Math.max(8, left - PAD),
+    width: Math.min(window.innerWidth - 16, width + PAD * 2),
+    height: Math.min(window.innerHeight - 16, height + PAD * 2),
+    radius: Math.min(22, (height + PAD * 2) / 2)
   };
 };
 
@@ -63,13 +107,13 @@ const ProductTour = () => {
     let scrolled = false;
     const tick = () => {
       if (cancelled) return;
-      const el = document.querySelector(`[data-kloud-tour="${step.target}"]`);
+      const el = pickBestEl(step.target);
       const nextBox = measure(el);
       if (nextBox) {
         setBox(nextBox);
         if (!scrolled) {
           scrolled = true;
-          el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+          el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
         }
         return;
       }
@@ -81,8 +125,7 @@ const ProductTour = () => {
     };
     tick();
     const onMove = () => {
-      const el = document.querySelector(`[data-kloud-tour="${step.target}"]`);
-      setBox(measure(el));
+      setBox(measure(pickBestEl(step.target)));
     };
     window.addEventListener('resize', onMove);
     window.addEventListener('scroll', onMove, true);
@@ -93,87 +136,124 @@ const ProductTour = () => {
     };
   }, [step, location, navigate]);
 
-  if (!tour || !step || !userId) return null;
+  useEffect(() => {
+    if (!step || !userId) return undefined;
+    const onClick = (e) => {
+      if (step.stay) return;
+      const el = pickBestEl(step.target);
+      if (!el || !el.contains(e.target)) return;
+      if (e.target.closest('input, textarea')) return;
+      window.setTimeout(() => advanceProductTour(userId), 40);
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [step, userId]);
 
-  const goNext = () => advanceProductTour(userId);
+  if (!tour || !step || !userId || !box) return null;
+
   const ignore = (e) => {
     e.stopPropagation();
     skipProductTour(userId);
   };
 
-  const captionTop = box
-    ? Math.min(
-        window.innerHeight - 96,
-        box.top + box.height + 12 > window.innerHeight - 90 ? Math.max(12, box.top - 76) : box.top + box.height + 12
-      )
-    : window.innerHeight / 2 - 32;
-  const captionLeft = box
-    ? Math.min(window.innerWidth - 280, Math.max(12, box.left))
-    : 24;
+  const spaceBelow = window.innerHeight - (box.top + box.height);
+  const placeAbove = spaceBelow < 72 && box.top > 72;
+  const captionTop = placeAbove ? box.top - 56 : box.top + box.height + 10;
+  const captionLeft = Math.min(
+    window.innerWidth - 268,
+    Math.max(12, box.left + box.width / 2 - 130)
+  );
+
+  const panes = [
+    { top: 0, left: 0, width: '100%', height: box.top },
+    { top: box.top, left: 0, width: box.left, height: box.height },
+    {
+      top: box.top,
+      left: box.left + box.width,
+      width: Math.max(0, window.innerWidth - (box.left + box.width)),
+      height: box.height
+    },
+    {
+      top: box.top + box.height,
+      left: 0,
+      width: '100%',
+      height: Math.max(0, window.innerHeight - (box.top + box.height))
+    }
+  ];
 
   return (
     <AnimatePresence>
       <motion.div
         key={step.id}
-        className="fixed inset-0 z-[70]"
+        className="fixed inset-0 z-[70] pointer-events-none"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
+        transition={{ duration: 0.18 }}
       >
-        <button
-          type="button"
-          aria-label="Étape suivante"
-          className="absolute inset-0 bg-black/25 cursor-pointer"
-          onClick={goNext}
-        />
-        {box ? (
-          <button
-            type="button"
-            aria-hidden
-            onClick={goNext}
-            className="absolute rounded-[1.6rem] border border-white/25 bg-white/[0.07] backdrop-blur-[6px] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_40px_rgba(0,0,0,0.25)] cursor-pointer"
-            style={{
-              top: box.top,
-              left: box.left,
-              width: box.width,
-              height: box.height
-            }}
+        {panes.map((pane, i) => (
+          <div
+            key={i}
+            className="absolute bg-[#020814]/55 pointer-events-auto"
+            style={pane}
           />
-        ) : null}
+        ))}
+
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: box.top,
+            left: box.left,
+            width: box.width,
+            height: box.height,
+            borderRadius: box.radius,
+            boxShadow:
+              '0 0 0 2px rgba(34,211,238,0.75), 0 0 22px 2px rgba(168,85,247,0.35), 0 0 0 9999px rgba(2,8,20,0.0)',
+            animation: 'kloud-tour-pulse 1.6s ease-in-out infinite'
+          }}
+        />
+
         <div
           className="absolute pointer-events-auto"
-          style={{ top: captionTop, left: captionLeft, width: 'min(16.5rem, calc(100vw - 1.5rem))' }}
+          style={{
+            top: captionTop,
+            left: captionLeft,
+            width: 'min(16rem, calc(100vw - 1.5rem))'
+          }}
         >
-          <button
-            type="button"
-            onClick={goNext}
-            className="w-full text-left glass-heavy rounded-2xl border border-white/15 px-4 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.28)]"
-          >
-            <p className="text-sm font-medium leading-snug">{step.text}</p>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <span className="flex gap-1" aria-hidden>
-                {tour.steps.map((_, i) => (
-                  <span
-                    key={tour.steps[i].id}
-                    className={`h-1.5 rounded-full ${
-                      i === tour.step ? 'w-4 bg-cyan-300' : 'w-1.5 bg-white/25'
-                    }`}
-                  />
-                ))}
-              </span>
-              <span className="text-[11px] text-muted-foreground">Cliquer</span>
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={ignore}
-            className="mt-2 ml-1 text-[11px] text-muted-foreground/80 hover:text-foreground"
-            data-testid="product-tour-ignore"
-          >
-            Ignorer
-          </button>
+          <div className="flex items-center gap-2 rounded-full border border-cyan-400/30 bg-[#07111f]/92 px-3 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+            <p className="text-[12px] leading-none font-medium text-white/90 truncate">
+              {step.text}
+            </p>
+            {step.stay ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  advanceProductTour(userId);
+                }}
+                className="shrink-0 text-[11px] text-cyan-300 hover:text-cyan-100"
+              >
+                OK
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={ignore}
+              className="shrink-0 text-[11px] text-white/45 hover:text-white/90"
+              data-testid="product-tour-ignore"
+            >
+              Ignorer
+            </button>
+          </div>
         </div>
+
+        <style>{`
+          @keyframes kloud-tour-pulse {
+            0%, 100% { box-shadow: 0 0 0 2px rgba(34,211,238,0.7), 0 0 18px 1px rgba(168,85,247,0.28); }
+            50% { box-shadow: 0 0 0 3px rgba(34,211,238,1), 0 0 28px 4px rgba(168,85,247,0.45); }
+          }
+        `}</style>
       </motion.div>
     </AnimatePresence>
   );

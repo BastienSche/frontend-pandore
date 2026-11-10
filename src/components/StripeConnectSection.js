@@ -168,7 +168,7 @@ const StripeConnectSection = ({ returnTo = 'settings', testId = 'stripe-connect-
   const availableCents = Number(wallet?.available_cents || 0);
 
   return (
-    <Card className="glass-heavy rounded-3xl border-white/10" data-testid={testId} data-kloud-tour={tourAnchor || undefined}>
+    <Card className="glass-heavy rounded-3xl border-white/10" data-testid={testId}>
       <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <CardTitle className="flex items-center gap-2">
           <Wallet className="w-5 h-5 text-emerald-400" />
@@ -208,6 +208,7 @@ const StripeConnectSection = ({ returnTo = 'settings', testId = 'stripe-connect-
               disabled={connectActionLoading || connectStatus?.connect_enabled === false || !!statusError}
               onClick={startStripeOnboarding}
               data-testid="stripe-connect-onboard"
+              data-kloud-tour={tourAnchor || undefined}
             >
               {connectActionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               {connectStatus?.has_account ? 'Terminer Stripe Connect' : 'Activer Stripe Connect'}
@@ -219,6 +220,7 @@ const StripeConnectSection = ({ returnTo = 'settings', testId = 'stripe-connect-
               className="rounded-full glass border-white/10"
               onClick={openStripeExpress}
               data-testid="stripe-connect-express"
+              data-kloud-tour={tourAnchor || undefined}
             >
               Ouvrir Stripe Express
             </Button>

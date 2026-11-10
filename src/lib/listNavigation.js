@@ -34,9 +34,14 @@ export function rememberListPosition({ selector } = {}) {
   writeMap(map);
 }
 
+export function peekListPosition(pathKey) {
+  if (typeof window === 'undefined') return null;
+  return readMap()[pathKey] || null;
+}
+
 export function restoreListPosition(pathKey) {
   if (typeof window === 'undefined') return false;
-  const saved = readMap()[pathKey];
+  const saved = peekListPosition(pathKey);
   if (!saved) return false;
   const y = Number(saved.y) || 0;
   window.scrollTo(0, y);

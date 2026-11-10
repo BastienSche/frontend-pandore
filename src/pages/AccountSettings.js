@@ -730,7 +730,7 @@ const AccountSettings = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-2" data-kloud-tour="artist-bio">
+                    <div className="space-y-2">
                       <Label>Bio</Label>
                       <Textarea
                         value={artistProfile.bio}
@@ -738,6 +738,7 @@ const AccountSettings = () => {
                         rows={5}
                         placeholder="Parlez de votre univers, influences, etc."
                         className="rounded-xl bg-white/5 border-white/10"
+                        data-kloud-tour="artist-bio"
                       />
                     </div>
 
@@ -767,7 +768,7 @@ const AccountSettings = () => {
                                   links: p.links.map((l, i) => (i === idx ? { ...l, kind: e.target.value } : l))
                                 }))
                               }
-                              className="sm:col-span-3 h-12 rounded-xl bg-white/5 border border-white/10 px-3 text-sm"
+                              className="sm:col-span-3 h-12 min-h-12 rounded-xl bg-white/5 border border-white/10 px-3 text-sm"
                             >
                               {SMART_LINK_KINDS.map((kind) => (
                                 <option key={kind.id} value={kind.id}>
@@ -775,28 +776,32 @@ const AccountSettings = () => {
                                 </option>
                               ))}
                             </select>
-                            <Input
-                              value={link.url || ''}
-                              onChange={(e) =>
-                                setArtistProfile((p) => ({
-                                  ...p,
-                                  links: p.links.map((l, i) => (i === idx ? { ...l, url: e.target.value } : l))
-                                }))
-                              }
-                              placeholder={SMART_LINK_KINDS.find((k) => k.id === link.kind)?.placeholder || 'https://…'}
-                              className="sm:col-span-6 h-12 rounded-xl bg-white/5 border-white/10"
-                            />
-                            <Input
-                              value={link.label || ''}
-                              onChange={(e) =>
-                                setArtistProfile((p) => ({
-                                  ...p,
-                                  links: p.links.map((l, i) => (i === idx ? { ...l, label: e.target.value } : l))
-                                }))
-                              }
-                              placeholder="Libellé"
-                              className="sm:col-span-3 h-12 rounded-xl bg-white/5 border-white/10"
-                            />
+                            <div className="sm:col-span-6 min-w-0">
+                              <Input
+                                value={link.url || ''}
+                                onChange={(e) =>
+                                  setArtistProfile((p) => ({
+                                    ...p,
+                                    links: p.links.map((l, i) => (i === idx ? { ...l, url: e.target.value } : l))
+                                  }))
+                                }
+                                placeholder={SMART_LINK_KINDS.find((k) => k.id === link.kind)?.placeholder || 'https://…'}
+                                className="h-12 min-h-12 rounded-xl bg-white/5 border-white/10"
+                              />
+                            </div>
+                            <div className="sm:col-span-3 min-w-0">
+                              <Input
+                                value={link.label || ''}
+                                onChange={(e) =>
+                                  setArtistProfile((p) => ({
+                                    ...p,
+                                    links: p.links.map((l, i) => (i === idx ? { ...l, label: e.target.value } : l))
+                                  }))
+                                }
+                                placeholder="Libellé"
+                                className="h-12 min-h-12 rounded-xl bg-white/5 border-white/10"
+                              />
+                            </div>
                             <Button
                               type="button"
                               variant="outline"
