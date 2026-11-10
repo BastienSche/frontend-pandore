@@ -35,7 +35,6 @@ import ContestAnnounceModal from '@/components/ContestAnnounceModal';
 import AnalyticsTracker from '@/components/AnalyticsTracker';
 import SiteFooter from '@/components/SiteFooter';
 import CookieBanner from '@/components/CookieBanner';
-import ProductTour from '@/components/ProductTour';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { ARTIST_ONBOARDING_PATH, consumePostLoginPath, rememberPostLoginPath, safeInternalPath } from '@/lib/postLoginRedirect';
 import { listPathKey, peekListPosition } from '@/lib/listNavigation';
@@ -207,7 +206,6 @@ function AppRouter() {
       <CookieBanner />
       <AudioPlayer />
       <ContestAnnounceModal />
-      <ProductTour />
     </>
   );
 }

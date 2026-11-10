@@ -32,7 +32,6 @@ import { Badge } from '@/components/ui/badge';
 import { emptySmartLink, normalizeSmartLinks, publicPageUrl, SMART_LINK_KINDS } from '@/lib/smartLinks';
 import ShareButton from '@/components/ShareButton';
 import StripeConnectSection from '@/components/StripeConnectSection';
-import { startProductTour } from '@/lib/productTour';
 
 const SETTINGS_TABS = new Set(['account', 'audio', 'notifications', 'privacy', 'artist']);
 
@@ -150,10 +149,9 @@ const AccountSettings = () => {
     }
     setBecomingArtist(true);
     try {
-      const updated = await switchRole('artist', nextName);
+      await switchRole('artist', nextName);
       setArtistProfile((prev) => ({ ...prev, name: nextName || prev.name }));
       toast.success('Compte artiste activé');
-      startProductTour('artist', updated?.user_id || user.user_id);
       navigate('/settings?tab=artist');
     } catch (error) {
       toast.error(formatApiError(error, "Impossible de devenir artiste"));
@@ -738,7 +736,6 @@ const AccountSettings = () => {
                         rows={5}
                         placeholder="Parlez de votre univers, influences, etc."
                         className="rounded-xl bg-white/5 border-white/10"
-                        data-kloud-tour="artist-bio"
                       />
                     </div>
 

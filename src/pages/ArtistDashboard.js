@@ -1229,7 +1229,6 @@ const ArtistDashboard = () => {
                 className="rounded-full px-8 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 border-0 shadow-[0_0_30px_rgba(139,92,246,0.3)]"
                 onClick={() => { resetForm(); setEditingTrack(null); setShowTrackDialog(true); }}
                 data-testid="new-track-button"
-                data-kloud-tour="artist-dashboard"
               >
                 <Plus className="w-5 h-5 mr-2" />
                 Nouveau track
@@ -1345,7 +1344,7 @@ const ArtistDashboard = () => {
               />
             </div>
 
-            <StripeConnectSection returnTo="dashboard" testId="dashboard-stripe-connect" tourAnchor="artist-connect" />
+            <StripeConnectSection returnTo="dashboard" testId="dashboard-stripe-connect" />
 
             {/* Top Tracks */}
             <div className="glass-heavy rounded-3xl p-6">

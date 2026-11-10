@@ -13,7 +13,6 @@ import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import KloudLogo from '@/components/KloudLogo';
 import GoogleAuthButton from '@/components/GoogleAuthButton';
 import { ARTIST_ONBOARDING_PATH, consumePostLoginPath, rememberPostLoginPath } from '@/lib/postLoginRedirect';
-import { startProductTour } from '@/lib/productTour';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -31,9 +30,7 @@ const Register = () => {
     
     try {
       if (isArtist) rememberPostLoginPath(ARTIST_ONBOARDING_PATH);
-      const data = await register(email, password, name, isArtist ? artistName : null);
-      const userId = data?.user?.user_id;
-      if (userId) startProductTour(isArtist ? 'artist' : 'listener', userId);
+      await register(email, password, name, isArtist ? artistName : null);
       toast.success('Inscription réussie !');
       navigate(isArtist ? ARTIST_ONBOARDING_PATH : consumePostLoginPath('/browse'));
     } catch (error) {

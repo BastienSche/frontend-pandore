@@ -25,7 +25,7 @@ const connectLabel = (wallet, status) => {
   return { text: 'Non activé', className: 'bg-white/10 text-muted-foreground border-white/15' };
 };
 
-const StripeConnectSection = ({ returnTo = 'settings', testId = 'stripe-connect-section', tourAnchor }) => {
+const StripeConnectSection = ({ returnTo = 'settings', testId = 'stripe-connect-section' }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [connectStatus, setConnectStatus] = useState(null);
   const [connectBalance, setConnectBalance] = useState(null);
@@ -208,7 +208,6 @@ const StripeConnectSection = ({ returnTo = 'settings', testId = 'stripe-connect-
               disabled={connectActionLoading || connectStatus?.connect_enabled === false || !!statusError}
               onClick={startStripeOnboarding}
               data-testid="stripe-connect-onboard"
-              data-kloud-tour={tourAnchor || undefined}
             >
               {connectActionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               {connectStatus?.has_account ? 'Terminer Stripe Connect' : 'Activer Stripe Connect'}
@@ -220,7 +219,6 @@ const StripeConnectSection = ({ returnTo = 'settings', testId = 'stripe-connect-
               className="rounded-full glass border-white/10"
               onClick={openStripeExpress}
               data-testid="stripe-connect-express"
-              data-kloud-tour={tourAnchor || undefined}
             >
               Ouvrir Stripe Express
             </Button>

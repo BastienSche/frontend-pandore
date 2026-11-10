@@ -203,7 +203,6 @@ const Playlists = () => {
                   size="lg"
                   className="rounded-full px-8 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 border-0 shadow-[0_0_30px_rgba(16,185,129,0.25)]"
                   data-testid="create-playlist-button"
-                  data-kloud-tour="playlists"
                 >
                   <Plus className="w-5 h-5 mr-2" />
                   Nouvelle playlist
@@ -264,7 +263,6 @@ const Playlists = () => {
             <Button
               onClick={() => setShowCreateDialog(true)}
               className="rounded-full px-10 h-12 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 border-0"
-              data-kloud-tour="playlists"
             >
               <Plus className="w-5 h-5 mr-2" />
               Créer une playlist

@@ -5,7 +5,6 @@ import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
 import CoverImage from '@/components/CoverImage';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -120,12 +119,11 @@ const SectionHead = ({ title, hint, onMore }) => (
   </div>
 );
 
-const EmptyState = ({ icon: Icon, title, hint, tour }) => (
+const EmptyState = ({ icon: Icon, title, hint }) => (
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     className="text-center py-16 glass-heavy rounded-3xl"
-    data-kloud-tour={tour}
   >
     <Icon className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
     <p className="text-base text-muted-foreground">{title}</p>
@@ -133,20 +131,24 @@ const EmptyState = ({ icon: Icon, title, hint, tour }) => (
   </motion.div>
 );
 
-const ArtistChip = ({ artist }) => (
+const ArtistChip = ({ artist, large = false }) => (
   <Link
     to={`/artist/${artist.user_id}`}
     data-testid={`artist-card-${artist.user_id}`}
     onClick={() => rememberListPosition({ selector: `[data-testid="artist-card-${artist.user_id}"]` })}
     className="group flex flex-col items-center text-center min-w-0"
   >
-    <Avatar className="w-[4.5rem] h-[4.5rem] border border-white/10 group-hover:border-cyan-400/50 transition-colors shadow-lg">
+    <Avatar
+      className={`${
+        large ? 'w-28 h-28 md:w-32 md:h-32' : 'w-24 h-24 md:w-28 md:h-28'
+      } border-2 border-white/10 group-hover:border-cyan-400/60 transition-all duration-300 shadow-[0_8px_28px_rgba(0,0,0,0.35)] group-hover:scale-[1.04]`}
+    >
       <AvatarImage src={artist.picture} className="object-cover" />
-      <AvatarFallback className="text-lg bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
+      <AvatarFallback className="text-2xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
         {artist.artist_name?.[0] || artist.name?.[0] || '?'}
       </AvatarFallback>
     </Avatar>
-    <h3 className="mt-2 text-sm font-medium truncate w-full group-hover:text-cyan-400 transition-colors">
+    <h3 className="mt-3 text-sm md:text-base font-medium truncate w-full group-hover:text-cyan-400 transition-colors">
       {artist.artist_name || artist.name}
     </h3>
   </Link>
@@ -164,7 +166,6 @@ const SpotlightTrack = ({ track, owned }) => {
       type="button"
       onClick={open}
       data-testid="browse-spotlight"
-      data-kloud-tour="browse-buy"
       className="relative w-full h-full min-h-[240px] overflow-hidden rounded-[1.75rem] text-left group"
     >
       <CoverImage
@@ -222,7 +223,7 @@ const SpotlightArtist = ({ artist }) => (
     data-testid={`browse-spotlight-artist-${artist.user_id}`}
     className="flex items-center gap-3 rounded-2xl glass-heavy p-3 group min-w-0 h-full"
   >
-    <Avatar className="w-12 h-12 shrink-0 border border-white/10">
+    <Avatar className="w-16 h-16 md:w-[4.5rem] md:h-[4.5rem] shrink-0 border-2 border-white/10">
       <AvatarImage src={artist.picture} className="object-cover" />
       <AvatarFallback>{artist.artist_name?.[0] || artist.name?.[0] || '?'}</AvatarFallback>
     </Avatar>
@@ -447,7 +448,7 @@ const Browse = () => {
       ? 'Les dernières sorties, mélangées'
       : 'Les plus écoutés du moment';
 
-  const renderTrackGrid = (list, { tourFirst = false, testId } = {}) => {
+  const renderTrackGrid = (list, { testId } = {}) => {
     if (busy) {
       return (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -463,7 +464,6 @@ const Browse = () => {
           icon={Music}
           title="Aucun titre trouvé"
           hint="Essaie un autre filtre ou une autre recherche."
-          tour={tourFirst ? 'browse-buy' : undefined}
         />
       );
     }
@@ -475,12 +475,8 @@ const Browse = () => {
         className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4"
         data-testid={testId}
       >
-        {list.map((track, index) => (
-          <motion.div
-            key={track.track_id}
-            variants={itemVariants}
-            data-kloud-tour={tourFirst && index === 0 ? 'browse-buy' : undefined}
-          >
+        {list.map((track) => (
+          <motion.div key={track.track_id} variants={itemVariants}>
             <TrackCard track={track} owned={isAuthenticated && isOwnedTrack(track, ownership)} />
           </motion.div>
         ))}
@@ -521,9 +517,9 @@ const Browse = () => {
   const renderArtistGrid = (list, { compact = false, testId } = {}) => {
     if (busy) {
       return (
-        <div className={`grid ${compact ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-8' : 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6'} gap-4`}>
-          {[...Array(compact ? 8 : 12)].map((_, i) => (
-            <div key={i} className="mx-auto w-16 h-16 rounded-full glass animate-pulse" />
+        <div className={`grid ${compact ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'} gap-5`}>
+          {[...Array(compact ? 6 : 10)].map((_, i) => (
+            <div key={i} className="mx-auto w-24 h-24 md:w-28 md:h-28 rounded-full glass animate-pulse" />
           ))}
         </div>
       );
@@ -536,12 +532,12 @@ const Browse = () => {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className={`grid ${compact ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-8' : 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6'} gap-x-3 gap-y-5`}
+        className={`grid ${compact ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'} gap-x-4 gap-y-7`}
         data-testid={testId}
       >
         {list.map((artist) => (
           <motion.div key={artist.user_id} variants={itemVariants}>
-            <ArtistChip artist={artist} />
+            <ArtistChip artist={artist} large={!compact} />
           </motion.div>
         ))}
       </motion.div>
@@ -577,72 +573,73 @@ const Browse = () => {
             </p>
           </motion.div>
 
-          <div
-            className="glass-heavy rounded-2xl border border-white/10 p-2.5 md:p-3"
-            data-testid="browse-filters"
-          >
-            <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
-              <div
-                className="flex items-center rounded-full bg-white/5 p-1 shrink-0 overflow-x-auto"
-                data-testid="browse-tabs"
-                role="tablist"
+          <div className="relative group mb-5" data-testid="browse-filters">
+            <div
+              className="pointer-events-none absolute -inset-[1px] rounded-full bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 opacity-55 blur-[1px] transition-opacity duration-300 group-focus-within:opacity-100"
+              aria-hidden
+            />
+            <div className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_48px_rgba(34,211,238,0.16)] group-focus-within:shadow-[0_0_64px_rgba(168,85,247,0.28)] transition-shadow" />
+            <div className="relative rounded-full bg-[#071018]/80 backdrop-blur-xl border border-white/10">
+              <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-300/85 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Rechercher un titre, un album, un artiste…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-16 pl-16 pr-6 bg-transparent rounded-full text-base md:text-lg outline-none placeholder:text-muted-foreground/45"
+                data-testid="browse-search-input"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div
+              className="flex items-center rounded-full bg-white/5 border border-white/10 p-1 shrink-0 overflow-x-auto"
+              data-testid="browse-tabs"
+              role="tablist"
+            >
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={browseTab === tab.id}
+                  className={tabClass(browseTab === tab.id)}
+                  onClick={() => setBrowseTab(tab.id)}
+                  data-testid={
+                    tab.id === 'tracks'
+                      ? 'tracks-tab'
+                      : tab.id === 'albums'
+                        ? 'albums-tab'
+                        : tab.id === 'artists'
+                          ? 'artists-tab'
+                          : 'mix-tab'
+                  }
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                className={chipClass(ui.newest)}
+                onClick={() => setUi((prev) => ({ ...prev, newest: !prev.newest }))}
+                data-testid="browse-filter-newest"
               >
-                {TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={browseTab === tab.id}
-                    className={tabClass(browseTab === tab.id)}
-                    onClick={() => setBrowseTab(tab.id)}
-                    data-testid={
-                      tab.id === 'tracks'
-                        ? 'tracks-tab'
-                        : tab.id === 'albums'
-                          ? 'albums-tab'
-                          : tab.id === 'artists'
-                            ? 'artists-tab'
-                            : 'mix-tab'
-                    }
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Rechercher un titre, un album, un artiste…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-11 h-10 rounded-full text-sm bg-white/5 border-white/10 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 placeholder:text-muted-foreground/50"
-                  data-testid="browse-search-input"
-                  data-kloud-tour="browse-discover"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  className={chipClass(ui.newest)}
-                  onClick={() => setUi((prev) => ({ ...prev, newest: !prev.newest }))}
-                  data-testid="browse-filter-newest"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Nouveautés
-                </button>
-                <button
-                  type="button"
-                  className={chipClass(ui.pwyw)}
-                  onClick={() => setUi((prev) => ({ ...prev, pwyw: !prev.pwyw }))}
-                  data-testid="browse-filter-pwyw"
-                >
-                  <HeartHandshake className="w-3.5 h-3.5" />
-                  Prix libre
-                </button>
-              </div>
+                <Sparkles className="w-3.5 h-3.5" />
+                Nouveautés
+              </button>
+              <button
+                type="button"
+                className={chipClass(ui.pwyw)}
+                onClick={() => setUi((prev) => ({ ...prev, pwyw: !prev.pwyw }))}
+                data-testid="browse-filter-pwyw"
+              >
+                <HeartHandshake className="w-3.5 h-3.5" />
+                Prix libre
+              </button>
             </div>
           </div>
         </div>
@@ -667,7 +664,6 @@ const Browse = () => {
                 icon={Music}
                 title="Rien à afficher pour l’instant"
                 hint="Essaie d’enlever un filtre, ou reviens un peu plus tard."
-                tour="browse-buy"
               />
             ) : (
               <motion.div
@@ -761,7 +757,7 @@ const Browse = () => {
 
         {browseTab === 'tracks' && (
           <section data-testid="tracks-grid">
-            {renderTrackGrid(tracks.slice(0, 15), { tourFirst: true })}
+            {renderTrackGrid(tracks.slice(0, 15))}
           </section>
         )}
 
