@@ -2,11 +2,17 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Save, Settings, User, Bell, Shield, Headphones, Sparkles, ImagePlus, Loader2 } from 'lucide-react';
+import { Save, Settings, User, Bell, Shield, Headphones, Sparkles, ImagePlus, Loader2, Check } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
-import { artistAvatarSrc } from '@/lib/artistAvatar';
+import {
+  artistAvatarSrc,
+  DEFAULT_ARTIST_AVATARS,
+  defaultArtistAvatar,
+  isMaskAvatar,
+  maskAvatarMatches
+} from '@/lib/artistAvatar';
 import {
   defaultListenerSettings,
   emitSettingsChanged,
@@ -197,7 +203,7 @@ const AccountSettings = () => {
       }
     }
     setArtistName(payload.name);
-    updateUser({ artist_name: payload.name });
+    updateUser({ artist_name: payload.name, avatar_url: payload.avatar_url || '' });
   };
 
   const saveAll = async () => {
@@ -571,7 +577,7 @@ const AccountSettings = () => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid md:grid-cols-[auto_1fr] gap-4 items-start">
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Label>Avatar</Label>
                         <button
                           type="button"
@@ -610,7 +616,7 @@ const AccountSettings = () => {
                           <span className="min-w-0">
                             <span className="flex items-center gap-2 text-sm font-medium">
                               <ImagePlus className="w-4 h-4 text-cyan-300" />
-                              Glisse une image
+                              Glisse une photo
                             </span>
                             <span className="block text-xs text-muted-foreground mt-1">
                               ou clique pour choisir · JPG, PNG, WebP · 8 Mo max
@@ -629,13 +635,49 @@ const AccountSettings = () => {
                             e.target.value = '';
                           }}
                         />
-                        {artistProfile.avatar_url ? (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-2">Ou choisis un masque Kloud</p>
+                          <div className="flex flex-wrap gap-2" data-testid="artist-avatar-mask-grid">
+                            {DEFAULT_ARTIST_AVATARS.map((mask, index) => {
+                              const assignedDefault = defaultArtistAvatar(user?.user_id);
+                              const current = artistProfile.avatar_url || assignedDefault;
+                              const selected =
+                                !artistProfile.avatar_url || isMaskAvatar(artistProfile.avatar_url)
+                                  ? maskAvatarMatches(current, mask)
+                                  : false;
+                              return (
+                                <button
+                                  key={mask}
+                                  type="button"
+                                  onClick={() => setArtistProfile((p) => ({ ...p, avatar_url: mask }))}
+                                  className={`relative w-12 h-12 rounded-full overflow-hidden border transition-all ${
+                                    selected
+                                      ? 'border-cyan-400 ring-2 ring-cyan-400/40 scale-105'
+                                      : 'border-white/15 hover:border-cyan-400/50 hover:scale-105'
+                                  }`}
+                                  aria-label={`Masque ${index + 1}`}
+                                  aria-pressed={selected}
+                                  data-testid={`artist-avatar-mask-${index + 1}`}
+                                >
+                                  <img src={mask} alt="" className="w-full h-full object-cover" />
+                                  {selected && (
+                                    <span className="absolute inset-0 bg-cyan-500/25 flex items-center justify-center">
+                                      <Check className="w-4 h-4 text-white drop-shadow" />
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {artistProfile.avatar_url &&
+                        artistProfile.avatar_url !== defaultArtistAvatar(user?.user_id) ? (
                           <button
                             type="button"
                             className="text-xs text-muted-foreground hover:text-foreground"
                             onClick={() => setArtistProfile((p) => ({ ...p, avatar_url: '' }))}
                           >
-                            Revenir au masque par défaut
+                            Revenir au masque attribué
                           </button>
                         ) : null}
                       </div>

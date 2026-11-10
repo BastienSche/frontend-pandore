@@ -26,11 +26,22 @@ export function defaultArtistAvatar(id) {
   return DEFAULT_ARTIST_AVATARS[hashId(id) % DEFAULT_ARTIST_AVATARS.length];
 }
 
+export function isMaskAvatar(url) {
+  return String(url || '').includes('/avatars/mask-');
+}
+
 function customAvatar(url) {
   const value = String(url || '').trim();
   if (!value) return '';
-  if (value.includes('/avatars/mask-')) return '';
+  if (isMaskAvatar(value)) return '';
   return value;
+}
+
+export function maskAvatarMatches(url, maskPath) {
+  const value = String(url || '').trim();
+  const mask = String(maskPath || '').trim();
+  if (!value || !mask) return false;
+  return value === mask || value.endsWith(mask);
 }
 
 /** Avatar choisi par l’artiste, sinon le masque stocké / calculé. */
