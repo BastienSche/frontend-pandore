@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import CoverImage from '@/components/CoverImage';
+import BackLink from '@/components/BackLink';
 import ShareButton from '@/components/ShareButton';
 import { publicPageUrl } from '@/lib/smartLinks';
 import { setDocumentShareMeta } from '@/lib/sharePage';
@@ -225,6 +226,9 @@ const AlbumDetail = () => {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
         <BubbleBackground />
+        <div className="absolute top-28 left-6 md:left-12 z-20">
+          <BackLink fallback="/browse" />
+        </div>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -268,6 +272,7 @@ const AlbumDetail = () => {
         )}
 
         <div className="relative max-w-6xl mx-auto px-6 md:px-12">
+          <BackLink fallback="/browse" testId="album-back-link" />
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

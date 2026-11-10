@@ -6,6 +6,7 @@ import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { albumTrackCount } from '@/lib/pricing';
 import CoverImage from '@/components/CoverImage';
+import { rememberListPosition } from '@/lib/listNavigation';
 
 const LibraryAlbumCard = ({ album, onPlayAlbum, playingAlbumId }) => {
   const navigate = useNavigate();
@@ -48,7 +49,10 @@ const LibraryAlbumCard = ({ album, onPlayAlbum, playingAlbumId }) => {
     >
       <div
         className="relative aspect-square cursor-pointer"
-        onClick={() => navigate(`/library/albums/${album.album_id}`)}
+        onClick={() => {
+          rememberListPosition({ selector: `[data-testid="library-album-card-${album.album_id}"]` });
+          navigate(`/library/albums/${album.album_id}`);
+        }}
       >
         <CoverImage
           src={album.cover_url}

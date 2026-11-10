@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Save, Settings, User, Bell, Shield, Headphones, Sparkles, ImagePlus, Loader2, Check } from 'lucide-react';
+import { Save, Settings, User, Bell, Shield, Headphones, Sparkles, ImagePlus, Loader2, Check, Mic } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
@@ -31,19 +31,26 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { emptySmartLink, normalizeSmartLinks, publicPageUrl, SMART_LINK_KINDS } from '@/lib/smartLinks';
 import ShareButton from '@/components/ShareButton';
+import StripeConnectSection from '@/components/StripeConnectSection';
+import { startProductTour } from '@/lib/productTour';
+
+const SETTINGS_TABS = new Set(['account', 'audio', 'notifications', 'privacy', 'artist']);
 
 const AccountSettings = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading, switchRole, updateUser } = useAuth();
   const hydratedUserId = useRef(null);
   const profileHydratedId = useRef(null);
 
-  const [activeTab, setActiveTab] = useState('account');
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = searchParams.get('tab');
+    return SETTINGS_TABS.has(tab) ? tab : 'account';
+  });
   const [saving, setSaving] = useState(false);
 
-  // Role switching (auditeur <-> artiste)
-  const [roleTargetIsArtist, setRoleTargetIsArtist] = useState(false);
   const [artistName, setArtistName] = useState('');
+  const [becomingArtist, setBecomingArtist] = useState(false);
 
   // Artist profile (backend)
   const [artistProfile, setArtistProfile] = useState({
@@ -65,6 +72,24 @@ const AccountSettings = () => {
   const isArtist = useMemo(() => user?.role === 'artist', [user?.role]);
 
   useEffect(() => {
+    const tab = searchParams.get('tab');
+    const next = SETTINGS_TABS.has(tab) ? tab : 'account';
+    if (next === 'artist' && !isArtist) {
+      setActiveTab('account');
+      return;
+    }
+    setActiveTab(next);
+  }, [searchParams, isArtist]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    if (!tab || tab === 'account') next.delete('tab');
+    else next.set('tab', tab);
+    setSearchParams(next, { replace: true });
+  };
+
+  useEffect(() => {
     if (authLoading) return;
     if (!user?.user_id) {
       hydratedUserId.current = null;
@@ -75,7 +100,6 @@ const AccountSettings = () => {
     if (hydratedUserId.current === user.user_id) return;
     hydratedUserId.current = user.user_id;
 
-    setRoleTargetIsArtist(user.role === 'artist');
     setArtistName(user.artist_name || '');
     setListenerPicture(user.picture || '');
 
@@ -117,23 +141,25 @@ const AccountSettings = () => {
     })();
   }, [user?.user_id, user?.role]);
 
-  const applyRoleChange = async () => {
-    if (!user) return;
-
-    const wantsArtist = roleTargetIsArtist;
-    if (wantsArtist) {
-      const nextName = (artistName || user.artist_name || '').trim();
-      if (!nextName) {
-        toast.error("Le nom d'artiste est requis");
-        return;
-      }
-      await switchRole('artist', nextName);
-      toast.success('Mode Artiste activé');
+  const becomeArtist = async () => {
+    if (!user || user.role === 'artist') return;
+    const nextName = (artistName || user.name || '').trim();
+    if (!nextName) {
+      toast.error("Le nom d'artiste est requis");
       return;
     }
-
-    await switchRole('user');
-    toast.success('Mode Auditeur activé');
+    setBecomingArtist(true);
+    try {
+      const updated = await switchRole('artist', nextName);
+      setArtistProfile((prev) => ({ ...prev, name: nextName || prev.name }));
+      toast.success('Compte artiste activé');
+      startProductTour('artist', updated?.user_id || user.user_id);
+      navigate('/settings?tab=artist');
+    } catch (error) {
+      toast.error(formatApiError(error, "Impossible de devenir artiste"));
+    } finally {
+      setBecomingArtist(false);
+    }
   };
 
   const uploadImageFile = async (file, onUrl) => {
@@ -209,13 +235,6 @@ const AccountSettings = () => {
   const saveAll = async () => {
     setSaving(true);
     try {
-      const alreadyArtist = user?.role === 'artist';
-      const nextName = artistName.trim();
-      const roleChanged = roleTargetIsArtist !== alreadyArtist;
-      const artistNameChanged = roleTargetIsArtist && nextName && nextName !== (user?.artist_name || '');
-      if (roleChanged || artistNameChanged) {
-        await applyRoleChange();
-      }
       if ((listenerPicture || '') !== (user?.picture || '')) {
         const { data } = await apiClient.put('/api/users/me', { picture: listenerPicture || '' });
         if (data) updateUser(data);
@@ -233,7 +252,7 @@ const AccountSettings = () => {
         privacy_share_listening_activity: !!listenerSettings.privacy.shareListeningActivity,
         privacy_personalized_ads: !!listenerSettings.privacy.personalizedAds
       });
-      if (roleTargetIsArtist) {
+      if (isArtist) {
         await saveArtistProfile();
       }
       toast.success('Réglages enregistrés');
@@ -282,7 +301,7 @@ const AccountSettings = () => {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 md:px-8 relative z-10">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <div className="mb-8 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsList className="bg-white/5 border border-white/10 rounded-full p-1.5 w-max min-w-full sm:min-w-0">
             <TabsTrigger value="account" className="rounded-full px-3 sm:px-5 gap-2">
@@ -297,7 +316,7 @@ const AccountSettings = () => {
             <TabsTrigger value="privacy" className="rounded-full px-3 sm:px-5 gap-2">
               <Shield className="w-4 h-4" /> Confidentialité
             </TabsTrigger>
-            {roleTargetIsArtist && (
+            {isArtist && (
               <TabsTrigger value="artist" className="rounded-full px-3 sm:px-5 gap-2">
                 <Sparkles className="w-4 h-4" /> Artiste
               </TabsTrigger>
@@ -395,48 +414,63 @@ const AccountSettings = () => {
                 </CardContent>
               </Card>
 
-              <Card className="glass-heavy rounded-3xl border-white/10">
-                <CardHeader>
-                  <CardTitle>Mode</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
-                    <div>
-                      <p className="font-medium">Activer le mode Artiste</p>
-                      <p className="text-sm text-muted-foreground">
-                        Publiez vos titres, suivez vos stats et gérez votre profil.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={roleTargetIsArtist}
-                      onCheckedChange={(v) => setRoleTargetIsArtist(!!v)}
-                      data-testid="settings-role-switch"
-                    />
-                  </div>
-
-                  {roleTargetIsArtist && !String(user.artist_name || '').trim() && (
+              {!isArtist ? (
+                <Card className="glass-heavy rounded-3xl border-white/10">
+                  <CardHeader>
+                    <CardTitle>Devenir artiste</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Tu publieras tes titres, suivras tes stats et géreras ton profil. Le rôle se choisit
+                      à l’inscription, ou ici — sans revenir en arrière.
+                    </p>
                     <div className="space-y-2">
                       <Label>Nom d&apos;artiste</Label>
                       <Input
                         value={artistName}
                         onChange={(e) => setArtistName(e.target.value)}
-                        placeholder="Votre nom de scène"
+                        placeholder="Ton nom de scène"
                         className="h-12 rounded-xl bg-white/5 border-white/10"
                         data-testid="settings-artist-name"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Une seule fois — tu pourras le changer ensuite dans l’onglet Artiste.
-                      </p>
                     </div>
-                  )}
-                  {roleTargetIsArtist && String(user.artist_name || '').trim() && (
+                    <Button
+                      type="button"
+                      onClick={becomeArtist}
+                      disabled={becomingArtist}
+                      className="rounded-full px-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 border-0"
+                      data-testid="settings-become-artist"
+                    >
+                      {becomingArtist ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Mic className="w-4 h-4 mr-2" />
+                      )}
+                      Devenir artiste
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="glass-heavy rounded-3xl border-white/10">
+                  <CardHeader>
+                    <CardTitle>Compte artiste</CardTitle>
+                  </CardHeader>
+                  <CardContent>
                     <p className="text-sm text-muted-foreground">
-                      Pseudo actuel : <span className="text-foreground font-medium">{user.artist_name}</span>
-                      {' — '}modifiable dans l’onglet Artiste.
+                      Tu es artiste
+                      {user.artist_name ? (
+                        <>
+                          {' '}
+                          sous le nom{' '}
+                          <span className="text-foreground font-medium">{user.artist_name}</span>
+                        </>
+                      ) : null}
+                      . Le pseudo se change dans l’onglet Artiste.
                     </p>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
+              {isArtist ? <StripeConnectSection returnTo="settings" testId="settings-stripe-connect" /> : null}
             </motion.div>
           </TabsContent>
 
@@ -568,9 +602,10 @@ const AccountSettings = () => {
             </motion.div>
           </TabsContent>
 
-          {roleTargetIsArtist && (
+          {isArtist && (
             <TabsContent value="artist">
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6">
+                <StripeConnectSection returnTo="settings" testId="settings-stripe-connect-artist" />
                 <Card className="glass-heavy rounded-3xl border-white/10">
                   <CardHeader>
                     <CardTitle>Profil artiste</CardTitle>
@@ -695,7 +730,7 @@ const AccountSettings = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2" data-kloud-tour="artist-bio">
                       <Label>Bio</Label>
                       <Textarea
                         value={artistProfile.bio}

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { formatTrackDuration } from '@/lib/libraryCollection';
 import CoverImage from '@/components/CoverImage';
+import { rememberListPosition } from '@/lib/listNavigation';
 
 const LibraryTrackRow = ({
   track,
@@ -36,7 +37,10 @@ const LibraryTrackRow = ({
       <button
         type="button"
         className="min-w-0 flex-1 text-left"
-        onClick={() => navigate(`/library/tracks/${track.track_id}`)}
+        onClick={() => {
+          rememberListPosition({ selector: `[data-testid="library-track-row-${track.track_id}"]` });
+          navigate(`/library/tracks/${track.track_id}`);
+        }}
       >
         <p className="font-medium truncate text-sm md:text-base group-hover:text-cyan-300 transition-colors">
           {track.title}

@@ -35,8 +35,9 @@ import ContestAnnounceModal from '@/components/ContestAnnounceModal';
 import AnalyticsTracker from '@/components/AnalyticsTracker';
 import SiteFooter from '@/components/SiteFooter';
 import CookieBanner from '@/components/CookieBanner';
+import ProductTour from '@/components/ProductTour';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
-import { consumePostLoginPath, rememberPostLoginPath, safeInternalPath } from '@/lib/postLoginRedirect';
+import { ARTIST_ONBOARDING_PATH, consumePostLoginPath, rememberPostLoginPath, safeInternalPath } from '@/lib/postLoginRedirect';
 import '@/App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -52,10 +53,14 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const GuestRoute = ({ children }) => {
-  const { loading, isAuthenticated } = useAuth();
+  const { loading, isAuthenticated, user } = useAuth();
   const location = useLocation();
   if (loading) return null;
   if (isAuthenticated) {
+    if (location.pathname === '/register' && user?.role === 'artist') {
+      consumePostLoginPath(ARTIST_ONBOARDING_PATH);
+      return <Navigate to={ARTIST_ONBOARDING_PATH} replace />;
+    }
     const next = safeInternalPath(location.state?.from) || consumePostLoginPath('/browse');
     return <Navigate to={next} replace />;
   }
@@ -183,6 +188,7 @@ function AppRouter() {
       <CookieBanner />
       <AudioPlayer />
       <ContestAnnounceModal />
+      <ProductTour />
     </>
   );
 }

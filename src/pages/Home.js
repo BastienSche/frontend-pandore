@@ -22,6 +22,7 @@ import RevenueRaceWidget from '@/components/RevenueRaceWidget';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient, formatApiError, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
 import { artistAvatarSrc } from '@/lib/artistAvatar';
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -89,6 +90,8 @@ const Home = () => {
   const [feedbackError, setFeedbackError] = useState('');
   const [feedbackSuccess, setFeedbackSuccess] = useState('');
   const [contestPayload, setContestPayload] = useState(null);
+
+  useListScrollRestoration(!loading);
 
   useEffect(() => {
     fetchHomeData();

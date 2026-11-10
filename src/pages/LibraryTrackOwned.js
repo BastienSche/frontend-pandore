@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Play,
   Pause,
@@ -11,7 +11,6 @@ import {
   Check,
   ListPlus,
   Library,
-  ArrowLeft,
   Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +20,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import CoverImage from '@/components/CoverImage';
+import BackLink from '@/components/BackLink';
 import { apiClient, downloadAuthenticatedFile, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
@@ -210,14 +210,7 @@ const LibraryTrackOwned = () => {
         )}
 
         <div className="relative max-w-6xl mx-auto px-6 md:px-12">
-          <Link
-            to="/library"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-cyan-300 transition-colors mb-6"
-            data-testid="library-track-owned-back"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour à la bibliothèque
-          </Link>
+          <BackLink fallback="/library" label="Retour" testId="library-track-owned-back" />
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}

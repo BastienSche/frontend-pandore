@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,26 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { apiClient, formatApiError, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
 import { artistAvatarSrc } from '@/lib/artistAvatar';
+import { getLibraryOwnership } from '@/lib/libraryOwnership';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  BROWSE_SORTS,
+  OWNED_FILTERS,
+  RECENCY_FILTERS,
+  collectGenres,
+  defaultBrowseFilters,
+  filterCatalogItems,
+  isOwnedAlbum,
+  isOwnedTrack,
+  loadBrowseFilters,
+  saveBrowseFilters,
+  sortCatalogItems
+} from '@/lib/catalogBrowse';
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
+import { rememberListPosition } from '@/lib/listNavigation';
+
+const BROWSE_SEARCH_KEY = 'kloud:browseSearch';
+const BROWSE_TAB_KEY = 'kloud:browseTab';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -51,21 +71,59 @@ const mapArtist = (a) => ({
   picture: artistAvatarSrc(a)
 });
 
+const chipClass = (active) =>
+  `h-9 rounded-full px-4 text-sm border transition-colors ${
+    active
+      ? 'bg-gradient-to-r from-cyan-500/25 to-purple-500/25 border-cyan-400/40 text-foreground'
+      : 'bg-white/5 border-white/10 text-muted-foreground hover:border-white/25 hover:text-foreground'
+  }`;
+
 const Browse = () => {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [catalog, setCatalog] = useState({ tracks: [], albums: [], artists: [] });
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try {
+      return sessionStorage.getItem(BROWSE_SEARCH_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+  const [browseTab, setBrowseTab] = useState(() => {
+    try {
+      const tab = sessionStorage.getItem(BROWSE_TAB_KEY);
+      return tab === 'albums' || tab === 'artists' ? tab : 'tracks';
+    } catch {
+      return 'tracks';
+    }
+  });
   const [searchResults, setSearchResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
+  const [ownership, setOwnership] = useState({ trackIds: new Set(), albumIds: new Set() });
+  const [filters, setFilters] = useState(() => defaultBrowseFilters(false));
+  const skipFilterSave = useRef(true);
+
+  useEffect(() => {
+    skipFilterSave.current = true;
+    setFilters(loadBrowseFilters(isAuthenticated));
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (skipFilterSave.current) {
+      skipFilterSave.current = false;
+      return;
+    }
+    saveBrowseFilters(filters);
+  }, [filters]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const [tracksResp, albumsResp, artistsResp] = await Promise.all([
-          apiClient.get('/api/tracks'),
-          apiClient.get('/api/albums'),
-          apiClient.get('/api/artists')
+          apiClient.get('/api/tracks', { params: { limit: 200 } }),
+          apiClient.get('/api/albums', { params: { limit: 200 } }),
+          apiClient.get('/api/artists', { params: { limit: 100 } })
         ]);
         if (cancelled) return;
         setCatalog({
@@ -83,6 +141,25 @@ const Browse = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      setOwnership({ trackIds: new Set(), albumIds: new Set() });
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const next = await getLibraryOwnership(apiClient);
+        if (!cancelled) setOwnership(next);
+      } catch {
+        if (!cancelled) setOwnership({ trackIds: new Set(), albumIds: new Set() });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     const q = searchQuery.trim();
@@ -121,10 +198,83 @@ const Browse = () => {
     };
   }, [searchQuery]);
 
-  const tracks = searchResults ? searchResults.tracks : catalog.tracks;
-  const albums = searchResults ? searchResults.albums : catalog.albums;
-  const artists = searchResults ? searchResults.artists : catalog.artists;
+  const sourceTracks = searchResults ? searchResults.tracks : catalog.tracks;
+  const sourceAlbums = searchResults ? searchResults.albums : catalog.albums;
+  const sourceArtists = searchResults ? searchResults.artists : catalog.artists;
   const busy = loading || (Boolean(searchQuery.trim()) && searching && !searchResults);
+
+  const availableGenres = useMemo(
+    () => collectGenres([...sourceTracks, ...sourceAlbums]),
+    [sourceTracks, sourceAlbums]
+  );
+
+  const tracks = useMemo(
+    () =>
+      sortCatalogItems(
+        filterCatalogItems(sourceTracks, {
+          ownedMode: isAuthenticated ? filters.owned : 'all',
+          recency: filters.recency,
+          genre: filters.genre,
+          hideAlbumTracks: filters.hideAlbumTracks,
+          ownership,
+          kind: 'track'
+        }),
+        filters.sort
+      ),
+    [sourceTracks, filters, ownership, isAuthenticated]
+  );
+
+  const albums = useMemo(
+    () =>
+      sortCatalogItems(
+        filterCatalogItems(sourceAlbums, {
+          ownedMode: isAuthenticated ? filters.owned : 'all',
+          recency: filters.recency,
+          genre: filters.genre,
+          hideAlbumTracks: false,
+          ownership,
+          kind: 'album'
+        }),
+        filters.sort
+      ),
+    [sourceAlbums, filters, ownership, isAuthenticated]
+  );
+
+  const artists = useMemo(() => {
+    const recencyFiltered = filterCatalogItems(sourceArtists, {
+      ownedMode: 'all',
+      recency: filters.recency,
+      genre: '',
+      hideAlbumTracks: false,
+      ownership,
+      kind: 'artist'
+    });
+    const sortId = filters.sort === 'title' || filters.sort === 'newest' ? filters.sort : 'title';
+    return sortCatalogItems(
+      recencyFiltered.map((a) => ({ ...a, title: a.artist_name || a.name })),
+      sortId
+    );
+  }, [sourceArtists, filters.recency, filters.sort, ownership]);
+
+  const setFilter = (patch) => setFilters((prev) => ({ ...prev, ...patch }));
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(BROWSE_SEARCH_KEY, searchQuery);
+    } catch {
+      // ignore
+    }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(BROWSE_TAB_KEY, browseTab);
+    } catch {
+      // ignore
+    }
+  }, [browseTab]);
+
+  useListScrollRestoration(!busy);
 
   return (
     <div className="min-h-screen pb-32 relative overflow-hidden">
@@ -152,6 +302,7 @@ const Browse = () => {
             </p>
           </motion.div>
 
+          <div data-kloud-tour="browse-discover">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -168,11 +319,84 @@ const Browse = () => {
               data-testid="browse-search-input"
             />
           </motion.div>
+
+          <div className="mt-8 space-y-3" data-testid="browse-filters">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="sr-only" htmlFor="browse-sort">
+                Trier
+              </label>
+              <select
+                id="browse-sort"
+                value={filters.sort}
+                onChange={(e) => setFilter({ sort: e.target.value })}
+                className="h-9 rounded-full bg-white/5 border border-white/10 px-4 text-sm"
+                data-testid="browse-sort"
+              >
+                {BROWSE_SORTS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {isAuthenticated &&
+                OWNED_FILTERS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={chipClass(filters.owned === option.id)}
+                    onClick={() => setFilter({ owned: option.id })}
+                    data-testid={`browse-owned-${option.id}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              {RECENCY_FILTERS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={chipClass(filters.recency === option.id)}
+                  onClick={() => setFilter({ recency: option.id })}
+                >
+                  {option.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={chipClass(filters.hideAlbumTracks)}
+                onClick={() => setFilter({ hideAlbumTracks: !filters.hideAlbumTracks })}
+                data-testid="browse-hide-album-tracks"
+              >
+                Sans pistes d’album
+              </button>
+            </div>
+            {availableGenres.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className={chipClass(!filters.genre)}
+                  onClick={() => setFilter({ genre: '' })}
+                >
+                  Tous genres
+                </button>
+                {availableGenres.map((genre) => (
+                  <button
+                    key={genre}
+                    type="button"
+                    className={chipClass(filters.genre === genre)}
+                    onClick={() => setFilter({ genre: filters.genre === genre ? '' : genre })}
+                  >
+                    {genre}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 md:px-12 py-8 relative z-10">
-        <Tabs defaultValue="tracks" className="w-full">
+        <Tabs value={browseTab} onValueChange={setBrowseTab} className="w-full">
           <TabsList
             className="mb-10 !h-auto items-center bg-white/5 border border-white/10 rounded-full p-1.5 overflow-hidden"
             data-testid="browse-tabs"
@@ -217,9 +441,13 @@ const Browse = () => {
                 animate="visible"
                 className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6"
               >
-                {tracks.map((track) => (
-                  <motion.div key={track.track_id} variants={itemVariants}>
-                    <TrackCard track={track} />
+                {tracks.map((track, index) => (
+                  <motion.div
+                    key={track.track_id}
+                    variants={itemVariants}
+                    data-kloud-tour={index === 0 ? 'browse-buy' : undefined}
+                  >
+                    <TrackCard track={track} owned={isAuthenticated && isOwnedTrack(track, ownership)} />
                   </motion.div>
                 ))}
               </motion.div>
@@ -228,10 +456,15 @@ const Browse = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="text-center py-20 glass-heavy rounded-3xl"
+                data-kloud-tour="browse-buy"
               >
                 <Music className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
                 <p className="text-lg text-muted-foreground">Aucun titre trouvé</p>
-                <p className="text-sm text-muted-foreground/60 mt-1">Essayez une autre recherche</p>
+                <p className="text-sm text-muted-foreground/60 mt-1">
+                  {filters.owned === 'discover'
+                    ? 'Tout est déjà dans ta bibliothèque, ou aucun titre ne correspond aux filtres.'
+                    : 'Essaie un autre filtre ou une autre recherche.'}
+                </p>
               </motion.div>
             )}
           </TabsContent>
@@ -252,7 +485,7 @@ const Browse = () => {
               >
                 {albums.map((album) => (
                   <motion.div key={album.album_id} variants={itemVariants}>
-                    <AlbumCard album={album} />
+                    <AlbumCard album={album} owned={isAuthenticated && isOwnedAlbum(album, ownership)} />
                   </motion.div>
                 ))}
               </motion.div>
@@ -285,7 +518,15 @@ const Browse = () => {
               >
                 {artists.map((artist) => (
                   <motion.div key={artist.user_id} variants={itemVariants}>
-                    <Link to={`/artist/${artist.user_id}`}>
+                    <Link
+                      to={`/artist/${artist.user_id}`}
+                      data-testid={`artist-card-${artist.user_id}`}
+                      onClick={() =>
+                        rememberListPosition({
+                          selector: `[data-testid="artist-card-${artist.user_id}"]`
+                        })
+                      }
+                    >
                       <div className="group relative text-center">
                         <div className="relative mx-auto w-36 h-36 md:w-40 md:h-40">
                           <Avatar className="w-full h-full border-2 border-white/10 group-hover:border-cyan-400/50 transition-colors duration-300 shadow-2xl">

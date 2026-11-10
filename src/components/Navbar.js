@@ -25,7 +25,7 @@ const userInitial = (u) => {
 };
 
 const Navbar = () => {
-  const { user, logout, switchRole, isAdmin } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,33 +53,6 @@ const Navbar = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/login');
-  };
-
-  const handleRoleSwitch = async () => {
-    const newRole = user.role === 'artist' ? 'user' : 'artist';
-    try {
-      if (newRole === 'artist') {
-        const existing = String(user.artist_name || '').trim();
-        if (existing) {
-          await switchRole('artist');
-        } else {
-          try {
-            await switchRole('artist');
-          } catch (error) {
-            if (error?.response?.status !== 400) throw error;
-            const artistName = window.prompt('Choisis ton nom d’artiste (une seule fois) :');
-            if (!String(artistName || '').trim()) return;
-            await switchRole('artist', artistName.trim());
-          }
-        }
-        if (!location.pathname.startsWith('/artist-dashboard')) navigate('/artist-dashboard');
-        return;
-      }
-      await switchRole('user');
-      if (location.pathname.startsWith('/artist-dashboard')) navigate('/browse');
-    } catch (error) {
-      window.alert(error?.response?.data?.detail || 'Impossible de changer de mode.');
-    }
   };
 
   const isActive = (path) => {
@@ -214,15 +187,6 @@ const Navbar = () => {
                 >
                   {theme === 'light' ? <Moon className="w-4 h-4 mr-2" /> : <Sun className="w-4 h-4 mr-2 text-yellow-400" />}
                   Thème {theme === 'light' ? 'clair' : 'sombre'}
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={handleRoleSwitch}
-                  className="rounded-xl cursor-pointer"
-                  data-testid="mobile-role-switch-button"
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Mode {user.role === 'artist' ? 'Auditeur' : 'Artiste'}
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator className="bg-white/10 my-2" />
@@ -408,28 +372,15 @@ const Navbar = () => {
                       <span className="text-xs text-muted-foreground truncate">
                         {user.email}
                       </span>
+                      {user.role === 'artist' && (
+                        <Badge className="mt-1 w-fit text-[10px] bg-purple-500/20 text-purple-300 border-purple-500/30">
+                          Artiste
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   
                   <DropdownMenuSeparator className="bg-white/10 my-2" />
-                  
-                  <DropdownMenuItem 
-                    onClick={handleRoleSwitch} 
-                    className="rounded-xl cursor-pointer"
-                    data-testid="role-switch-button"
-                  >
-                    <User className="w-4 h-4 mr-2" />
-                    <span className="flex-1">Mode {user.role === 'artist' ? 'Auditeur' : 'Artiste'}</span>
-                    <Badge 
-                      className={`ml-2 text-xs ${
-                        user.role === 'artist' 
-                          ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' 
-                          : 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
-                      }`}
-                    >
-                      {user.role === 'artist' ? 'Artiste' : 'User'}
-                    </Badge>
-                  </DropdownMenuItem>
 
                   <DropdownMenuItem
                     onClick={() => navigate('/settings')}

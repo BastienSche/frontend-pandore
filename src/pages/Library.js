@@ -19,6 +19,7 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import LibraryTrackRow from '@/components/library/LibraryTrackRow';
 import LibraryAlbumCard from '@/components/library/LibraryAlbumCard';
 import { shuffleTracks } from '@/lib/libraryCollection';
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
 
 const normalizeOwnedTrack = (t) => {
   const fileUrl = resolveApiUrl(t.file_url) || null;
@@ -84,6 +85,8 @@ const Library = () => {
     () => library.tracks.filter((t) => Boolean(t.file_url)),
     [library.tracks]
   );
+
+  useListScrollRestoration(!loading);
 
   const handleDownload = async (track) => {
     if (!track.file_url) {

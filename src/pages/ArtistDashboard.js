@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   Upload, Music, Disc, Plus, Edit, Trash2, Loader2, 
   TrendingUp, DollarSign, Play, Clock, Eye, EyeOff,
   BarChart3, PieChart, Users, Heart, ChevronRight,
-  FileAudio, Image, Save, X, Library, Wallet
+  FileAudio, Image, Save, X, Library
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import { fieldFocusRingSelect, fieldInnerSurface, fieldRing } from '@/lib/fieldS
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import CoverImage from '@/components/CoverImage';
+import StripeConnectSection from '@/components/StripeConnectSection';
 
 const parsePriceEuroInput = (raw) => {
   const v = String(raw ?? '').trim();
@@ -531,7 +532,6 @@ const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
 const ArtistDashboard = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(null);
   const [tracks, setTracks] = useState([]);
@@ -589,128 +589,6 @@ const ArtistDashboard = () => {
     status: 'draft',
     coverFile: null
   });
-
-  const [connectStatus, setConnectStatus] = useState(null);
-  const [connectBalance, setConnectBalance] = useState(null);
-  const [connectActionLoading, setConnectActionLoading] = useState(false);
-  const [wallet, setWallet] = useState(null);
-  const [payoutLoading, setPayoutLoading] = useState(false);
-
-  const loadConnectStatus = async () => {
-    try {
-      const { data } = await apiClient.get('/api/artist/stripe/connect/status');
-      setConnectStatus(data);
-      if (data?.has_account && data?.charges_enabled) {
-        try {
-          const { data: bal } = await apiClient.get('/api/artist/stripe/connect/balance');
-          setConnectBalance(bal);
-        } catch {
-          setConnectBalance(null);
-        }
-      } else {
-        setConnectBalance(null);
-      }
-      return data;
-    } catch {
-      setConnectStatus(null);
-      setConnectBalance(null);
-      return null;
-    }
-  };
-
-  const loadWallet = async () => {
-    try {
-      const { data } = await apiClient.get('/api/artist/wallet');
-      setWallet(data);
-      return data;
-    } catch {
-      setWallet(null);
-      return null;
-    }
-  };
-
-  useEffect(() => {
-    if (authLoading || !user || user.role !== 'artist') return;
-    loadConnectStatus();
-    loadWallet();
-  }, [user, authLoading]);
-
-  const startStripeOnboarding = async () => {
-    setConnectActionLoading(true);
-    try {
-      const { data } = await apiClient.post('/api/artist/stripe/connect/onboard');
-      if (data?.url) window.location.assign(data.url);
-      else toast.error("Pas d'URL Stripe");
-    } catch (e) {
-      toast.error(formatApiError(e, 'Erreur Stripe'));
-    } finally {
-      setConnectActionLoading(false);
-    }
-  };
-
-  const openStripeExpress = async () => {
-    const popup = window.open('about:blank', 'kloud_stripe_express');
-    try {
-      const { data } = await apiClient.post('/api/artist/stripe/connect/login-link');
-      if (!data?.url) {
-        popup?.close();
-        toast.error("Pas d'URL Stripe");
-        return;
-      }
-      if (popup && !popup.closed) {
-        popup.location.replace(data.url);
-      } else {
-        window.location.assign(data.url);
-      }
-    } catch (e) {
-      popup?.close();
-      toast.error(formatApiError(e, 'Erreur'));
-    }
-  };
-
-  const withdrawWallet = async () => {
-    if (wallet?.withdraw_blocked_reason === 'connect_required') {
-      await startStripeOnboarding();
-      return;
-    }
-    setPayoutLoading(true);
-    try {
-      const { data } = await apiClient.post('/api/artist/wallet/payout');
-      const euros = (Number(data?.amount_cents || 0) / 100).toFixed(2);
-      toast.success(`Retrait de ${euros} € envoyé vers Stripe`);
-      await Promise.all([loadWallet(), loadConnectStatus()]);
-    } catch (e) {
-      toast.error(formatApiError(e, 'Retrait impossible'));
-    } finally {
-      setPayoutLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (authLoading || !user || user.role !== 'artist') return;
-    const flag = searchParams.get('connect');
-    if (!flag) return;
-    (async () => {
-      if (flag === 'refresh') {
-        toast.info('Le lien Stripe a expiré — nouvel onboarding…');
-        navigate('/artist-dashboard', { replace: true });
-        await startStripeOnboarding();
-        return;
-      }
-      if (flag === 'return') {
-        const status = await loadConnectStatus();
-        await loadWallet();
-        if (status?.charges_enabled || status?.payouts_enabled) {
-          toast.success('Compte Stripe activé');
-        } else if (status?.details_submitted) {
-          toast.success('Informations Stripe envoyées — validation en cours');
-        } else {
-          toast.message('Retour Stripe — reprends l’activation si besoin');
-        }
-        navigate('/artist-dashboard', { replace: true });
-      }
-    })();
-  }, [searchParams, user, authLoading, navigate]);
 
   useEffect(() => {
     // Wait for auth to load before checking role
@@ -1330,6 +1208,7 @@ const ArtistDashboard = () => {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col md:flex-row md:items-end md:justify-between gap-6"
+            data-kloud-tour="artist-dashboard"
           >
             <div>
               <Badge className="mb-4 bg-purple-500/20 text-purple-400 border-purple-500/30">
@@ -1466,102 +1345,7 @@ const ArtistDashboard = () => {
               />
             </div>
 
-            <div className="glass-heavy rounded-3xl p-6 border border-emerald-500/20">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                <div>
-                  <h3 className="text-xl font-semibold flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-emerald-400" />
-                    Cagnotte & retraits
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-                    Les acheteurs paient Kloud tout de suite, même sans Stripe. Ta part (après commission{' '}
-                    {wallet?.platform_fee_percent ?? connectStatus?.platform_fee_percent ?? '—'}
-                    %) est mise de côté ici. À partir de {wallet?.min_payout_euros ?? 10} €, tu peux la retirer
-                    sur ton IBAN en activant Stripe Connect.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2 shrink-0">
-                  {wallet?.can_withdraw ? (
-                    <Button
-                      className="rounded-full bg-emerald-600 hover:bg-emerald-500"
-                      disabled={payoutLoading}
-                      onClick={withdrawWallet}
-                    >
-                      {payoutLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Retirer {(Number(wallet.available_cents || 0) / 100).toFixed(2)} €
-                    </Button>
-                  ) : null}
-                  {!(wallet?.connect_ready || connectStatus?.charges_enabled || connectStatus?.payouts_enabled) ? (
-                    <Button
-                      className="rounded-full bg-emerald-600 hover:bg-emerald-500"
-                      disabled={connectActionLoading}
-                      onClick={startStripeOnboarding}
-                    >
-                      {connectActionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      {connectStatus?.has_account ? 'Terminer Stripe Connect' : 'Activer Stripe Connect'}
-                    </Button>
-                  ) : (
-                    <Button variant="outline" className="rounded-full" onClick={openStripeExpress}>
-                      Ouvrir Stripe Express
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                <div className="rounded-xl bg-white/5 p-4 sm:col-span-1">
-                  <p className="text-muted-foreground">Cagnotte Kloud</p>
-                  <p className="text-2xl font-semibold text-emerald-300">
-                    {(Number(wallet?.available_cents || 0) / 100).toFixed(2)} €
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white/5 p-4">
-                  <p className="text-muted-foreground">Déjà retiré</p>
-                  <p className="text-lg font-semibold">
-                    {(Number(wallet?.paid_out_cents || 0) / 100).toFixed(2)} €
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white/5 p-4">
-                  <p className="text-muted-foreground">Seuil de retrait</p>
-                  <p className="text-lg font-semibold">{wallet?.min_payout_euros ?? 10} €</p>
-                </div>
-              </div>
-              {wallet && Number(wallet.available_cents || 0) < Number(wallet.min_payout_cents || 1000) && (
-                <div className="mt-4">
-                  <Progress
-                    value={Math.min(
-                      100,
-                      (Number(wallet.available_cents || 0) / Math.max(1, Number(wallet.min_payout_cents || 1000))) * 100
-                    )}
-                    className="h-2"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Encore{' '}
-                    {(
-                      Math.max(0, Number(wallet.min_payout_cents || 1000) - Number(wallet.available_cents || 0)) / 100
-                    ).toFixed(2)}{' '}
-                    € avant de pouvoir retirer.
-                  </p>
-                </div>
-              )}
-              {connectStatus?.has_account && connectStatus?.charges_enabled && connectBalance && (
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-xl bg-white/5 p-4">
-                    <p className="text-muted-foreground">Chez Stripe (disponible)</p>
-                    <p className="text-lg font-semibold">
-                      {(Number(connectBalance.available_cents || 0) / 100).toFixed(2)}{' '}
-                      {String(connectBalance.currency || 'eur').toUpperCase()}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-white/5 p-4">
-                    <p className="text-muted-foreground">Chez Stripe (en attente)</p>
-                    <p className="text-lg font-semibold">
-                      {(Number(connectBalance.pending_cents || 0) / 100).toFixed(2)}{' '}
-                      {String(connectBalance.currency || 'eur').toUpperCase()}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+            <StripeConnectSection returnTo="dashboard" testId="dashboard-stripe-connect" tourAnchor="artist-connect" />
 
             {/* Top Tracks */}
             <div className="glass-heavy rounded-3xl p-6">

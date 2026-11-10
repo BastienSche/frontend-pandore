@@ -11,6 +11,7 @@ import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { goToLogin } from '@/lib/postLoginRedirect';
 import { useAuth } from '@/hooks/useAuth';
 import CoverImage from '@/components/CoverImage';
+import { rememberListPosition } from '@/lib/listNavigation';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -26,7 +27,7 @@ const availabilityLabel = (v) => {
   return null;
 };
 
-const AlbumCard = ({ album }) => {
+const AlbumCard = ({ album, owned = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -50,6 +51,11 @@ const AlbumCard = ({ album }) => {
       mounted = false;
     };
   }, [authLoading, isAuthenticated, album.album_id]);
+
+  const openAlbum = () => {
+    rememberListPosition({ selector: `[data-testid="album-card-${album.album_id}"]` });
+    navigate(`/album/${album.album_id}`);
+  };
 
   const toggleLike = async (e) => {
     e.stopPropagation();
@@ -79,10 +85,15 @@ const AlbumCard = ({ album }) => {
         {/* Cover Image */}
         <div 
           className="relative aspect-square cursor-pointer" 
-          onClick={() => navigate(`/album/${album.album_id}`)}
+          onClick={openAlbum}
         >
           {/* Overlays (no layout impact) */}
-          {mixLabel(album.mix_version) && (
+          {owned && (
+            <div className="absolute top-3 right-3 z-20 px-3 py-1.5 rounded-full bg-emerald-500/80 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
+              Acquis
+            </div>
+          )}
+          {!owned && mixLabel(album.mix_version) && (
             <div className="absolute top-3 right-3 z-20">
               <div className="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
                 {mixLabel(album.mix_version)}
@@ -122,7 +133,7 @@ const AlbumCard = ({ album }) => {
           <div>
             <h3 
               className="font-semibold text-base truncate group-hover:text-purple-400 transition-colors cursor-pointer" 
-              onClick={() => navigate(`/album/${album.album_id}`)}
+              onClick={openAlbum}
               data-testid={`album-title-${album.album_id}`}
             >
               {album.title}

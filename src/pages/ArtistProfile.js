@@ -20,6 +20,9 @@ import ShareButton from '@/components/ShareButton';
 import SmartLinksList from '@/components/SmartLinksList';
 import { normalizeSmartLinks, publicPageUrl } from '@/lib/smartLinks';
 import { setDocumentShareMeta } from '@/lib/sharePage';
+import BackLink from '@/components/BackLink';
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
+import { rememberListPosition } from '@/lib/listNavigation';
 
 const isListedCatalogItem = (item) => {
   const status = String(item?.status || 'published').toLowerCase();
@@ -111,6 +114,8 @@ const ArtistProfile = () => {
     }
   };
 
+  useListScrollRestoration(!loading && !!artist);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
@@ -146,6 +151,7 @@ const ArtistProfile = () => {
 
       <div className="relative pt-28 pb-10 px-6 md:px-12">
         <div className="max-w-7xl mx-auto">
+          <BackLink fallback="/browse" testId="artist-back-link" />
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}

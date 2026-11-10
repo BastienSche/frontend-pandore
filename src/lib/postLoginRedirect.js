@@ -1,5 +1,7 @@
 const KEY = 'kloud_post_login';
 
+export const ARTIST_ONBOARDING_PATH = '/settings?tab=artist';
+
 export function safeInternalPath(raw) {
   if (!raw || typeof raw !== 'string') return null;
   const path = raw.trim();

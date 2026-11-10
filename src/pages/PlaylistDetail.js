@@ -10,6 +10,8 @@ import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import BackLink from '@/components/BackLink';
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
 
 const PlaylistDetail = () => {
   const { playlistId } = useParams();
@@ -68,6 +70,8 @@ const PlaylistDetail = () => {
     }
   };
 
+  useListScrollRestoration(!loading && !!playlist);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
@@ -88,6 +92,7 @@ const PlaylistDetail = () => {
 
       <div className="relative pt-28 pb-10 px-4 md:px-8">
         <div className="max-w-6xl mx-auto relative z-10">
+          <BackLink fallback="/playlists" testId="playlist-back-link" />
           <Badge className="mb-4 bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
             Playlist
           </Badge>

@@ -18,6 +18,8 @@ import { fetchMyFollows } from '@/lib/follows';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { shuffleTracks } from '@/lib/libraryCollection';
 import CoverImage from '@/components/CoverImage';
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
+import { rememberListPosition } from '@/lib/listNavigation';
 
 const resolvePlaylistTracks = (tracks) =>
   (tracks || [])
@@ -157,6 +159,8 @@ const Playlists = () => {
     }
   };
 
+  useListScrollRestoration(!loading);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
@@ -178,7 +182,7 @@ const Playlists = () => {
       {/* Header */}
       <div className="relative pt-28 pb-10 px-4 md:px-8">
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between" data-kloud-tour="playlists">
             <div>
               <Badge className="mb-4 bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
                 Playlists
@@ -271,11 +275,15 @@ const Playlists = () => {
                 key={playlist.playlist_id}
                 role="link"
                 tabIndex={0}
-                onClick={() => navigate(`/playlist/${playlist.playlist_id}`)}
+                onClick={() => {
+                  rememberListPosition();
+                  navigate(`/playlist/${playlist.playlist_id}`);
+                }}
                 onKeyDown={(e) => {
                   if (e.target !== e.currentTarget) return;
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
+                    rememberListPosition();
                     navigate(`/playlist/${playlist.playlist_id}`);
                   }
                 }}
@@ -374,7 +382,10 @@ const Playlists = () => {
                   <button
                     key={track.track_id}
                     type="button"
-                    onClick={() => navigate(`/track/${track.track_id}`)}
+                    onClick={() => {
+                      rememberListPosition();
+                      navigate(`/track/${track.track_id}`);
+                    }}
                     className="group text-left rounded-2xl overflow-hidden glass-heavy border border-white/10 hover:border-cyan-500/30 transition-colors"
                     data-testid={`liked-track-${track.track_id}`}
                   >

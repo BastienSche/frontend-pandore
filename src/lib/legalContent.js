@@ -1,4 +1,4 @@
-export const LEGAL_UPDATED_AT = '5 novembre 2026';
+export const LEGAL_UPDATED_AT = '10 novembre 2026';
 export const LEGAL_CONTACT_EMAIL = 'support@kloud-music.fr';
 export const LEGAL_SITE = 'https://kloud-music.fr';
 
@@ -49,7 +49,7 @@ export const LEGAL_SECTIONS = {
     {
       title: 'Objet',
       body: p(
-        'Les présentes conditions générales d’utilisation (CGU) régissent l’accès et l’usage de la plateforme Kloud, accessible notamment via kloud-music.fr et dev.kloud-music.fr (ci-après « Kloud »).',
+        'Les présentes conditions générales d’utilisation (CGU) régissent l’accès et l’usage de la plateforme Kloud, accessible notamment via kloud-music.fr.',
         'Kloud permet de découvrir de la musique, d’écouter des extraits, d’acheter des titres ou albums numériques, et de les conserver dans une bibliothèque personnelle. Les artistes peuvent publier leurs œuvres, suivre leurs ventes et retirer leurs revenus.'
       )
     },
@@ -107,14 +107,14 @@ export const LEGAL_SECTIONS = {
       title: 'Champ d’application',
       body: p(
         'Les présentes conditions générales de vente (CGV) s’appliquent à tout achat de contenu numérique (titre, album, prix libre ou tarif fixe) réalisé sur Kloud par un consommateur ou un professionnel.',
-        'Le vendeur apparent pour l’encaissement est Kloud, qui collecte le paiement via Stripe puis reverse à l’artiste sa part (cagnotte interne, puis virement Stripe Connect lorsque l’artiste l’a activé).'
+        'Le vendeur apparent pour l’encaissement est Kloud, qui collecte le paiement via Stripe puis reverse à l’artiste sa part (coffre-fort interne, puis virement Stripe Connect lorsque l’artiste l’a activé).'
       )
     },
     {
       title: 'Prix et commission',
       body: p(
         'Les prix sont indiqués en euros, TTC le cas échéant. Un titre peut être gratuit, à prix libre (avec minimum éventuel) ou à prix fixe, selon le choix de l’artiste.',
-        'Kloud prélève une commission plateforme (15 % par défaut, sauf mention contraire sur le tableau de bord artiste) sur le montant encaissé. Le solde est crédité sur la cagnotte de l’artiste.',
+        'Kloud prélève une commission de 5 % sur le montant encaissé. Le solde est crédité sur le coffre-fort de l’artiste.',
         'Les frais de paiement Stripe, s’il en reste après commission, sont supportés selon le paramétrage technique en vigueur au moment de la transaction.'
       )
     },
@@ -123,7 +123,7 @@ export const LEGAL_SECTIONS = {
       body: p(
         'L’achat se conclut sur la page du titre ou de l’album, puis via Stripe Checkout. La commande n’est ferme qu’après confirmation du paiement (statut « paid »).',
         'Kloud n’enregistre pas tes numéros de carte. Le prestataire de paiement est Stripe (Stripe Payments Europe, Ltd / entités du groupe Stripe).',
-        'Sans activation Stripe Connect côté artiste, l’acheteur peut quand même payer : les fonds sont conservés par Kloud au profit de l’artiste (cagnotte). L’artiste peut retirer à partir du seuil affiché (10 € par défaut) une fois Connect activé.'
+        'Sans activation Stripe Connect côté artiste, l’acheteur peut quand même payer : les fonds sont conservés par Kloud au profit de l’artiste (coffre-fort). L’artiste peut retirer à partir du seuil affiché (10 € par défaut) une fois Connect activé.'
       )
     },
     {
@@ -174,13 +174,6 @@ export const LEGAL_SECTIONS = {
       title: 'Directeur de la publication',
       body: p(
         'Le directeur de la publication est le représentant légal de l’éditeur de Kloud, joignable à l’adresse support@kloud-music.fr.'
-      )
-    },
-    {
-      title: 'Hébergement',
-      body: p(
-        'Hébergeur : OVH SAS, 2 rue Kellermann, 59100 Roubaix, France. Téléphone : 1007 (depuis la France). Site : https://www.ovhcloud.com',
-        'Le site est servi depuis un VPS OVH. Les paiements carte sont traités par Stripe, pas par l’hébergeur.'
       )
     },
     {

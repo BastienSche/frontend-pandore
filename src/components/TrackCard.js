@@ -12,6 +12,7 @@ import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { goToLogin } from '@/lib/postLoginRedirect';
 import { useAuth } from '@/hooks/useAuth';
 import CoverImage from '@/components/CoverImage';
+import { rememberListPosition } from '@/lib/listNavigation';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -27,7 +28,7 @@ const availabilityLabel = (v) => {
   return null;
 };
 
-const TrackCard = ({ track }) => {
+const TrackCard = ({ track, owned = false }) => {
   const { currentTrack, isPlaying, playTrack, addToQueue } = useAudioPlayer();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -53,6 +54,11 @@ const TrackCard = ({ track }) => {
       mounted = false;
     };
   }, [authLoading, isAuthenticated, track.track_id]);
+
+  const openTrack = () => {
+    rememberListPosition({ selector: `[data-testid="track-card-${track.track_id}"]` });
+    navigate(`/track/${track.track_id}`);
+  };
 
   const toggleLike = async (e) => {
     e.stopPropagation();
@@ -82,7 +88,7 @@ const TrackCard = ({ track }) => {
         {/* Cover Image */}
         <div 
           className="relative aspect-square cursor-pointer" 
-          onClick={() => navigate(`/track/${track.track_id}`)}
+          onClick={openTrack}
         >
           <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1.5 max-w-[70%]">
             {mixLabel(track.mix_version) && (
@@ -159,6 +165,12 @@ const TrackCard = ({ track }) => {
           </motion.div>
 
           {/* Now Playing Indicator */}
+          {owned && !isCurrentTrack && (
+            <div className="absolute top-3 right-3 z-20 px-3 py-1.5 rounded-full bg-emerald-500/80 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
+              Acquis
+            </div>
+          )}
+
           {isCurrentTrack && isPlaying && (
             <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-cyan-500/30">
               <div className="flex gap-0.5">
@@ -176,7 +188,7 @@ const TrackCard = ({ track }) => {
           <div>
             <h3 
               className="font-semibold text-base truncate group-hover:text-cyan-400 transition-colors cursor-pointer" 
-              onClick={() => navigate(`/track/${track.track_id}`)}
+              onClick={openTrack}
               data-testid={`track-title-${track.track_id}`}
             >
               {track.title}

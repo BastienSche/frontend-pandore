@@ -10,7 +10,6 @@ import {
   User,
   Check,
   Library,
-  ArrowLeft,
   Download,
   ListOrdered,
   Shuffle
@@ -22,6 +21,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import CoverImage from '@/components/CoverImage';
+import BackLink from '@/components/BackLink';
 import { apiClient, downloadAuthenticatedFile, fetchTracksByIds, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
@@ -189,14 +189,7 @@ const LibraryAlbumOwned = () => {
         )}
 
         <div className="relative max-w-6xl mx-auto px-6 md:px-12">
-          <Link
-            to="/library"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-cyan-300 transition-colors mb-6"
-            data-testid="library-album-owned-back"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour à la bibliothèque
-          </Link>
+          <BackLink fallback="/library" label="Retour" testId="library-album-owned-back" />
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
