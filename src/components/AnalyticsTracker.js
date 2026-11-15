@@ -102,18 +102,19 @@ const AnalyticsTracker = () => {
   useEffect(() => {
     if (!analyticsOn) return;
     lastSentRef.current = Date.now();
-    const loc = location;
+    const pathname = location.pathname;
+    const search = location.search;
     const playing = trackRef.current;
     apiClient
       .post('/api/analytics/heartbeat', {
         session_id: getSessionId(),
-        path: `${loc.pathname || '/'}${loc.search || ''}`,
+        path: `${pathname || '/'}${search || ''}`,
         referrer: typeof document !== 'undefined' ? document.referrer.slice(0, 400) : '',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
         locale: (typeof navigator !== 'undefined' && navigator.language) || '',
-        artist_id: playing.currentTrack?.artist_id || pathArtistId(loc.pathname),
-        track_id: playing.isPlaying ? playing.currentTrack?.track_id : pathTrackId(loc.pathname),
-        album_id: pathAlbumId(loc.pathname),
+        artist_id: playing.currentTrack?.artist_id || pathArtistId(pathname),
+        track_id: playing.isPlaying ? playing.currentTrack?.track_id : pathTrackId(pathname),
+        album_id: pathAlbumId(pathname),
         dwell_sec: 0,
         local_hour: new Date().getHours(),
         visible: true

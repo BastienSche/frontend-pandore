@@ -68,7 +68,12 @@ const AccountSettings = () => {
   const [listenerSettings, setListenerSettings] = useState(defaultListenerSettings);
   const [listenerPicture, setListenerPicture] = useState('');
 
-  const isArtist = useMemo(() => user?.role === 'artist', [user?.role]);
+  const userId = user?.user_id;
+  const userRole = user?.role;
+  const userArtistName = user?.artist_name;
+  const userDisplayName = user?.name;
+  const userPicture = user?.picture;
+  const isArtist = useMemo(() => userRole === 'artist', [userRole]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -90,17 +95,17 @@ const AccountSettings = () => {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user?.user_id) {
+    if (!userId) {
       hydratedUserId.current = null;
       profileHydratedId.current = null;
       navigate('/login');
       return;
     }
-    if (hydratedUserId.current === user.user_id) return;
-    hydratedUserId.current = user.user_id;
+    if (hydratedUserId.current === userId) return;
+    hydratedUserId.current = userId;
 
-    setArtistName(user.artist_name || '');
-    setListenerPicture(user.picture || '');
+    setArtistName(userArtistName || '');
+    setListenerPicture(userPicture || '');
 
     (async () => {
       try {
@@ -111,18 +116,18 @@ const AccountSettings = () => {
         if (local) setListenerSettings({ ...defaultListenerSettings, ...local });
       }
     })();
-  }, [authLoading, user?.user_id, navigate]);
+  }, [authLoading, userId, userArtistName, userPicture, navigate]);
 
   useEffect(() => {
-    if (!user?.user_id || user.role !== 'artist') return;
-    if (profileHydratedId.current === user.user_id) return;
-    profileHydratedId.current = user.user_id;
+    if (!userId || userRole !== 'artist') return;
+    if (profileHydratedId.current === userId) return;
+    profileHydratedId.current = userId;
 
     (async () => {
       try {
         const { data } = await apiClient.get('/api/artist/profile');
         setArtistProfile({
-          name: data?.name || user.artist_name || user.name || '',
+          name: data?.name || userArtistName || userDisplayName || '',
           bio: data?.bio || '',
           avatar_url: data?.avatar_url || '',
           links: normalizeSmartLinks(data?.links).length ? normalizeSmartLinks(data?.links) : [emptySmartLink()],
@@ -130,7 +135,7 @@ const AccountSettings = () => {
         });
       } catch {
         setArtistProfile({
-          name: user.artist_name || user.name || '',
+          name: userArtistName || userDisplayName || '',
           bio: '',
           avatar_url: '',
           links: [emptySmartLink()],
@@ -138,7 +143,7 @@ const AccountSettings = () => {
         });
       }
     })();
-  }, [user?.user_id, user?.role]);
+  }, [userId, userRole, userArtistName, userDisplayName]);
 
   const becomeArtist = async () => {
     if (!user || user.role === 'artist') return;
