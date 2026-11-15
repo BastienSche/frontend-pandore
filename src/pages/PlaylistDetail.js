@@ -4,12 +4,14 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Play, Trash2, Music } from 'lucide-react';
 
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, fetchTracksByIds, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import BackLink from '@/components/BackLink';
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
 
 const PlaylistDetail = () => {
   const { playlistId } = useParams();
@@ -24,7 +26,7 @@ const PlaylistDetail = () => {
     () =>
       (tracks || []).map((t) => ({
         ...t,
-        preview_url: resolveApiUrl(t?.preview_url),
+        preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
         file_url: resolveApiUrl(t?.file_url),
         cover_url: resolveApiUrl(t?.cover_url)
       })),
@@ -39,16 +41,9 @@ const PlaylistDetail = () => {
         setPlaylist(p);
 
         const ids = p?.track_ids || [];
-        if (!ids.length) {
-          setTracks([]);
-        } else {
-          const results = await Promise.all(
-            ids.map((id) => apiClient.get(`/api/tracks/${id}`).then((r) => r.data).catch(() => null))
-          );
-          setTracks(results.filter(Boolean));
-        }
+        setTracks(ids.length ? await fetchTracksByIds(ids) : []);
       } catch (e) {
-        toast.error(e.response?.data?.detail || 'Playlist introuvable');
+        toast.error(formatApiError(e, 'Playlist introuvable'));
         navigate('/playlists');
       } finally {
         setLoading(false);
@@ -71,9 +66,11 @@ const PlaylistDetail = () => {
       }));
       toast.success('Retiré de la playlist');
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
+
+  useListScrollRestoration(!loading && !!playlist);
 
   if (loading) {
     return (
@@ -95,6 +92,7 @@ const PlaylistDetail = () => {
 
       <div className="relative pt-28 pb-10 px-4 md:px-8">
         <div className="max-w-6xl mx-auto relative z-10">
+          <BackLink fallback="/playlists" testId="playlist-back-link" />
           <Badge className="mb-4 bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
             Playlist
           </Badge>

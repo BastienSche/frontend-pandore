@@ -7,9 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { formatApiError } from '@/lib/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import KloudLogo from '@/components/KloudLogo';
+import GoogleAuthButton from '@/components/GoogleAuthButton';
+import { ARTIST_ONBOARDING_PATH, consumePostLoginPath, rememberPostLoginPath } from '@/lib/postLoginRedirect';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -26,11 +29,12 @@ const Register = () => {
     setLoading(true);
     
     try {
+      if (isArtist) rememberPostLoginPath(ARTIST_ONBOARDING_PATH);
       await register(email, password, name, isArtist ? artistName : null);
-      toast.success('Inscription réussie ! Veuillez vous connecter.');
-      navigate('/login');
+      toast.success('Inscription réussie !');
+      navigate(isArtist ? ARTIST_ONBOARDING_PATH : consumePostLoginPath('/browse'));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur lors de l\'inscription');
+      toast.error(formatApiError(error, 'Erreur lors de l\'inscription'));
     } finally {
       setLoading(false);
     }
@@ -172,6 +176,21 @@ const Register = () => {
               )}
             </AnimatePresence>
 
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              En t&apos;inscrivant, tu acceptes les{' '}
+              <Link to="/cgu" className="text-purple-300 hover:underline">
+                CGU
+              </Link>
+              , les{' '}
+              <Link to="/cgv" className="text-purple-300 hover:underline">
+                CGV
+              </Link>{' '}
+              et la{' '}
+              <Link to="/confidentialite" className="text-purple-300 hover:underline">
+                politique de confidentialité
+              </Link>
+              .
+            </p>
             <Button
               type="submit"
               className="w-full h-14 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 border-0 text-base font-medium shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_40px_rgba(139,92,246,0.5)] transition-shadow"
@@ -188,6 +207,17 @@ const Register = () => {
               )}
             </Button>
           </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <p className="relative text-center text-xs uppercase tracking-wider text-muted-foreground">
+              <span className="bg-transparent px-3 backdrop-blur-sm">ou</span>
+            </p>
+          </div>
+
+          <GoogleAuthButton label="S'inscrire avec Google" disabled={loading} testId="google-register-button" />
 
           {/* Login Link */}
           <p className="text-center text-sm text-muted-foreground">

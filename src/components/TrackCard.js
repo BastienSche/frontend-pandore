@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
-import { Play, Pause, Heart } from 'lucide-react';
+import { Play, Pause, Heart, ListPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
-import { formatPriceLabel } from '@/lib/pricing';
+import { formatItemPriceLabel } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { goToLogin } from '@/lib/postLoginRedirect';
+import { useAuth } from '@/hooks/useAuth';
+import CoverImage from '@/components/CoverImage';
+import { rememberListPosition } from '@/lib/listNavigation';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -24,14 +28,19 @@ const availabilityLabel = (v) => {
   return null;
 };
 
-const TrackCard = ({ track }) => {
-  const { currentTrack, isPlaying, playTrack } = useAudioPlayer();
+const TrackCard = ({ track, owned = false }) => {
+  const { currentTrack, isPlaying, playTrack, addToQueue } = useAudioPlayer();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isCurrentTrack = currentTrack?.track_id === track.track_id;
   const [liked, setLiked] = useState(false);
-  const [coverError, setCoverError] = useState(false);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      setLiked(false);
+      return undefined;
+    }
     let mounted = true;
     (async () => {
       try {
@@ -44,10 +53,20 @@ const TrackCard = ({ track }) => {
     return () => {
       mounted = false;
     };
-  }, [track.track_id]);
+  }, [authLoading, isAuthenticated, track.track_id]);
+
+  const openTrack = () => {
+    rememberListPosition({ selector: `[data-testid="track-card-${track.track_id}"]` });
+    navigate(`/track/${track.track_id}`);
+  };
 
   const toggleLike = async (e) => {
     e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.info('Connecte-toi pour ajouter aux favoris.');
+      goToLogin(navigate, location.pathname);
+      return;
+    }
     const next = !liked;
     setLiked(next);
     try {
@@ -69,30 +88,31 @@ const TrackCard = ({ track }) => {
         {/* Cover Image */}
         <div 
           className="relative aspect-square cursor-pointer" 
-          onClick={() => navigate(`/track/${track.track_id}`)}
+          onClick={openTrack}
         >
-          {/* Overlays (no layout impact) */}
-          {mixLabel(track.mix_version) && (
-            <div className="absolute top-3 left-3 z-20">
+          <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1.5 max-w-[70%]">
+            {mixLabel(track.mix_version) && (
               <div className="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
                 {mixLabel(track.mix_version)}
               </div>
-            </div>
-          )}
+            )}
+            {splitGenreTags(track.genre).slice(0, 2).map((g, i) => (
+              <div
+                key={`${track.track_id}-cover-genre-${i}`}
+                className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white/95 max-w-full truncate"
+                title={g}
+              >
+                {g}
+              </div>
+            ))}
+          </div>
 
-          {track.cover_url && !coverError ? (
-            <img
-              src={track.cover_url}
-              alt={track.title}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              loading="lazy"
-              onError={() => setCoverError(true)}
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-cyan-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center">
-              <Play className="w-16 h-16 text-white/30" />
-            </div>
-          )}
+          <CoverImage
+            src={track.cover_url}
+            alt={track.title}
+            className="w-full h-full"
+            imgClassName="transition-transform duration-700 group-hover:scale-110"
+          />
 
           {availabilityLabel(track.availability) && (
             <div className="absolute bottom-0 inset-x-0 z-10">
@@ -110,6 +130,21 @@ const TrackCard = ({ track }) => {
             whileHover={{ scale: 1 }}
             className="absolute bottom-4 right-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300"
           >
+            <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="icon"
+              className="rounded-full w-10 h-10 bg-black/55 border border-white/15 hover:bg-black/70"
+              onClick={(e) => {
+                e.stopPropagation();
+                addToQueue(track);
+                toast.success('Ajouté à la file d’attente');
+              }}
+              aria-label="Ajouter à la file d’attente"
+              data-testid={`track-queue-button-${track.track_id}`}
+            >
+              <ListPlus className="w-4 h-4 text-white" />
+            </Button>
             <Button
               variant="default"
               size="icon"
@@ -126,11 +161,18 @@ const TrackCard = ({ track }) => {
                 <Play className="w-5 h-5 text-white ml-0.5" />
               )}
             </Button>
+            </div>
           </motion.div>
 
           {/* Now Playing Indicator */}
+          {owned && !isCurrentTrack && (
+            <div className="absolute top-3 right-3 z-20 px-3 py-1.5 rounded-full bg-emerald-500/80 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
+              Acquis
+            </div>
+          )}
+
           {isCurrentTrack && isPlaying && (
-            <div className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-cyan-500/30">
+            <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-cyan-500/30">
               <div className="flex gap-0.5">
                 <span className="w-1 h-3 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
                 <span className="w-1 h-4 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
@@ -146,7 +188,7 @@ const TrackCard = ({ track }) => {
           <div>
             <h3 
               className="font-semibold text-base truncate group-hover:text-cyan-400 transition-colors cursor-pointer" 
-              onClick={() => navigate(`/track/${track.track_id}`)}
+              onClick={openTrack}
               data-testid={`track-title-${track.track_id}`}
             >
               {track.title}
@@ -159,38 +201,22 @@ const TrackCard = ({ track }) => {
             </p>
           </div>
           
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5 pr-1 sm:overflow-x-auto sm:whitespace-nowrap sm:flex-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {splitGenreTags(track.genre).map((g, i) => (
-                  <Badge
-                    key={`${track.track_id}-genre-${i}`}
-                    variant="secondary"
-                    className="shrink-0 whitespace-nowrap text-xs leading-tight bg-white/5 border border-white/10 text-muted-foreground max-w-[11rem] truncate"
-                    title={g}
-                  >
-                    {g}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-              <span
-                className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
-                data-testid={`track-price-${track.track_id}`}
-              >
-                {formatPriceLabel(track.price)}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full w-8 h-8 hover:bg-pink-500/10 hover:text-pink-400 transition-colors"
-                data-testid={`track-like-button-${track.track_id}`}
-                onClick={toggleLike}
-              >
-                <Heart className={`w-4 h-4 ${heartIconActiveClass(liked)}`} />
-              </Button>
-            </div>
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400"
+              data-testid={`track-price-${track.track_id}`}
+            >
+              {formatItemPriceLabel(track)}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full w-8 h-8 hover:bg-pink-500/10 hover:text-pink-400 transition-colors"
+              data-testid={`track-like-button-${track.track_id}`}
+              onClick={toggleLike}
+            >
+              <Heart className={`w-4 h-4 ${heartIconActiveClass(liked)}`} />
+            </Button>
           </div>
         </div>
       </div>

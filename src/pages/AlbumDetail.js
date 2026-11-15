@@ -7,16 +7,22 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
-import { getCheckoutRedirectUrl } from '@/lib/checkoutRedirect';
+import { apiClient, fetchTracksByIds, formatApiError, resolveApiUrl } from '@/lib/apiClient';
+import { startCheckoutRedirect } from '@/lib/checkoutRedirect';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
-import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
+import { formatItemPriceLabel, isFreePrice } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
+import { goToLogin, rememberPostLoginPath } from '@/lib/postLoginRedirect';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import CoverImage from '@/components/CoverImage';
+import BackLink from '@/components/BackLink';
+import ShareButton from '@/components/ShareButton';
+import { publicPageUrl } from '@/lib/smartLinks';
+import { setDocumentShareMeta } from '@/lib/sharePage';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -71,19 +77,15 @@ const AlbumDetail = () => {
         if (!trackIds.length) {
           setTracks([]);
         } else {
-          const trackResults = await Promise.all(
-            trackIds.map((id) => apiClient.get(`/api/tracks/${id}`).then((r) => r.data).catch(() => null))
-          );
+          const trackResults = await fetchTracksByIds(trackIds);
           if (cancelled) return;
           setTracks(
-            trackResults
-              .filter(Boolean)
-              .map((t) => ({
-                ...t,
-                preview_url: resolveApiUrl(t?.preview_url),
-                file_url: resolveApiUrl(t?.file_url),
-                cover_url: resolveApiUrl(t?.cover_url)
-              }))
+            trackResults.map((t) => ({
+              ...t,
+              preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
+              file_url: null,
+              cover_url: resolveApiUrl(t?.cover_url)
+            }))
           );
         }
       } catch (error) {
@@ -116,7 +118,23 @@ const AlbumDetail = () => {
     };
   }, [albumId]);
 
+  useEffect(() => {
+    if (!album) return undefined;
+    setDocumentShareMeta({
+      title: `${album.title} · ${album.artist_name || 'Kloud'}`,
+      description: album.description || `Écoute ${album.title} sur Kloud.`
+    });
+    return () => {
+      document.title = 'Kloud';
+    };
+  }, [album]);
+
   const toggleLike = async () => {
+    if (!isAuthenticated) {
+      toast.info('Connecte-toi pour ajouter aux favoris.');
+      goToLogin(navigate, location.pathname);
+      return;
+    }
     const next = !liked;
     setLiked(next);
     try {
@@ -124,7 +142,7 @@ const AlbumDetail = () => {
       else await unlike('album', albumId);
     } catch (e) {
       setLiked(!next);
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
 
@@ -135,6 +153,7 @@ const AlbumDetail = () => {
     }
     if (!isAuthenticated) {
       toast.info('Connecte-toi ou crée un compte pour acheter cet album.');
+      rememberPostLoginPath(location.pathname);
       navigate('/login', {
         state: {
           from: location.pathname
@@ -173,9 +192,9 @@ const AlbumDetail = () => {
           origin_url: originUrl,
           amount_cents: amountCents
         });
-        const payUrl = getCheckoutRedirectUrl(data);
-        if (payUrl) window.location.href = payUrl;
-        else toast.success('Checkout créé');
+        if (!startCheckoutRedirect(data)) {
+          toast.error('Paiement indisponible pour le moment');
+        }
         return;
       }
 
@@ -193,14 +212,11 @@ const AlbumDetail = () => {
         item_id: albumId,
         origin_url: originUrl
       });
-      const payUrl = getCheckoutRedirectUrl(data);
-      if (payUrl) {
-        window.location.href = payUrl;
-      } else {
-        toast.success('Checkout créé');
+      if (!startCheckoutRedirect(data)) {
+        toast.error('Paiement indisponible pour le moment');
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Erreur lors de l'achat");
+      toast.error(formatApiError(error, "Erreur lors de l'achat"));
     } finally {
       setPurchasing(false);
     }
@@ -210,6 +226,9 @@ const AlbumDetail = () => {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
         <BubbleBackground />
+        <div className="absolute top-28 left-6 md:left-12 z-20">
+          <BackLink fallback="/browse" />
+        </div>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -222,7 +241,7 @@ const AlbumDetail = () => {
 
   if (!album) return null;
 
-  const priceDisplay = formatPriceLabel(album.price);
+  const priceDisplay = formatItemPriceLabel(album);
   const totalDuration = tracks.reduce((sum, track) => sum + (track.duration || 0), 0);
   const hours = Math.floor(totalDuration / 3600);
   const minutes = Math.floor((totalDuration % 3600) / 60);
@@ -253,6 +272,7 @@ const AlbumDetail = () => {
         )}
 
         <div className="relative max-w-6xl mx-auto px-6 md:px-12">
+          <BackLink fallback="/browse" testId="album-back-link" />
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -267,18 +287,12 @@ const AlbumDetail = () => {
                 transition={{ duration: 0.45, delay: 0.1 }}
                 className="relative shrink-0"
               >
-                {album.cover_url ? (
-                  <img
-                    src={album.cover_url}
-                    alt={album.title}
-                    className="w-56 h-56 md:w-72 md:h-72 rounded-3xl shadow-2xl object-cover"
-                    data-testid="album-cover-large"
-                  />
-                ) : (
-                  <div className="w-56 h-56 md:w-72 md:h-72 rounded-3xl glass flex items-center justify-center border border-white/10">
-                    <Music className="w-20 h-20 text-muted-foreground/30" />
-                  </div>
-                )}
+                <CoverImage
+                  src={album.cover_url}
+                  alt={album.title}
+                  className="w-56 h-56 md:w-72 md:h-72 rounded-3xl shadow-2xl"
+                  data-testid="album-cover-large"
+                />
                 <div className="absolute -inset-2 rounded-3xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 blur-2xl -z-10" />
               </motion.div>
 
@@ -353,6 +367,12 @@ const AlbumDetail = () => {
                     <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(liked)}`} />
                     {liked ? 'En favoris' : 'Favoris'}
                   </Button>
+                  <ShareButton
+                    url={publicPageUrl(`/album/${albumId}`)}
+                    title={album.title}
+                    text={`${album.title} — ${album.artist_name || ''} sur Kloud`}
+                    testId="share-album-button"
+                  />
                 </div>
               </div>
             </div>

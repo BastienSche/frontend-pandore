@@ -1,7 +1,8 @@
-import { apiClient } from '@/lib/apiClient';
+import { apiClient, getAccessToken, getRefreshToken } from '@/lib/apiClient';
 
 export async function fetchFollowState(artistIds) {
   if (!artistIds?.length) return {};
+  if (!getAccessToken() && !getRefreshToken()) return {};
   const { data } = await apiClient.get('/api/follows/state', {
     params: { artist_ids: artistIds.join(',') }
   });

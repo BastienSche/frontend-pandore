@@ -10,7 +10,6 @@ import {
   User,
   Check,
   Library,
-  ArrowLeft,
   Download,
   ListOrdered,
   Shuffle
@@ -21,7 +20,9 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import CoverImage from '@/components/CoverImage';
+import BackLink from '@/components/BackLink';
+import { apiClient, downloadAuthenticatedFile, fetchTracksByIds, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
 import { formatTrackDuration, shuffleTracks } from '@/lib/libraryCollection';
@@ -56,16 +57,13 @@ const LibraryAlbumOwned = () => {
         if (!trackIds.length) {
           setTracks([]);
         } else {
-          const trackResults = await Promise.all(
-            trackIds.map((id) => apiClient.get(`/api/tracks/${id}`).then((r) => r.data).catch(() => null))
-          );
+          const trackResults = await fetchTracksByIds(trackIds);
           if (cancelled) return;
           setTracks(
             trackResults
-              .filter(Boolean)
               .map((t) => {
-                const previewUrl = resolveApiUrl(t?.preview_url);
-                const fileUrl = resolveApiUrl(t?.file_url) || previewUrl;
+                const fileUrl = resolveApiUrl(t?.file_url) || null;
+                const previewUrl = resolveApiUrl(t?.preview_url || t?.file_url);
                 return ({
                 ...t,
                 preview_url: previewUrl,
@@ -113,7 +111,7 @@ const LibraryAlbumOwned = () => {
       else await unlike('album', albumId);
     } catch (e) {
       setLiked(!next);
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
 
@@ -143,17 +141,11 @@ const LibraryAlbumOwned = () => {
     playTrack(track, { mode: 'library' });
   };
 
-  const handleDownload = (track) => {
-    const audioUrl = track.file_url || track.preview_url;
+  const handleDownload = async (track) => {
+    const audioUrl = track.file_url;
     if (!audioUrl) return;
     try {
-      const link = document.createElement('a');
-      link.href = audioUrl;
-      const safe = (track.title || 'track').replace(/[/\\?%*:|"<>]/g, '-');
-      link.setAttribute('download', safe);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      await downloadAuthenticatedFile(audioUrl, track.title || 'track');
       toast.success('Téléchargement commencé');
     } catch {
       toast.error('Erreur lors du téléchargement');
@@ -197,14 +189,7 @@ const LibraryAlbumOwned = () => {
         )}
 
         <div className="relative max-w-6xl mx-auto px-6 md:px-12">
-          <Link
-            to="/library"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-cyan-300 transition-colors mb-6"
-            data-testid="library-album-owned-back"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour à la bibliothèque
-          </Link>
+          <BackLink fallback="/library" label="Retour" testId="library-album-owned-back" />
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -219,18 +204,12 @@ const LibraryAlbumOwned = () => {
                 transition={{ duration: 0.45, delay: 0.1 }}
                 className="relative shrink-0"
               >
-                {album.cover_url ? (
-                  <img
-                    src={album.cover_url}
-                    alt={album.title}
-                    className="w-56 h-56 md:w-72 md:h-72 rounded-3xl shadow-2xl object-cover"
-                    data-testid="library-owned-album-cover"
-                  />
-                ) : (
-                  <div className="w-56 h-56 md:w-72 md:h-72 rounded-3xl glass flex items-center justify-center border border-white/10">
-                    <Music className="w-20 h-20 text-muted-foreground/30" />
-                  </div>
-                )}
+                <CoverImage
+                  src={album.cover_url}
+                  alt={album.title}
+                  className="w-56 h-56 md:w-72 md:h-72 rounded-3xl shadow-2xl"
+                  data-testid="library-owned-album-cover"
+                />
                 <div className="absolute -inset-2 rounded-3xl bg-gradient-to-br from-emerald-500/20 to-purple-500/20 blur-2xl -z-10" />
               </motion.div>
 

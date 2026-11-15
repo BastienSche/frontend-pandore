@@ -16,12 +16,13 @@ import {
 import { motion } from 'framer-motion';
 import TrackCard from '@/components/TrackCard';
 import AlbumCard from '@/components/AlbumCard';
-import { MusicNoteBubbleBackground, GlowOrb, BubbleBackground} from '@/components/BubbleCard';
+import { GlowOrb, BubbleBackground } from '@/components/BubbleCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import RevenueRaceWidget from '@/components/RevenueRaceWidget';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient, formatApiError, resolveApiUrl, normalizeApiList } from '@/lib/apiClient';
 import { artistAvatarSrc } from '@/lib/artistAvatar';
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -53,9 +54,21 @@ const floatVariants = {
   })
 };
 
-const isPublicItem = (item) => {
+const isListedCatalogItem = (item) => {
   const status = String(item?.status || 'published').toLowerCase();
-  return status === 'published' || status === 'public';
+  return status !== 'draft';
+};
+
+const formatCommunityInvite = (usersCount) => {
+  const n = Math.max(0, Math.floor(Number(usersCount) || 0));
+  const formatted = new Intl.NumberFormat('fr-FR').format(n);
+  if (n >= 2) {
+    return `Rejoignez ${formatted} mélomanes qui ont choisi de posséder leur musique`;
+  }
+  if (n === 1) {
+    return 'Rejoignez le premier mélomane à posséder sa musique sur Kloud';
+  }
+  return 'Sois parmi les premiers à posséder ta musique sur Kloud';
 };
 
 const Home = () => {
@@ -67,6 +80,7 @@ const Home = () => {
   const [featuredArtists, setFeaturedArtists] = useState([]);
   const [featuredAlbums, setFeaturedAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [publicStats, setPublicStats] = useState(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackTitle, setFeedbackTitle] = useState('');
@@ -77,11 +91,15 @@ const Home = () => {
   const [feedbackSuccess, setFeedbackSuccess] = useState('');
   const [contestPayload, setContestPayload] = useState(null);
 
+  useListScrollRestoration(!loading);
+
   useEffect(() => {
     fetchHomeData();
   }, []);
 
   const fetchHomeData = async () => {
+    setLoading(true);
+    setLoadError('');
     try {
       const [tracksResp, albumsResp, artistsResp, statsResp, contestResp] = await Promise.all([
         apiClient.get('/api/tracks?limit=60'),
@@ -109,15 +127,14 @@ const Home = () => {
       };
 
       const tracks = normalizeApiList(tracksResp.data)
-        .filter(isPublicItem)
         .map((t) => ({
           ...t,
-          preview_url: resolveApiUrl(t?.preview_url),
-          file_url: resolveApiUrl(t?.file_url),
+          preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
+          file_url: null,
           cover_url: resolveApiUrl(t?.cover_url)
         }));
       const albums = normalizeApiList(albumsResp.data)
-        .filter(isPublicItem)
+        .filter(isListedCatalogItem)
         .map((a) => ({
           ...a,
           cover_url: resolveApiUrl(a?.cover_url)
@@ -176,6 +193,8 @@ const Home = () => {
         artists_count: Number(apiStats?.artists_count ?? apiStats?.artists) || fallbackArtists,
         users_count: Number(apiStats?.users_count ?? apiStats?.users) || fallbackUsers
       });
+    } catch (error) {
+      setLoadError(formatApiError(error, 'Impossible de charger la page d’accueil'));
     } finally {
       setLoading(false);
     }
@@ -398,6 +417,23 @@ const Home = () => {
         </motion.div> */}
       </section>
 
+      {loadError && (
+        <div className="relative z-10 max-w-3xl mx-auto px-6 md:px-12 -mt-4 mb-8">
+          <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-5 py-4 text-sm text-red-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p>{loadError}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full border-red-400/40 hover:bg-red-500/10 shrink-0"
+              onClick={fetchHomeData}
+              disabled={loading}
+            >
+              Réessayer
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* New Releases - Floating Cards */}
       <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="cyan" size={400} x="0%" y="50%" blur={100} />
@@ -435,7 +471,9 @@ const Home = () => {
                 ))}
               </div>
             ) : newReleases.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">Aucune sortie cette semaine pour l’instant.</p>
+              <p className="text-muted-foreground text-center py-8">
+                {loadError ? 'Les nouveautés n’ont pas pu être chargées.' : 'Aucune sortie cette semaine pour l’instant.'}
+              </p>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                 {newReleases.map((track, index) => (
@@ -492,6 +530,17 @@ const Home = () => {
               </div>
             </motion.div>
 
+            {loading ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="aspect-square rounded-3xl glass animate-pulse" />
+                ))}
+              </div>
+            ) : topTracks.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                {loadError ? 'Les titres n’ont pas pu être chargés.' : 'Aucun titre classé pour l’instant.'}
+              </p>
+            ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
               {topTracks.map((track, index) => (
                 <motion.div 
@@ -508,6 +557,7 @@ const Home = () => {
                 </motion.div>
               ))}
             </div>
+            )}
           </motion.div>
         </div>
       </section>
@@ -535,6 +585,17 @@ const Home = () => {
               </div>
             </motion.div>
 
+            {loading ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="aspect-square rounded-3xl glass animate-pulse" />
+                ))}
+              </div>
+            ) : featuredAlbums.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                {loadError ? 'Les albums n’ont pas pu être chargés.' : 'Aucun album publié pour l’instant.'}
+              </p>
+            ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {featuredAlbums.map((album, index) => (
                 <motion.div 
@@ -546,6 +607,7 @@ const Home = () => {
                 </motion.div>
               ))}
             </div>
+            )}
           </motion.div>
         </div>
       </section>
@@ -573,6 +635,17 @@ const Home = () => {
               </div>
             </motion.div>
 
+            {loading ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="mx-auto w-40 h-40 md:w-48 md:h-48 rounded-full glass animate-pulse" />
+                ))}
+              </div>
+            ) : featuredArtists.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                {loadError ? 'Les artistes n’ont pas pu être chargés.' : 'Aucun artiste pour l’instant.'}
+              </p>
+            ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {featuredArtists.map((artist, index) => (
                 <motion.div
@@ -609,6 +682,7 @@ const Home = () => {
                 </motion.div>
               ))}
             </div>
+            )}
           </motion.div>
         </div>
       </section>
@@ -682,7 +756,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {!isAuthenticated && (
       <section className="relative py-16 px-6 md:px-12">
         <GlowOrb color="cyan" size={600} x="50%" y="50%" blur={150} />
         
@@ -698,7 +772,7 @@ const Home = () => {
               Prêt à <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">découvrir</span> ?
             </h2>
             <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-              Rejoignez des milliers de mélomanes qui ont choisi de posséder leur musique
+              {formatCommunityInvite(publicStats?.users_count ?? publicStats?.users)}
             </p>
             <Link to="/register" data-testid="cta-register-link">
               <Button 
@@ -712,6 +786,7 @@ const Home = () => {
           </motion.div>
         </div>
       </section>
+      )}
 
       {/* Spacer for audio player */}
       <div className="h-32" />

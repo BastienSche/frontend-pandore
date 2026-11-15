@@ -7,17 +7,23 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
-import { getCheckoutRedirectUrl } from '@/lib/checkoutRedirect';
+import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
+import { startCheckoutRedirect } from '@/lib/checkoutRedirect';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
-import { formatPriceLabel, isFreePrice } from '@/lib/pricing';
+import { formatItemPriceLabel, isFreePrice } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { goToLogin, rememberPostLoginPath } from '@/lib/postLoginRedirect';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import CoverImage from '@/components/CoverImage';
+import BackLink from '@/components/BackLink';
+import ShareButton from '@/components/ShareButton';
+import { publicPageUrl } from '@/lib/smartLinks';
+import { setDocumentShareMeta } from '@/lib/sharePage';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -79,12 +85,8 @@ const TrackDetail = () => {
           ...data,
           track_id: data?.track_id ?? data?.id ?? trackId,
           preview_start_time: data?.preview_start_time ?? data?.preview_start_sec ?? 0,
-          preview_duration_sec: data?.preview_duration_sec ?? data?.preview_length_sec ?? null,
-          preview_url: data?.preview_url
-            ? resolveApiUrl(data?.preview_url)
-            : data?.file_url
-              ? resolveApiUrl(data?.file_url)
-              : null,
+          preview_duration_sec: data?.preview_duration ?? data?.preview_duration_sec ?? data?.preview_length_sec ?? null,
+          preview_url: resolveApiUrl(data?.preview_url || data?.file_url) || null,
           file_url: data?.file_url ? resolveApiUrl(data?.file_url) : null,
           cover_url: data?.cover_url ? resolveApiUrl(data?.cover_url) : null
         });
@@ -118,7 +120,27 @@ const TrackDetail = () => {
     };
   }, [trackId]);
 
+  useEffect(() => {
+    if (!track) return undefined;
+    setDocumentShareMeta({
+      title: `${track.title} · ${track.artist_name || 'Kloud'}`,
+      description: track.description || `Écoute ${track.title} sur Kloud.`
+    });
+    return () => {
+      document.title = 'Kloud';
+    };
+  }, [track]);
+
+  const requireAccount = (message) => {
+    toast.info(message);
+    goToLogin(navigate, location.pathname);
+  };
+
   const toggleLike = async () => {
+    if (!isAuthenticated) {
+      requireAccount('Connecte-toi pour ajouter aux favoris.');
+      return;
+    }
     const next = !liked;
     setLiked(next);
     try {
@@ -126,7 +148,21 @@ const TrackDetail = () => {
       else await unlike('track', trackId);
     } catch (e) {
       setLiked(!next);
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
+    }
+  };
+
+  const openPlaylistDialog = async () => {
+    if (!isAuthenticated) {
+      requireAccount('Connecte-toi pour ajouter ce titre à une playlist.');
+      return;
+    }
+    setCreatingPlaylist(false);
+    setPlaylistDialogOpen(true);
+    try {
+      await loadPlaylists();
+    } catch (e) {
+      toast.error(formatApiError(e, 'Impossible de charger les playlists'));
     }
   };
 
@@ -137,6 +173,7 @@ const TrackDetail = () => {
     }
     if (!isAuthenticated) {
       toast.info('Connecte-toi ou crée un compte pour acheter ce titre.');
+      rememberPostLoginPath(location.pathname);
       navigate('/login', {
         state: {
           from: location.pathname
@@ -175,9 +212,9 @@ const TrackDetail = () => {
           origin_url: originUrl,
           amount_cents: amountCents
         });
-        const payUrl = getCheckoutRedirectUrl(data);
-        if (payUrl) window.location.href = payUrl;
-        else toast.success('Checkout créé');
+        if (!startCheckoutRedirect(data)) {
+          toast.error('Paiement indisponible pour le moment');
+        }
         return;
       }
 
@@ -195,14 +232,11 @@ const TrackDetail = () => {
         item_id: trackId,
         origin_url: originUrl
       });
-      const payUrl = getCheckoutRedirectUrl(data);
-      if (payUrl) {
-        window.location.href = payUrl;
-      } else {
-        toast.success('Checkout créé');
+      if (!startCheckoutRedirect(data)) {
+        toast.error('Paiement indisponible pour le moment');
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Erreur lors de l'achat");
+      toast.error(formatApiError(error, "Erreur lors de l'achat"));
     } finally {
       setPurchasing(false);
     }
@@ -215,6 +249,10 @@ const TrackDetail = () => {
   };
 
   const handleAddToPlaylist = async () => {
+    if (!isAuthenticated) {
+      requireAccount('Connecte-toi pour ajouter ce titre à une playlist.');
+      return;
+    }
     if (!selectedPlaylistId) {
       toast.error('Choisis une playlist');
       return;
@@ -225,7 +263,7 @@ const TrackDetail = () => {
       toast.success('Ajouté à la playlist');
       setPlaylistDialogOpen(false);
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     } finally {
       setAddingToPlaylist(false);
     }
@@ -233,6 +271,10 @@ const TrackDetail = () => {
 
   const handleCreatePlaylist = async (e) => {
     e.preventDefault();
+    if (!isAuthenticated) {
+      requireAccount('Connecte-toi pour créer une playlist.');
+      return;
+    }
     if (!newPlaylistName.trim()) return;
     try {
       const { data } = await apiClient.post('/api/playlists', {
@@ -246,7 +288,7 @@ const TrackDetail = () => {
       setNewPlaylistDescription('');
       toast.success('Playlist créée');
     } catch (e2) {
-      toast.error(e2.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e2, 'Erreur'));
     }
   };
 
@@ -254,6 +296,9 @@ const TrackDetail = () => {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
         <BubbleBackground />
+        <div className="absolute top-28 left-6 md:left-12 z-20">
+          <BackLink fallback="/browse" />
+        </div>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -267,7 +312,7 @@ const TrackDetail = () => {
   if (!track) return null;
 
   const isCurrentTrack = currentTrack?.track_id === track.track_id;
-  const priceDisplay = formatPriceLabel(track.price);
+  const priceDisplay = formatItemPriceLabel(track);
   const isFree = isFreePrice(track?.price);
   const isPayWhatYouWant = !!track?.is_free_price;
   const minCents = track?.min_price != null ? Number(track.min_price) : null;
@@ -301,6 +346,7 @@ const TrackDetail = () => {
         )}
 
         <div className="relative max-w-6xl mx-auto px-6 md:px-12">
+          <BackLink fallback="/browse" testId="track-back-link" />
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -315,25 +361,19 @@ const TrackDetail = () => {
                 transition={{ duration: 0.45, delay: 0.1 }}
                 className="relative shrink-0"
               >
-                {track.cover_url ? (
-                  <img
-                    src={track.cover_url}
-                    alt={track.title}
-                    className="w-56 h-56 md:w-72 md:h-72 rounded-3xl shadow-2xl object-cover"
-                    data-testid="track-cover-large"
-                  />
-                ) : (
-                  <div className="w-56 h-56 md:w-72 md:h-72 rounded-3xl glass flex items-center justify-center border border-white/10">
-                    <Music className="w-20 h-20 text-muted-foreground/30" />
-                  </div>
-                )}
+                <CoverImage
+                  src={track.cover_url}
+                  alt={track.title}
+                  className="w-56 h-56 md:w-72 md:h-72 rounded-3xl shadow-2xl"
+                  data-testid="track-cover-large"
+                />
                 <div className="absolute -inset-2 rounded-3xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 blur-2xl -z-10" />
               </motion.div>
 
               {/* Meta */}
               <div className="flex-1 min-w-0 space-y-5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge className="bg-cyan-500/15 text-cyan-300 border-cyan-500/25">Track</Badge>
+                  <Badge className="bg-cyan-500/15 text-cyan-300 border-cyan-500/25">Titre</Badge>
                   {splitGenreTags(track.genre).map((g, i) => (
                     <Badge key={`genre-${i}`} variant="secondary" className="bg-white/5 border-white/10 whitespace-nowrap max-w-[min(100%,14rem)] truncate" title={g}>
                       {g}
@@ -401,6 +441,12 @@ const TrackDetail = () => {
                     <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(liked)}`} />
                     {liked ? 'En favoris' : 'Favoris'}
                   </Button>
+                  <ShareButton
+                    url={publicPageUrl(`/track/${trackId}`)}
+                    title={track.title}
+                    text={`${track.title} — ${track.artist_name || ''} sur Kloud`}
+                    testId="share-track-button"
+                  />
                 </div>
               </div>
             </div>
@@ -436,7 +482,7 @@ const TrackDetail = () => {
                   </Button>
                 </motion.div>
                 <div>
-                  <p className="font-medium">Preview {previewDurationSec} secondes</p>
+                  <p className="font-medium">Extrait {previewDurationSec} secondes</p>
                   <p className="text-sm text-muted-foreground">
                     De {track.preview_start_time ?? 0}s à {Math.round(
                       (Number(track.preview_start_time) || 0) + previewDurationSec
@@ -567,29 +613,26 @@ const TrackDetail = () => {
               </Button>
 
               {/* Add to playlist */}
+              <Button
+                variant="outline"
+                className="w-full h-14 rounded-full bg-white/5 border-white/10 hover:bg-white/10"
+                data-testid="add-to-playlist-button"
+                onClick={openPlaylistDialog}
+              >
+                <ListPlus className="w-5 h-5 mr-2" />
+                Ajouter à une playlist
+              </Button>
               <Dialog
                 open={playlistDialogOpen}
-                onOpenChange={async (open) => {
-                  setPlaylistDialogOpen(open);
-                  if (open) {
-                    try {
-                      await loadPlaylists();
-                    } catch (e) {
-                      toast.error(e.response?.data?.detail || 'Impossible de charger les playlists');
-                    }
+                onOpenChange={(open) => {
+                  if (open && !isAuthenticated) {
+                    requireAccount('Connecte-toi pour ajouter ce titre à une playlist.');
+                    return;
                   }
+                  setPlaylistDialogOpen(open);
+                  if (!open) setCreatingPlaylist(false);
                 }}
               >
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full h-14 rounded-full bg-white/5 border-white/10 hover:bg-white/10"
-                    data-testid="add-to-playlist-button"
-                  >
-                    <ListPlus className="w-5 h-5 mr-2" />
-                    Ajouter à une playlist
-                  </Button>
-                </DialogTrigger>
                 <DialogContent className="glass-heavy border-white/10 rounded-3xl">
                   <DialogHeader>
                     <DialogTitle className="text-2xl">Ajouter à une playlist</DialogTitle>

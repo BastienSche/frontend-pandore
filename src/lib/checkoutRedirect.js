@@ -15,3 +15,11 @@ export function getCheckoutRedirectUrl(data) {
     null
   );
 }
+
+/** Redirects to Stripe Checkout. Returns false if the API did not provide a URL. */
+export function startCheckoutRedirect(data) {
+  const payUrl = getCheckoutRedirectUrl(data);
+  if (!payUrl) return false;
+  window.location.href = payUrl;
+  return true;
+}

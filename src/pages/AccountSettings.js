@@ -1,12 +1,25 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { Save, Settings, User, Bell, Shield, Headphones, Sparkles, ImagePlus, Loader2 } from 'lucide-react';
+import { Save, Settings, User, Bell, Shield, Headphones, Sparkles, ImagePlus, Loader2, Check, Mic } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
-import { apiClient } from '@/lib/apiClient';
-import { artistAvatarSrc } from '@/lib/artistAvatar';
+import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
+import {
+  artistAvatarSrc,
+  DEFAULT_ARTIST_AVATARS,
+  defaultArtistAvatar,
+  isMaskAvatar,
+  maskAvatarMatches
+} from '@/lib/artistAvatar';
+import {
+  defaultListenerSettings,
+  emitSettingsChanged,
+  loadLocalSettings,
+  saveLocalSettings,
+  settingsFromApi
+} from '@/lib/accountSettings';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,158 +29,144 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { emptySmartLink, normalizeSmartLinks, publicPageUrl, SMART_LINK_KINDS } from '@/lib/smartLinks';
+import ShareButton from '@/components/ShareButton';
+import StripeConnectSection from '@/components/StripeConnectSection';
 
-const LS_KEY = 'kloud_account_settings';
-const LEGACY_LS_KEY = 'pandore_account_settings';
-
-const loadLocalSettings = () => {
-  try {
-    const raw = window.localStorage.getItem(LS_KEY) || window.localStorage.getItem(LEGACY_LS_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
-
-const saveLocalSettings = (value) => {
-  window.localStorage.setItem(LS_KEY, JSON.stringify(value));
-  window.localStorage.setItem(LEGACY_LS_KEY, JSON.stringify(value));
-};
-
-const defaultListenerSettings = {
-  playback: {
-    autoplay: true,
-    normalizeVolume: true,
-    highQualityStreaming: true
-  },
-  notifications: {
-    newReleases: true,
-    recommendations: true,
-    purchases: true,
-    likes: true
-  },
-  privacy: {
-    shareListeningActivity: false,
-    personalizedAds: false
-  }
-};
+const SETTINGS_TABS = new Set(['account', 'audio', 'notifications', 'privacy', 'artist']);
 
 const AccountSettings = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, switchRole } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user, loading: authLoading, switchRole, updateUser } = useAuth();
+  const hydratedUserId = useRef(null);
+  const profileHydratedId = useRef(null);
 
-  const [activeTab, setActiveTab] = useState('account');
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = searchParams.get('tab');
+    return SETTINGS_TABS.has(tab) ? tab : 'account';
+  });
   const [saving, setSaving] = useState(false);
 
-  // Role switching (auditeur <-> artiste)
-  const [roleTargetIsArtist, setRoleTargetIsArtist] = useState(false);
   const [artistName, setArtistName] = useState('');
+  const [becomingArtist, setBecomingArtist] = useState(false);
 
   // Artist profile (backend)
   const [artistProfile, setArtistProfile] = useState({
     name: '',
     bio: '',
     avatar_url: '',
-    links: ['']
+    links: [emptySmartLink()],
+    genres: ''
   });
-  const [artistProfileExists, setArtistProfileExists] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarDragOver, setAvatarDragOver] = useState(false);
   const avatarInputRef = useRef(null);
+  const listenerAvatarInputRef = useRef(null);
 
   // Listener settings (local)
   const [listenerSettings, setListenerSettings] = useState(defaultListenerSettings);
+  const [listenerPicture, setListenerPicture] = useState('');
 
-  const isArtist = useMemo(() => user?.role === 'artist', [user]);
+  const userId = user?.user_id;
+  const userRole = user?.role;
+  const userArtistName = user?.artist_name;
+  const userDisplayName = user?.name;
+  const userPicture = user?.picture;
+  const isArtist = useMemo(() => userRole === 'artist', [userRole]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const next = SETTINGS_TABS.has(tab) ? tab : 'account';
+    if (next === 'artist' && !isArtist) {
+      setActiveTab('account');
+      return;
+    }
+    setActiveTab(next);
+  }, [searchParams, isArtist]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    if (!tab || tab === 'account') next.delete('tab');
+    else next.set('tab', tab);
+    setSearchParams(next, { replace: true });
+  };
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!userId) {
+      hydratedUserId.current = null;
+      profileHydratedId.current = null;
       navigate('/login');
       return;
     }
+    if (hydratedUserId.current === userId) return;
+    hydratedUserId.current = userId;
 
-    setRoleTargetIsArtist(user.role === 'artist');
-    setArtistName(user.artist_name || '');
+    setArtistName(userArtistName || '');
+    setListenerPicture(userPicture || '');
 
     (async () => {
       try {
         const { data } = await apiClient.get('/api/users/me/settings');
-        setListenerSettings({
-          playback: {
-            autoplay: data?.autoplay ?? true,
-            normalizeVolume: data?.normalize_volume ?? true,
-            highQualityStreaming: data?.high_quality_streaming ?? true
-          },
-          notifications: {
-            newReleases: data?.notifications_new_releases ?? true,
-            recommendations: data?.notifications_recommendations ?? true,
-            purchases: data?.notifications_purchases ?? true,
-            likes: data?.notifications_likes ?? true
-          },
-          privacy: {
-            shareListeningActivity: data?.privacy_share_listening_activity ?? false,
-            personalizedAds: data?.privacy_personalized_ads ?? false
-          }
-        });
+        setListenerSettings(settingsFromApi(data));
       } catch {
         const local = loadLocalSettings();
         if (local) setListenerSettings({ ...defaultListenerSettings, ...local });
       }
     })();
-  }, [authLoading, user, navigate]);
+  }, [authLoading, userId, userArtistName, userPicture, navigate]);
 
   useEffect(() => {
-    if (!user) return;
-    if (user.role !== 'artist') return;
+    if (!userId || userRole !== 'artist') return;
+    if (profileHydratedId.current === userId) return;
+    profileHydratedId.current = userId;
 
     (async () => {
       try {
         const { data } = await apiClient.get('/api/artist/profile');
         setArtistProfile({
-          name: data?.name || user.artist_name || user.name || '',
+          name: data?.name || userArtistName || userDisplayName || '',
           bio: data?.bio || '',
           avatar_url: data?.avatar_url || '',
-          links: (data?.links?.length ? data.links : ['']).map((l) => l || '')
+          links: normalizeSmartLinks(data?.links).length ? normalizeSmartLinks(data?.links) : [emptySmartLink()],
+          genres: Array.isArray(data?.genres) ? data.genres.join(', ') : ''
         });
-        setArtistProfileExists(true);
-      } catch (e) {
-        // profile may not exist yet
+      } catch {
         setArtistProfile({
-          name: user.artist_name || user.name || '',
+          name: userArtistName || userDisplayName || '',
           bio: '',
           avatar_url: '',
-          links: ['']
+          links: [emptySmartLink()],
+          genres: ''
         });
-        setArtistProfileExists(false);
       }
     })();
-  }, [user]);
+  }, [userId, userRole, userArtistName, userDisplayName]);
 
-  const applyRoleChange = async () => {
-    if (!user) return;
-
-    const wantsArtist = roleTargetIsArtist;
-    if (wantsArtist) {
-      if (!artistName?.trim()) {
-        toast.error("Le nom d'artiste est requis");
-        return;
-      }
-      await switchRole(artistName.trim());
-      toast.success('Mode Artiste activé');
+  const becomeArtist = async () => {
+    if (!user || user.role === 'artist') return;
+    const nextName = (artistName || user.name || '').trim();
+    if (!nextName) {
+      toast.error("Le nom d'artiste est requis");
       return;
     }
-
-    await switchRole(null);
-    toast.success('Mode Auditeur activé');
+    setBecomingArtist(true);
+    try {
+      await switchRole('artist', nextName);
+      setArtistProfile((prev) => ({ ...prev, name: nextName || prev.name }));
+      toast.success('Compte artiste activé');
+      navigate('/settings?tab=artist');
+    } catch (error) {
+      toast.error(formatApiError(error, "Impossible de devenir artiste"));
+    } finally {
+      setBecomingArtist(false);
+    }
   };
 
-  const uploadAvatarFile = async (file) => {
+  const uploadImageFile = async (file, onUrl) => {
     if (!file) return;
-    if (user?.role !== 'artist') {
-      toast.error("Enregistre d'abord le mode artiste, puis dépose l'image");
-      return;
-    }
     if (!String(file.type || '').startsWith('image/')) {
       toast.error('Dépose une image (JPG, PNG, WebP…)');
       return;
@@ -183,10 +182,10 @@ const AccountSettings = () => {
       const { data } = await apiClient.post('/api/upload/cover', fd);
       const url = data?.cover_url || '';
       if (!url) throw new Error('missing cover url');
-      setArtistProfile((prev) => ({ ...prev, avatar_url: url }));
-      toast.success('Avatar ajouté — enregistre le profil pour le publier');
+      onUrl(url);
+      toast.success('Photo ajoutée — enregistre pour la publier');
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Impossible d'envoyer l'image");
+      toast.error(formatApiError(error, "Impossible d'envoyer l'image"));
     } finally {
       setAvatarUploading(false);
     }
@@ -196,7 +195,14 @@ const AccountSettings = () => {
     event.preventDefault();
     setAvatarDragOver(false);
     const file = event.dataTransfer?.files?.[0];
-    uploadAvatarFile(file);
+    uploadImageFile(file, (url) => setArtistProfile((prev) => ({ ...prev, avatar_url: url })));
+  };
+
+  const onListenerAvatarDrop = (event) => {
+    event.preventDefault();
+    setAvatarDragOver(false);
+    const file = event.dataTransfer?.files?.[0];
+    uploadImageFile(file, setListenerPicture);
   };
 
   const saveArtistProfile = async () => {
@@ -204,7 +210,11 @@ const AccountSettings = () => {
       name: artistProfile.name?.trim() || artistName?.trim() || user?.artist_name || user?.name || '',
       bio: artistProfile.bio || '',
       avatar_url: artistProfile.avatar_url || '',
-      links: (artistProfile.links || []).map((l) => l.trim()).filter(Boolean)
+      links: normalizeSmartLinks(artistProfile.links),
+      genres: String(artistProfile.genres || '')
+        .split(/[,;/]+/)
+        .map((g) => g.trim())
+        .filter(Boolean)
     };
 
     if (!payload.name) {
@@ -212,19 +222,28 @@ const AccountSettings = () => {
       return;
     }
 
-    if (artistProfileExists) {
+    try {
       await apiClient.put('/api/artist/profile', payload);
-    } else {
-      await apiClient.post('/api/artist/profile', payload);
-      setArtistProfileExists(true);
+    } catch (error) {
+      if (error?.response?.status === 404) {
+        await apiClient.post('/api/artist/profile', payload);
+      } else {
+        throw error;
+      }
     }
+    setArtistName(payload.name);
+    updateUser({ artist_name: payload.name, avatar_url: payload.avatar_url || '' });
   };
 
   const saveAll = async () => {
     setSaving(true);
     try {
-      await applyRoleChange();
+      if ((listenerPicture || '') !== (user?.picture || '')) {
+        const { data } = await apiClient.put('/api/users/me', { picture: listenerPicture || '' });
+        if (data) updateUser(data);
+      }
       saveLocalSettings(listenerSettings);
+      emitSettingsChanged(listenerSettings);
       await apiClient.put('/api/users/me/settings', {
         autoplay: !!listenerSettings.playback.autoplay,
         normalize_volume: !!listenerSettings.playback.normalizeVolume,
@@ -236,12 +255,12 @@ const AccountSettings = () => {
         privacy_share_listening_activity: !!listenerSettings.privacy.shareListeningActivity,
         privacy_personalized_ads: !!listenerSettings.privacy.personalizedAds
       });
-      if (roleTargetIsArtist) {
+      if (isArtist) {
         await saveArtistProfile();
       }
       toast.success('Réglages enregistrés');
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Erreur lors de l'enregistrement");
+      toast.error(formatApiError(error, "Erreur lors de l'enregistrement"));
     } finally {
       setSaving(false);
     }
@@ -285,7 +304,7 @@ const AccountSettings = () => {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 md:px-8 relative z-10">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <div className="mb-8 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsList className="bg-white/5 border border-white/10 rounded-full p-1.5 w-max min-w-full sm:min-w-0">
             <TabsTrigger value="account" className="rounded-full px-3 sm:px-5 gap-2">
@@ -300,7 +319,7 @@ const AccountSettings = () => {
             <TabsTrigger value="privacy" className="rounded-full px-3 sm:px-5 gap-2">
               <Shield className="w-4 h-4" /> Confidentialité
             </TabsTrigger>
-            {roleTargetIsArtist && (
+            {isArtist && (
               <TabsTrigger value="artist" className="rounded-full px-3 sm:px-5 gap-2">
                 <Sparkles className="w-4 h-4" /> Artiste
               </TabsTrigger>
@@ -315,6 +334,76 @@ const AccountSettings = () => {
                   <CardTitle>Profil</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>Photo</Label>
+                    <button
+                      type="button"
+                      onClick={() => listenerAvatarInputRef.current?.click()}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setAvatarDragOver(true);
+                      }}
+                      onDragLeave={() => setAvatarDragOver(false)}
+                      onDrop={onListenerAvatarDrop}
+                      disabled={avatarUploading}
+                      className={`group flex items-center gap-4 rounded-2xl border border-dashed px-4 py-3 text-left transition-colors ${
+                        avatarDragOver
+                          ? 'border-cyan-400 bg-cyan-500/10'
+                          : 'border-white/15 bg-white/5 hover:border-cyan-400/40 hover:bg-white/[0.07]'
+                      }`}
+                      data-testid="listener-avatar-dropzone"
+                    >
+                      <span className="relative w-16 h-16 rounded-full overflow-hidden border border-white/15 shrink-0 bg-black/30">
+                        {listenerPicture || user?.picture ? (
+                          <img
+                            src={artistAvatarSrc({
+                              picture: listenerPicture || user?.picture,
+                              user_id: user?.user_id
+                            })}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="w-full h-full flex items-center justify-center text-lg text-muted-foreground">
+                            {(user.name || user.email || '?').charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                        {avatarUploading && (
+                          <span className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 animate-spin text-cyan-300" />
+                          </span>
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-2 text-sm font-medium">
+                          <ImagePlus className="w-4 h-4 text-cyan-300" />
+                          Ajouter une photo
+                        </span>
+                        <span className="block text-xs text-muted-foreground mt-1">
+                          JPG, PNG, WebP · 8 Mo max
+                        </span>
+                      </span>
+                    </button>
+                    <input
+                      ref={listenerAvatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        uploadImageFile(e.target.files?.[0], setListenerPicture);
+                        e.target.value = '';
+                      }}
+                    />
+                    {listenerPicture ? (
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setListenerPicture('')}
+                      >
+                        Retirer la photo
+                      </button>
+                    ) : null}
+                  </div>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Nom</Label>
@@ -328,42 +417,63 @@ const AccountSettings = () => {
                 </CardContent>
               </Card>
 
-              <Card className="glass-heavy rounded-3xl border-white/10">
-                <CardHeader>
-                  <CardTitle>Mode</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
-                    <div>
-                      <p className="font-medium">Activer le mode Artiste</p>
-                      <p className="text-sm text-muted-foreground">
-                        Publiez vos titres, suivez vos stats et gérez votre profil.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={roleTargetIsArtist}
-                      onCheckedChange={(v) => setRoleTargetIsArtist(!!v)}
-                      data-testid="settings-role-switch"
-                    />
-                  </div>
-
-                  {roleTargetIsArtist && (
+              {!isArtist ? (
+                <Card className="glass-heavy rounded-3xl border-white/10">
+                  <CardHeader>
+                    <CardTitle>Devenir artiste</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Tu publieras tes titres, suivras tes stats et géreras ton profil. Le rôle se choisit
+                      à l’inscription, ou ici — sans revenir en arrière.
+                    </p>
                     <div className="space-y-2">
                       <Label>Nom d&apos;artiste</Label>
                       <Input
                         value={artistName}
                         onChange={(e) => setArtistName(e.target.value)}
-                        placeholder="Votre nom de scène"
+                        placeholder="Ton nom de scène"
                         className="h-12 rounded-xl bg-white/5 border-white/10"
                         data-testid="settings-artist-name"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Requis pour activer le mode Artiste.
-                      </p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                    <Button
+                      type="button"
+                      onClick={becomeArtist}
+                      disabled={becomingArtist}
+                      className="rounded-full px-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 border-0"
+                      data-testid="settings-become-artist"
+                    >
+                      {becomingArtist ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Mic className="w-4 h-4 mr-2" />
+                      )}
+                      Devenir artiste
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="glass-heavy rounded-3xl border-white/10">
+                  <CardHeader>
+                    <CardTitle>Compte artiste</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Tu es artiste
+                      {user.artist_name ? (
+                        <>
+                          {' '}
+                          sous le nom{' '}
+                          <span className="text-foreground font-medium">{user.artist_name}</span>
+                        </>
+                      ) : null}
+                      . Le pseudo se change dans l’onglet Artiste.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+              {isArtist ? <StripeConnectSection returnTo="settings" testId="settings-stripe-connect" /> : null}
             </motion.div>
           </TabsContent>
 
@@ -495,16 +605,17 @@ const AccountSettings = () => {
             </motion.div>
           </TabsContent>
 
-          {roleTargetIsArtist && (
+          {isArtist && (
             <TabsContent value="artist">
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6">
+                <StripeConnectSection returnTo="settings" testId="settings-stripe-connect-artist" />
                 <Card className="glass-heavy rounded-3xl border-white/10">
                   <CardHeader>
                     <CardTitle>Profil artiste</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid md:grid-cols-[auto_1fr] gap-4 items-start">
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Label>Avatar</Label>
                         <button
                           type="button"
@@ -543,7 +654,7 @@ const AccountSettings = () => {
                           <span className="min-w-0">
                             <span className="flex items-center gap-2 text-sm font-medium">
                               <ImagePlus className="w-4 h-4 text-cyan-300" />
-                              Glisse une image
+                              Glisse une photo
                             </span>
                             <span className="block text-xs text-muted-foreground mt-1">
                               ou clique pour choisir · JPG, PNG, WebP · 8 Mo max
@@ -556,28 +667,69 @@ const AccountSettings = () => {
                           accept="image/*"
                           className="hidden"
                           onChange={(e) => {
-                            uploadAvatarFile(e.target.files?.[0]);
+                            uploadImageFile(e.target.files?.[0], (url) =>
+                              setArtistProfile((p) => ({ ...p, avatar_url: url }))
+                            );
                             e.target.value = '';
                           }}
                         />
-                        {artistProfile.avatar_url ? (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-2">Ou choisis un masque Kloud</p>
+                          <div className="flex flex-wrap gap-2" data-testid="artist-avatar-mask-grid">
+                            {DEFAULT_ARTIST_AVATARS.map((mask, index) => {
+                              const assignedDefault = defaultArtistAvatar(user?.user_id);
+                              const current = artistProfile.avatar_url || assignedDefault;
+                              const selected =
+                                !artistProfile.avatar_url || isMaskAvatar(artistProfile.avatar_url)
+                                  ? maskAvatarMatches(current, mask)
+                                  : false;
+                              return (
+                                <button
+                                  key={mask}
+                                  type="button"
+                                  onClick={() => setArtistProfile((p) => ({ ...p, avatar_url: mask }))}
+                                  className={`relative w-12 h-12 rounded-full overflow-hidden border transition-all ${
+                                    selected
+                                      ? 'border-cyan-400 ring-2 ring-cyan-400/40 scale-105'
+                                      : 'border-white/15 hover:border-cyan-400/50 hover:scale-105'
+                                  }`}
+                                  aria-label={`Masque ${index + 1}`}
+                                  aria-pressed={selected}
+                                  data-testid={`artist-avatar-mask-${index + 1}`}
+                                >
+                                  <img src={mask} alt="" className="w-full h-full object-cover" />
+                                  {selected && (
+                                    <span className="absolute inset-0 bg-cyan-500/25 flex items-center justify-center">
+                                      <Check className="w-4 h-4 text-white drop-shadow" />
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {artistProfile.avatar_url &&
+                        artistProfile.avatar_url !== defaultArtistAvatar(user?.user_id) ? (
                           <button
                             type="button"
                             className="text-xs text-muted-foreground hover:text-foreground"
                             onClick={() => setArtistProfile((p) => ({ ...p, avatar_url: '' }))}
                           >
-                            Revenir au masque par défaut
+                            Revenir au masque attribué
                           </button>
                         ) : null}
                       </div>
                       <div className="space-y-2">
-                        <Label>Nom affiché</Label>
+                        <Label>Nom d&apos;artiste</Label>
                         <Input
                           value={artistProfile.name}
                           onChange={(e) => setArtistProfile((p) => ({ ...p, name: e.target.value }))}
                           placeholder="Nom d'artiste"
                           className="h-12 rounded-xl bg-white/5 border-white/10"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          C’est ton pseudo public. Tu peux le changer ici, pas à chaque passage en mode Artiste.
+                        </p>
                       </div>
                     </div>
 
@@ -593,31 +745,75 @@ const AccountSettings = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Liens</Label>
-                      <div className="space-y-2">
+                      <Label>Genres</Label>
+                      <Input
+                        value={artistProfile.genres}
+                        onChange={(e) => setArtistProfile((p) => ({ ...p, genres: e.target.value }))}
+                        placeholder="Rap, Lo-fi, Électro…"
+                        className="h-12 rounded-xl bg-white/5 border-white/10"
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <Label>Smart links</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Instagram, pre-save, Spotify… Ils s’affichent sur ta page publique, avec un QR pour la partager.
+                      </p>
+                      <div className="space-y-3">
                         {(artistProfile.links || []).map((link, idx) => (
-                          <div key={idx} className="flex flex-col sm:flex-row gap-2">
-                            <Input
-                              value={link}
+                          <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                            <select
+                              value={link.kind || 'website'}
                               onChange={(e) =>
                                 setArtistProfile((p) => ({
                                   ...p,
-                                  links: p.links.map((l, i) => (i === idx ? e.target.value : l))
+                                  links: p.links.map((l, i) => (i === idx ? { ...l, kind: e.target.value } : l))
                                 }))
                               }
-                              placeholder="https://instagram.com/..."
-                              className="h-12 rounded-xl bg-white/5 border-white/10"
-                            />
+                              className="sm:col-span-3 h-12 min-h-12 rounded-xl bg-white/5 border border-white/10 px-3 text-sm"
+                            >
+                              {SMART_LINK_KINDS.map((kind) => (
+                                <option key={kind.id} value={kind.id}>
+                                  {kind.label}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="sm:col-span-6 min-w-0">
+                              <Input
+                                value={link.url || ''}
+                                onChange={(e) =>
+                                  setArtistProfile((p) => ({
+                                    ...p,
+                                    links: p.links.map((l, i) => (i === idx ? { ...l, url: e.target.value } : l))
+                                  }))
+                                }
+                                placeholder={SMART_LINK_KINDS.find((k) => k.id === link.kind)?.placeholder || 'https://…'}
+                                className="h-12 min-h-12 rounded-xl bg-white/5 border-white/10"
+                              />
+                            </div>
+                            <div className="sm:col-span-3 min-w-0">
+                              <Input
+                                value={link.label || ''}
+                                onChange={(e) =>
+                                  setArtistProfile((p) => ({
+                                    ...p,
+                                    links: p.links.map((l, i) => (i === idx ? { ...l, label: e.target.value } : l))
+                                  }))
+                                }
+                                placeholder="Libellé"
+                                className="h-12 min-h-12 rounded-xl bg-white/5 border-white/10"
+                              />
+                            </div>
                             <Button
                               type="button"
                               variant="outline"
-                              className="rounded-xl glass border-white/10 w-full sm:w-auto"
+                              className="rounded-xl glass border-white/10 sm:col-span-12"
                               onClick={() =>
                                 setArtistProfile((p) => ({
                                   ...p,
                                   links: p.links.filter((_, i) => i !== idx).length
                                     ? p.links.filter((_, i) => i !== idx)
-                                    : ['']
+                                    : [emptySmartLink()]
                                 }))
                               }
                             >
@@ -630,11 +826,26 @@ const AccountSettings = () => {
                         type="button"
                         variant="outline"
                         className="rounded-full glass border-white/10"
-                        onClick={() => setArtistProfile((p) => ({ ...p, links: [...(p.links || []), ''] }))}
+                        onClick={() =>
+                          setArtistProfile((p) => ({ ...p, links: [...(p.links || []), emptySmartLink()] }))
+                        }
                       >
-                        + Ajouter un lien
+                        + Ajouter un smart link
                       </Button>
                     </div>
+
+                    {user?.user_id && (
+                      <div className="pt-2 space-y-3">
+                        <Label>Partage de ta page</Label>
+                        <ShareButton
+                          url={publicPageUrl(`/artist/${user.user_id}`)}
+                          title={artistProfile.name || user.artist_name || 'Kloud'}
+                          text={`Écoute ${artistProfile.name || 'cet artiste'} sur Kloud`}
+                          label="Partager ma page"
+                          testId="settings-share-artist"
+                        />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>

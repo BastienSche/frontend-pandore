@@ -1,3 +1,4 @@
+/** Storybook / démos uniquement — ne pas importer depuis l’app prod. */
 const STORAGE_KEYS = {
   library: 'kloud_fake_library',
   playlists: 'kloud_fake_playlists',

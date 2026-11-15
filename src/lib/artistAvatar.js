@@ -26,16 +26,29 @@ export function defaultArtistAvatar(id) {
   return DEFAULT_ARTIST_AVATARS[hashId(id) % DEFAULT_ARTIST_AVATARS.length];
 }
 
+export function isMaskAvatar(url) {
+  return String(url || '').includes('/avatars/mask-');
+}
+
 function customAvatar(url) {
   const value = String(url || '').trim();
   if (!value) return '';
-  if (value.includes('/avatars/mask-')) return '';
+  if (isMaskAvatar(value)) return '';
   return value;
 }
 
-/** Avatar choisi par l’artiste, sinon un masque par défaut lié à son id. */
+export function maskAvatarMatches(url, maskPath) {
+  const value = String(url || '').trim();
+  const mask = String(maskPath || '').trim();
+  if (!value || !mask) return false;
+  return value === mask || value.endsWith(mask);
+}
+
+/** Avatar choisi par l’artiste, sinon le masque stocké / calculé. */
 export function artistAvatarSrc(artist) {
   const custom = customAvatar(artist?.avatar_url) || customAvatar(artist?.picture);
   if (custom) return resolveApiUrl(custom);
+  const stored = String(artist?.avatar_url || artist?.picture || '').trim();
+  if (stored.includes('/avatars/mask-')) return stored;
   return defaultArtistAvatar(artist?.user_id || artist?.artist_id || artist?.artist_name || '');
 }

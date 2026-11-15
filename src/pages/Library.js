@@ -14,15 +14,16 @@ import { Button } from '@/components/ui/button';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, downloadAuthenticatedFile, fetchTracksByIds, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import LibraryTrackRow from '@/components/library/LibraryTrackRow';
 import LibraryAlbumCard from '@/components/library/LibraryAlbumCard';
 import { shuffleTracks } from '@/lib/libraryCollection';
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
 
 const normalizeOwnedTrack = (t) => {
-  const previewUrl = resolveApiUrl(t.preview_url);
-  const fileUrl = resolveApiUrl(t.file_url) || previewUrl;
+  const fileUrl = resolveApiUrl(t.file_url) || null;
+  const previewUrl = resolveApiUrl(t.preview_url || t.file_url);
   return {
     ...t,
     file_url: fileUrl,
@@ -49,8 +50,8 @@ const Library = () => {
         cover_url: resolveApiUrl(a.cover_url)
       }));
       setLibrary({ tracks, albums });
-    } catch {
-      toast.error('Erreur lors du chargement de la bibliothèque');
+    } catch (error) {
+      toast.error(formatApiError(error, 'Erreur lors du chargement de la bibliothèque'));
     } finally {
       setLoading(false);
     }
@@ -85,19 +86,15 @@ const Library = () => {
     [library.tracks]
   );
 
-  const handleDownload = (track) => {
+  useListScrollRestoration(!loading);
+
+  const handleDownload = async (track) => {
     if (!track.file_url) {
       toast.error('Fichier indisponible');
       return;
     }
     try {
-      const link = document.createElement('a');
-      link.href = track.file_url;
-      const safe = (track.title || 'track').replace(/[/\\?%*:|"<>]/g, '-');
-      link.setAttribute('download', safe);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      await downloadAuthenticatedFile(track.file_url, track.title || 'track');
       toast.success('Téléchargement commencé');
     } catch {
       toast.error('Erreur lors du téléchargement');
@@ -137,11 +134,8 @@ const Library = () => {
         toast.error('Cet album ne contient aucun titre');
         return;
       }
-      const trackResults = await Promise.all(
-        trackIds.map((id) => apiClient.get(`/api/tracks/${id}`).then((r) => r.data).catch(() => null))
-      );
+      const trackResults = await fetchTracksByIds(trackIds);
       const tracks = trackResults
-        .filter(Boolean)
         .map(normalizeOwnedTrack)
         .filter((t) => t.file_url);
       if (!tracks.length) {

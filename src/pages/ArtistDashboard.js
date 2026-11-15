@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -17,13 +17,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { Progress } from '@/components/ui/progress';
-import { formatPriceLabel } from '@/lib/pricing';
+import { albumTrackCount, formatItemPriceLabel } from '@/lib/pricing';
 import { splitGenreTags } from '@/lib/genreTags';
 import { fieldFocusRingSelect, fieldInnerSurface, fieldRing } from '@/lib/fieldStyles';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import CoverImage from '@/components/CoverImage';
+import StripeConnectSection from '@/components/StripeConnectSection';
 
 const parsePriceEuroInput = (raw) => {
   const v = String(raw ?? '').trim();
@@ -93,7 +95,7 @@ const buildTrackFormFromApiTrack = (track) => {
     ? Number(previewRaw)
     : parseInt(String(previewRaw), 10) || 0;
 
-  const previewDurRaw = track?.preview_duration_sec ?? track?.preview_length_sec;
+  const previewDurRaw = track?.preview_duration ?? track?.preview_duration_sec ?? track?.preview_length_sec;
   const previewDurationSec =
     previewDurRaw != null && previewDurRaw !== '' && Number.isFinite(Number(previewDurRaw)) && Number(previewDurRaw) > 0
       ? String(Number(previewDurRaw))
@@ -133,6 +135,103 @@ const buildTrackFormFromApiTrack = (track) => {
     splits,
     status: track?.status || 'draft',
     audioFile: null,
+    coverFile: null
+  };
+};
+
+const trackHasAudio = (track) => Boolean(String(track?.file_url || '').trim());
+
+function validateAlbumPrices(albumForm) {
+  if (!String(albumForm?.title || '').trim()) {
+    return { error: 'Titre de l’album requis' };
+  }
+  const priceEuro = albumForm.isFreePrice ? 0 : parsePriceEuroInput(albumForm.price);
+  if (!albumForm.isFreePrice && priceEuro === null) {
+    return { error: 'Prix invalide' };
+  }
+  const minPriceEuro = parsePriceEuroInput(albumForm.minPrice);
+  if (albumForm.isFreePrice && minPriceEuro !== null && minPriceEuro < 0) {
+    return { error: 'Minimum invalide' };
+  }
+  return { priceEuro, minPriceEuro };
+}
+
+function validateAlbumTracks(albumForm) {
+  const existingIds = Array.isArray(albumForm?.trackIds) ? albumForm.trackIds.filter(Boolean) : [];
+  const tracks = Array.isArray(albumForm?.albumTracks) ? albumForm.albumTracks : [];
+  if (!existingIds.length && !tracks.length) {
+    return { error: 'Ajoute au moins un track à l’album' };
+  }
+  const prepared = [];
+  for (const [idx, t] of tracks.entries()) {
+    const n = idx + 1;
+    const title = (t?.title || '').trim();
+    const genre = (t?.genre || '').trim();
+    const isFreePrice = !!t?.isFreePrice;
+    const priceEuro = isFreePrice ? 0 : parsePriceEuroInput(t?.price);
+    const minPriceEuro = parsePriceEuroInput(t?.minPrice);
+    if (!title) return { error: `Track #${n}: titre requis` };
+    if (!genre) return { error: `Track #${n}: genre requis` };
+    if (!isFreePrice && priceEuro === null) return { error: `Track #${n}: prix invalide` };
+    if (isFreePrice && minPriceEuro !== null && minPriceEuro < 0) {
+      return { error: `Track #${n}: minimum invalide` };
+    }
+    if (!t?.audioFile && !trackHasAudio(t)) {
+      return { error: `Track #${n}: fichier audio requis` };
+    }
+    prepared.push({
+      source: t,
+      title,
+      genre,
+      description: t?.description || '',
+      isFreePrice,
+      priceEuro,
+      minPriceEuro,
+      wantsPublished: (t?.status || 'draft') === 'published',
+      trackId: t?.trackId || t?.track_id || null,
+      hasAudio: trackHasAudio(t)
+    });
+  }
+  return { prepared, existingIds };
+}
+
+async function uploadDashboardFile(kind, file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  const { data } = await apiClient.post(`/api/upload/${kind}`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  if (kind === 'audio' && !data?.file_url) {
+    throw new Error('Upload audio incomplet');
+  }
+  return data || {};
+}
+
+const buildAlbumFormFromApiAlbum = (album) => {
+  const priceCents = album?.price;
+  const priceStr =
+    priceCents != null && Number.isFinite(Number(priceCents))
+      ? (Number(priceCents) / 100).toString()
+      : '';
+  const minPriceCents = album?.min_price;
+  const minPriceStr =
+    minPriceCents != null && minPriceCents !== '' && Number.isFinite(Number(minPriceCents))
+      ? (Number(minPriceCents) / 100).toString()
+      : '';
+  const trackIds = Array.isArray(album?.track_ids) ? album.track_ids.filter(Boolean) : [];
+  return {
+    title: album?.title || '',
+    price: priceStr,
+    isFreePrice: !!album?.is_free_price,
+    minPrice: minPriceStr,
+    description: album?.description || '',
+    mixVersion: album?.mix_version || '',
+    availability: album?.availability || '',
+    producer: album?.producer || '',
+    beatmaker: album?.beatmaker || '',
+    trackIds,
+    albumTracks: [],
+    status: album?.status || 'draft',
     coverFile: null
   };
 };
@@ -244,13 +343,7 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => {
     <div className="flex flex-wrap items-center gap-3 md:gap-4">
       {/* Cover */}
       <div className="relative">
-        {track.cover_url ? (
-          <img src={track.cover_url} alt={track.title} className="w-16 h-16 rounded-xl object-cover" />
-        ) : (
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 flex items-center justify-center">
-            <Music className="w-6 h-6 text-muted-foreground" />
-          </div>
-        )}
+        <CoverImage src={track.cover_url} alt={track.title} className="w-16 h-16 rounded-xl" />
         {track.status === 'draft' && (
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full border-2 border-background" />
         )}
@@ -267,7 +360,7 @@ const TrackRow = ({ track, onEdit, onDelete, onTogglePublish }) => {
           ))}
           {genreTags.length > 0 && <span className="text-muted-foreground/60">•</span>}
           <span className="text-cyan-400 font-medium">
-            {formatPriceLabel(track.price)}
+            {formatItemPriceLabel(track)}
           </span>
         </div>
       </div>
@@ -357,13 +450,7 @@ const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
   >
     <div className="flex flex-wrap items-center gap-3 md:gap-4">
       <div className="relative">
-        {album.cover_url ? (
-          <img src={album.cover_url} alt={album.title} className="w-16 h-16 rounded-xl object-cover" />
-        ) : (
-          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-            <Disc className="w-6 h-6 text-muted-foreground" />
-          </div>
-        )}
+        <CoverImage src={album.cover_url} alt={album.title} className="w-16 h-16 rounded-xl" />
         {album.status === 'draft' && (
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full border-2 border-background" />
         )}
@@ -374,10 +461,12 @@ const AlbumRow = ({ album, onEdit, onDelete, onTogglePublish }) => (
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Badge variant="secondary" className="bg-white/5 text-xs">ALBUM</Badge>
           <span>•</span>
-          <span>{album.track_ids?.length || 0} titres</span>
+          <span>{albumTrackCount(album)} titres</span>
+          <span>•</span>
+          <span>{formatTrackLengthClock(album)}</span>
           <span>•</span>
           <span className="text-purple-300 font-medium">
-            {formatPriceLabel(album.price)}
+            {formatItemPriceLabel(album)}
           </span>
           {album.play_count != null && album.play_count > 0 && (
             <>
@@ -455,6 +544,7 @@ const ArtistDashboard = () => {
   const [submitting, setSubmitting] = useState(false);
   const [trackStep, setTrackStep] = useState(0);
   const [albumStep, setAlbumStep] = useState(0);
+  const submitLockRef = useRef(false);
 
   // Track form state
   const [trackForm, setTrackForm] = useState({
@@ -500,55 +590,6 @@ const ArtistDashboard = () => {
     coverFile: null
   });
 
-  const [connectStatus, setConnectStatus] = useState(null);
-  const [connectBalance, setConnectBalance] = useState(null);
-  const [connectActionLoading, setConnectActionLoading] = useState(false);
-
-  useEffect(() => {
-    if (authLoading || !user || user.role !== 'artist') return;
-    (async () => {
-      try {
-        const { data } = await apiClient.get('/api/artist/stripe/connect/status');
-        setConnectStatus(data);
-        if (data?.has_account && data?.charges_enabled) {
-          try {
-            const { data: bal } = await apiClient.get('/api/artist/stripe/connect/balance');
-            setConnectBalance(bal);
-          } catch {
-            setConnectBalance(null);
-          }
-        } else {
-          setConnectBalance(null);
-        }
-      } catch {
-        setConnectStatus(null);
-        setConnectBalance(null);
-      }
-    })();
-  }, [user, authLoading]);
-
-  const startStripeOnboarding = async () => {
-    setConnectActionLoading(true);
-    try {
-      const { data } = await apiClient.post('/api/artist/stripe/connect/onboard');
-      if (data?.url) window.location.href = data.url;
-      else toast.error("Pas d'URL Stripe");
-    } catch (e) {
-      toast.error(e.response?.data?.detail || 'Erreur Stripe');
-    } finally {
-      setConnectActionLoading(false);
-    }
-  };
-
-  const openStripeExpress = async () => {
-    try {
-      const { data } = await apiClient.post('/api/artist/stripe/connect/login-link');
-      if (data?.url) window.open(data.url, '_blank', 'noopener,noreferrer');
-    } catch (e) {
-      toast.error(e.response?.data?.detail || 'Erreur');
-    }
-  };
-
   useEffect(() => {
     // Wait for auth to load before checking role
     if (authLoading) return;
@@ -588,7 +629,7 @@ const ArtistDashboard = () => {
         setTracks(trackStats);
         setAlbums(albumStats);
       } catch (error) {
-        toast.error(error.response?.data?.detail || "Erreur lors du chargement du dashboard");
+        toast.error(formatApiError(error, "Erreur lors du chargement du dashboard"));
       } finally {
         setLoading(false);
       }
@@ -700,27 +741,25 @@ const ArtistDashboard = () => {
     setTrackStep(0);
   };
 
-  const handleEditAlbum = (album) => {
-    setEditingAlbum(album);
-    setAlbumForm({
-      title: album.title,
-      price: (album.price / 100).toString(),
-      isFreePrice: !!album?.is_free_price,
-      minPrice: album?.min_price != null && Number.isFinite(Number(album?.min_price))
-        ? (Number(album.min_price) / 100).toString()
-        : '',
-      description: album.description || '',
-      mixVersion: album?.mix_version || '',
-      availability: album?.availability || '',
-      producer: album?.producer || '',
-      beatmaker: album?.beatmaker || '',
-      trackIds: album.track_ids || [],
-      albumTracks: [],
-      status: album.status || 'draft',
-      coverFile: null
-    });
-    setAlbumStep(0);
-    setShowAlbumDialog(true);
+  const handleEditAlbum = async (album) => {
+    if (!album?.album_id) {
+      toast.error('Album introuvable');
+      return;
+    }
+    try {
+      const { data } = await apiClient.get(`/api/albums/${album.album_id}`);
+      const merged = {
+        ...album,
+        ...data,
+        cover_url: resolveApiUrl(data?.cover_url || album?.cover_url)
+      };
+      setEditingAlbum(merged);
+      setAlbumForm(buildAlbumFormFromApiAlbum(merged));
+      setAlbumStep(0);
+      setShowAlbumDialog(true);
+    } catch (error) {
+      toast.error(formatApiError(error, "Impossible de charger l'album"));
+    }
   };
 
   const closeAlbumDialog = () => {
@@ -738,11 +777,18 @@ const ArtistDashboard = () => {
       }
       return parsePriceEuroInput(albumForm.price) !== null;
     }
-    if (albumStep === 2) return (albumForm.trackIds?.length || 0) > 0 || (albumForm.albumTracks?.length || 0) > 0;
+    if (albumStep === 2) return !validateAlbumTracks(albumForm).error;
     return true;
   };
 
   const nextAlbumStep = () => {
+    if (albumStep === 2) {
+      const tracksCheck = validateAlbumTracks(albumForm);
+      if (tracksCheck.error) {
+        toast.error(tracksCheck.error);
+        return;
+      }
+    }
     if (!canGoNextAlbum()) {
       toast.error('Complète les champs requis');
       return;
@@ -761,6 +807,9 @@ const ArtistDashboard = () => {
       }
       return parsePriceEuroInput(trackForm.price) !== null;
     }
+    if (trackStep === 2) {
+      return Boolean(trackForm.audioFile || trackHasAudio(editingTrack));
+    }
     return true;
   };
 
@@ -775,7 +824,14 @@ const ArtistDashboard = () => {
   const prevStep = () => setTrackStep((s) => Math.max(s - 1, 0));
 
   const handleSubmit = async () => {
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
     setSubmitting(true);
+
+    let trackId = editingTrack?.track_id || null;
+    let hasAudio = trackHasAudio(editingTrack);
+    const wasExisting = Boolean(trackId);
+    const wantsPublished = trackForm.status === 'published';
 
     try {
       const priceEuro = trackForm.isFreePrice ? 0 : parsePriceEuroInput(trackForm.price);
@@ -788,6 +844,13 @@ const ArtistDashboard = () => {
         toast.error('Minimum invalide');
         return;
       }
+      if (!trackForm.audioFile && !hasAudio) {
+        toast.error(wantsPublished
+          ? 'Un titre publié doit avoir un fichier audio'
+          : 'Ajoute un fichier audio');
+        return;
+      }
+
       const trackData = {
         title: trackForm.title,
         price: Math.round((priceEuro || 0) * 100),
@@ -818,50 +881,59 @@ const ArtistDashboard = () => {
           percent: parseFloat(s.percent),
           role: s.role || 'Collaborateur'
         })),
-        status: trackForm.status
+        status: wantsPublished && hasAudio && !trackForm.audioFile ? 'published' : 'draft'
       };
 
-      let trackId = editingTrack?.track_id;
-      if (editingTrack) {
+      if (trackId) {
         await apiClient.put(`/api/tracks/${trackId}`, trackData);
       } else {
-        const { data: created } = await apiClient.post('/api/tracks', trackData);
-        trackId = created?.track_id;
+        const { data: created } = await apiClient.post('/api/tracks', { ...trackData, status: 'draft' });
+        trackId = created?.track_id || null;
+        if (!trackId) {
+          toast.error('Erreur: track non créé');
+          return;
+        }
+        setEditingTrack({ ...(created || {}), track_id: trackId });
       }
 
-      if (trackId && (trackForm.audioFile || trackForm.coverFile)) {
-        const update = {};
-        if (trackForm.audioFile) {
-          const fd = new FormData();
-          fd.append('file', trackForm.audioFile);
-          const { data: upload } = await apiClient.post('/api/upload/audio', fd, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          update.file_url = upload?.file_url || null;
-          update.preview_url = upload?.file_url || null;
+      const update = {};
+      if (trackForm.audioFile) {
+        const upload = await uploadDashboardFile('audio', trackForm.audioFile);
+        update.file_url = upload.file_url;
+        update.preview_url = upload.preview_url || null;
+        hasAudio = true;
+        setEditingTrack((prev) => ({ ...(prev || {}), track_id: trackId, file_url: upload.file_url }));
+      }
+      if (trackForm.coverFile) {
+        const upload = await uploadDashboardFile('cover', trackForm.coverFile);
+        update.cover_url = upload.cover_url || null;
+      }
+      if (wantsPublished) {
+        if (!hasAudio) {
+          toast.error('Un titre publié doit avoir un fichier audio');
+          return;
         }
-        if (trackForm.coverFile) {
-          const fd = new FormData();
-          fd.append('file', trackForm.coverFile);
-          const { data: upload } = await apiClient.post('/api/upload/cover', fd, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          update.cover_url = upload?.cover_url || null;
-        }
-        if (Object.keys(update).length) {
-          await apiClient.put(`/api/tracks/${trackId}`, update);
-        }
+        update.status = 'published';
+      }
+      if (Object.keys(update).length) {
+        await apiClient.put(`/api/tracks/${trackId}`, update);
       }
 
       await reloadStats();
-      toast.success(editingTrack ? 'Track modifié avec succès !' : 'Track ajouté avec succès !');
+      toast.success(wasExisting ? 'Track modifié avec succès !' : 'Track ajouté avec succès !');
 
       setShowTrackDialog(false);
       setEditingTrack(null);
       resetForm();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur lors de l\'opération');
+      toast.error(formatApiError(error, 'Erreur lors de l\'opération'));
+      try {
+        await reloadStats();
+      } catch {
+        /* liste dashboard optionnelle */
+      }
     } finally {
+      submitLockRef.current = false;
       setSubmitting(false);
     }
   };
@@ -874,7 +946,7 @@ const ArtistDashboard = () => {
       await reloadStats();
       toast.success('Track supprimé');
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(formatApiError(error, 'Erreur lors de la suppression'));
     }
   };
 
@@ -884,28 +956,32 @@ const ArtistDashboard = () => {
       await reloadStats();
       toast.success(track.status === 'published' ? 'Track retiré' : 'Track publié !');
     } catch (error) {
-      toast.error('Erreur lors de la publication');
+      toast.error(formatApiError(error, 'Erreur lors de la publication'));
     }
   };
 
   const handleSubmitAlbum = async () => {
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
     setSubmitting(true);
 
-    try {
-      const priceEuro = albumForm.isFreePrice ? 0 : parsePriceEuroInput(albumForm.price);
-      if (!albumForm.isFreePrice && priceEuro === null) {
-        toast.error('Prix invalide');
-        return;
-      }
-      const minPriceEuro = parsePriceEuroInput(albumForm.minPrice);
-      if (albumForm.isFreePrice && minPriceEuro !== null && minPriceEuro < 0) {
-        toast.error('Minimum invalide');
-        return;
-      }
+    const wasExistingAlbum = Boolean(editingAlbum?.album_id);
+    let albumId = editingAlbum?.album_id || null;
 
-      // Album tracks must be created as album-only items (backend support required).
-      // Strategy: ensure we have an album_id, then create tracks under that album.
-      let albumId = editingAlbum?.album_id;
+    try {
+      const albumCheck = validateAlbumPrices(albumForm);
+      if (albumCheck.error) {
+        toast.error(albumCheck.error);
+        return;
+      }
+      const tracksCheck = validateAlbumTracks(albumForm);
+      if (tracksCheck.error) {
+        toast.error(tracksCheck.error);
+        return;
+      }
+      const { priceEuro, minPriceEuro } = albumCheck;
+      const preparedTracks = tracksCheck.prepared || [];
+
       if (!albumId) {
         const { data: createdAlbum } = await apiClient.post('/api/albums', {
           title: albumForm.title,
@@ -923,8 +999,11 @@ const ArtistDashboard = () => {
           status: 'draft'
         });
         albumId = createdAlbum?.album_id;
+        if (albumId) {
+          setEditingAlbum({ ...(createdAlbum || {}), album_id: albumId });
+        }
       } else {
-        await apiClient.put(`/api/albums/${albumId}`, {
+        const earlyAlbumPatch = {
           title: albumForm.title,
           price: Math.round((priceEuro || 0) * 100),
           is_free_price: !!albumForm.isFreePrice,
@@ -936,9 +1015,13 @@ const ArtistDashboard = () => {
           availability: albumForm.availability || null,
           producer: albumForm.producer || null,
           beatmaker: albumForm.beatmaker || null,
-          track_ids: albumForm.trackIds || [],
-          status: albumForm.status
-        });
+          status: 'draft'
+        };
+        const existingIds = Array.isArray(albumForm.trackIds) ? albumForm.trackIds.filter(Boolean) : [];
+        if (existingIds.length) {
+          earlyAlbumPatch.track_ids = existingIds;
+        }
+        await apiClient.put(`/api/albums/${albumId}`, earlyAlbumPatch);
       }
 
       if (!albumId) {
@@ -946,87 +1029,79 @@ const ArtistDashboard = () => {
         return;
       }
 
-      // Create tracks defined inside album dialog (optional)
+      const nextAlbumTracks = [...(albumForm.albumTracks || [])];
       const createdTrackIds = [];
-      for (const [idx, t] of (albumForm.albumTracks || []).entries()) {
-        const tTitle = (t?.title || '').trim();
-        const tGenre = (t?.genre || '').trim();
-        const tIsFreePrice = !!t?.isFreePrice;
-        const tPriceEuro = tIsFreePrice ? 0 : parsePriceEuroInput(t?.price);
-        const tMinPriceEuro = parsePriceEuroInput(t?.minPrice);
-
-        if (!tTitle) {
-          toast.error(`Track #${idx + 1}: titre requis`);
-          return;
-        }
-        if (!tGenre) {
-          toast.error(`Track #${idx + 1}: genre requis`);
-          return;
-        }
-        if (!tIsFreePrice && tPriceEuro === null) {
-          toast.error(`Track #${idx + 1}: prix invalide`);
-          return;
-        }
-        if (tIsFreePrice && tMinPriceEuro !== null && tMinPriceEuro < 0) {
-          toast.error(`Track #${idx + 1}: minimum invalide`);
-          return;
-        }
+      for (const [idx, prepared] of preparedTracks.entries()) {
+        const t = prepared.source;
+        const wantsPublished = prepared.wantsPublished || albumForm.status === 'published';
+        let hasAudio = prepared.hasAudio;
 
         const trackData = {
-          title: tTitle,
-          price: Math.round((tPriceEuro || 0) * 100),
-          is_free_price: !!tIsFreePrice,
-          min_price: tIsFreePrice
-            ? (tMinPriceEuro === null ? null : Math.round(tMinPriceEuro * 100))
+          title: prepared.title,
+          price: Math.round((prepared.priceEuro || 0) * 100),
+          is_free_price: !!prepared.isFreePrice,
+          min_price: prepared.isFreePrice
+            ? (prepared.minPriceEuro === null ? null : Math.round(prepared.minPriceEuro * 100))
             : null,
-          genre: tGenre,
-          description: t?.description || '',
-          status: t?.status || 'draft'
+          genre: prepared.genre,
+          description: prepared.description,
+          status: 'draft'
         };
 
-        let created;
-        try {
-          const res = await apiClient.post(`/api/albums/${albumId}/tracks`, trackData);
-          created = res?.data;
-        } catch (err) {
-          const status = err?.response?.status;
-          if (status === 404 || status === 405) {
-            toast.error("Le backend doit exposer `POST /api/albums/:albumId/tracks` pour créer des tracks uniquement dans un album.");
+        let trackId = prepared.trackId;
+        if (!trackId) {
+          try {
+            const res = await apiClient.post(`/api/albums/${albumId}/tracks`, trackData);
+            trackId = res?.data?.track_id || null;
+          } catch (err) {
+            const status = err?.response?.status;
+            if (status === 404 || status === 405) {
+              toast.error("Le backend doit exposer `POST /api/albums/:albumId/tracks` pour créer des tracks uniquement dans un album.");
+              return;
+            }
+            throw err;
+          }
+          if (!trackId) {
+            toast.error('Erreur: track non créé');
             return;
           }
-          throw err;
-        }
-        const trackId = created?.track_id;
-        if (!trackId) {
-          toast.error('Erreur: track non créé');
-          return;
+          nextAlbumTracks[idx] = { ...t, trackId };
+          setAlbumForm((prev) => ({ ...prev, albumTracks: nextAlbumTracks }));
+        } else {
+          await apiClient.put(`/api/albums/${albumId}/tracks/${trackId}`, trackData);
         }
         createdTrackIds.push(trackId);
 
         const update = {};
         if (t?.audioFile) {
-          const fd = new FormData();
-          fd.append('file', t.audioFile);
-          const { data: upload } = await apiClient.post('/api/upload/audio', fd, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          update.file_url = upload?.file_url || null;
-          update.preview_url = upload?.file_url || null;
+          const upload = await uploadDashboardFile('audio', t.audioFile);
+          update.file_url = upload.file_url;
+          update.preview_url = upload.preview_url || null;
+          hasAudio = true;
+          nextAlbumTracks[idx] = { ...nextAlbumTracks[idx], file_url: upload.file_url, audioFile: t.audioFile };
+          setAlbumForm((prev) => ({ ...prev, albumTracks: nextAlbumTracks }));
         }
         if (t?.coverFile) {
-          const fd = new FormData();
-          fd.append('file', t.coverFile);
-          const { data: upload } = await apiClient.post('/api/upload/cover', fd, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          update.cover_url = upload?.cover_url || null;
+          const upload = await uploadDashboardFile('cover', t.coverFile);
+          update.cover_url = upload.cover_url || null;
+        }
+        if (wantsPublished) {
+          if (!hasAudio) {
+            toast.error(`Track #${idx + 1}: fichier audio requis pour publier`);
+            return;
+          }
+          update.status = 'published';
         }
         if (Object.keys(update).length) {
           await apiClient.put(`/api/albums/${albumId}/tracks/${trackId}`, update);
         }
       }
 
-      const mergedTrackIds = [...new Set([...(albumForm.trackIds || []), ...createdTrackIds])];
+      const existingIds = [
+        ...(Array.isArray(editingAlbum?.track_ids) ? editingAlbum.track_ids : []),
+        ...(Array.isArray(albumForm.trackIds) ? albumForm.trackIds : [])
+      ].filter(Boolean);
+      const mergedTrackIds = [...new Set([...existingIds, ...createdTrackIds])];
       if (!mergedTrackIds.length) {
         toast.error('Ajoute au moins un track à l’album');
         return;
@@ -1051,22 +1126,24 @@ const ArtistDashboard = () => {
       await apiClient.put(`/api/albums/${albumId}`, albumData);
 
       if (albumId && albumForm.coverFile) {
-        const fd = new FormData();
-        fd.append('file', albumForm.coverFile);
-        const { data: upload } = await apiClient.post('/api/upload/cover', fd, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const upload = await uploadDashboardFile('cover', albumForm.coverFile);
         await apiClient.put(`/api/albums/${albumId}`, { cover_url: upload?.cover_url || null });
       }
 
       await reloadStats();
-      toast.success(editingAlbum ? 'Album modifié avec succès !' : 'Album ajouté avec succès !');
+      toast.success(wasExistingAlbum ? 'Album modifié avec succès !' : 'Album ajouté avec succès !');
       setShowAlbumDialog(false);
       setEditingAlbum(null);
       resetAlbumForm();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur lors de l\'opération');
+      toast.error(formatApiError(error, 'Erreur lors de l\'opération'));
+      try {
+        await reloadStats();
+      } catch {
+        /* liste dashboard optionnelle */
+      }
     } finally {
+      submitLockRef.current = false;
       setSubmitting(false);
     }
   };
@@ -1078,7 +1155,7 @@ const ArtistDashboard = () => {
       await reloadStats();
       toast.success('Album supprimé');
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur lors de la suppression');
+      toast.error(formatApiError(error, 'Erreur lors de la suppression'));
     }
   };
 
@@ -1088,7 +1165,7 @@ const ArtistDashboard = () => {
       await reloadStats();
       toast.success(album.status === 'published' ? 'Album retiré' : 'Album publié !');
     } catch (error) {
-      toast.error('Erreur lors de la publication');
+      toast.error(formatApiError(error, 'Erreur lors de la publication'));
     }
   };
 
@@ -1267,63 +1344,7 @@ const ArtistDashboard = () => {
               />
             </div>
 
-            <div className="glass-heavy rounded-3xl p-6 border border-emerald-500/20">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                <div>
-                  <h3 className="text-xl font-semibold flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-emerald-400" />
-                    Paiements & versements (Stripe Connect)
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-                    Les achats passent par Stripe : la part vendeur (après commission plateforme{' '}
-                    {connectStatus?.platform_fee_percent ?? '—'}%) est créditée sur ton compte connecté.
-                    Les virements vers ton IBAN sont gérés par Stripe (Express). Le seuil minimum avant premier
-                    virement dépend du pays et du compte — indicatif souvent autour de{' '}
-                    {connectBalance?.min_payout_hint_euros ?? 20}
-                    € ; détail dans l&apos;espace Stripe Express.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2 shrink-0">
-                  {!connectStatus?.has_account || !connectStatus?.charges_enabled ? (
-                    <Button
-                      className="rounded-full bg-emerald-600 hover:bg-emerald-500"
-                      disabled={connectActionLoading}
-                      onClick={startStripeOnboarding}
-                    >
-                      {connectActionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Activer les paiements
-                    </Button>
-                  ) : (
-                    <Button variant="outline" className="rounded-full" onClick={openStripeExpress}>
-                      Ouvrir Stripe Express
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {connectStatus?.has_account && connectStatus?.charges_enabled && connectBalance && (
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-xl bg-white/5 p-4">
-                    <p className="text-muted-foreground">Disponible (Stripe)</p>
-                    <p className="text-lg font-semibold">
-                      {(Number(connectBalance.available_cents || 0) / 100).toFixed(2)}{' '}
-                      {String(connectBalance.currency || 'eur').toUpperCase()}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-white/5 p-4">
-                    <p className="text-muted-foreground">En attente</p>
-                    <p className="text-lg font-semibold">
-                      {(Number(connectBalance.pending_cents || 0) / 100).toFixed(2)}{' '}
-                      {String(connectBalance.currency || 'eur').toUpperCase()}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {connectStatus && connectStatus.connect_enabled === false && (
-                <p className="text-xs text-amber-500/90 mt-3">
-                  Connect désactivé côté API (STRIPE_CONNECT_ENABLED) — les ventes restent sur le compte plateforme.
-                </p>
-              )}
-            </div>
+            <StripeConnectSection returnTo="dashboard" testId="dashboard-stripe-connect" />
 
             {/* Top Tracks */}
             <div className="glass-heavy rounded-3xl p-6">
@@ -1337,13 +1358,7 @@ const ArtistDashboard = () => {
                 {(stats?.top_tracks || tracks.slice(0, 5)).map((track, idx) => (
                   <div key={track.track_id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors">
                     <span className="text-2xl font-bold text-muted-foreground w-8">#{idx + 1}</span>
-                    {track.cover_url ? (
-                      <img src={track.cover_url} alt={track.title} className="w-12 h-12 rounded-lg object-cover" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                        <Music className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                    )}
+                    <CoverImage src={track.cover_url} alt={track.title} className="w-12 h-12 rounded-lg" />
                     <div className="flex-1">
                       <p className="font-medium">{track.title}</p>
                       <p className="text-sm text-muted-foreground">{track.genre}</p>
@@ -1505,18 +1520,12 @@ const ArtistDashboard = () => {
                       <tr key={track.track_id} className="hover:bg-white/5">
                         <td className="py-4">
                           <div className="flex items-center gap-3">
-                            {track.cover_url ? (
-                              <img src={track.cover_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
-                                <Music className="w-4 h-4" />
-                              </div>
-                            )}
+                            <CoverImage src={track.cover_url} alt="" className="w-10 h-10 rounded-lg" />
                             <span className="font-medium">{track.title}</span>
                           </div>
                         </td>
                         <td className="py-4 text-right">
-                          {formatPriceLabel(track.price || 0)}
+                          {formatItemPriceLabel(track)}
                         </td>
                         <td className="py-4 text-right text-cyan-400 tabular-nums">{track.play_count || 0}</td>
                         <td className="py-4 text-right text-sky-400 tabular-nums text-sm hidden md:table-cell">{formatTrackLengthClock(track)}</td>
@@ -1950,18 +1959,18 @@ const ArtistDashboard = () => {
               <div className="glass min-w-0 space-y-3 rounded-2xl p-4">
                 <Label className="flex items-center gap-2">
                   <FileAudio className="w-4 h-4 text-cyan-400" />
-                  Fichier audio {!editingTrack && '*'}
+                  Fichier audio {!trackHasAudio(editingTrack) && '*'}
                 </Label>
                 <Input
                   type="file"
                   accept={AUDIO_UPLOAD_ACCEPT}
                   onChange={(e) => setTrackForm({ ...trackForm, audioFile: e.target.files?.[0] || null })}
                   className="w-full max-w-full rounded-[10px]"
-                  required={!editingTrack}
+                  required={!trackHasAudio(editingTrack)}
                   data-testid="form-audio"
                 />
                 <p className="text-xs text-muted-foreground">Formats acceptés : MP3, WAV, M4A, AAC, OGG, FLAC.</p>
-                {editingTrack && !trackForm.audioFile && (
+                {trackHasAudio(editingTrack) && !trackForm.audioFile && (
                   <p className="text-xs text-green-400">✓ Fichier actuel conservé</p>
                 )}
               </div>
@@ -2166,6 +2175,8 @@ const ArtistDashboard = () => {
                           isFreePrice: albumForm.isFreePrice || false,
                           minPrice: albumForm.minPrice || '',
                           status: 'draft',
+                          trackId: null,
+                          file_url: '',
                           audioFile: null,
                           coverFile: null
                         }
@@ -2307,7 +2318,7 @@ const ArtistDashboard = () => {
                             <div className={priceStepLabelRow}>
                               <Label htmlFor={`album-track-audio-${idx}`} className="flex items-center gap-2 font-normal">
                                 <FileAudio className="w-4 h-4 shrink-0 text-cyan-400" />
-                                Audio (optionnel)
+                                Audio {!(t.trackId || t.track_id || trackHasAudio(t)) && '*'}
                               </Label>
                             </div>
                             <Input

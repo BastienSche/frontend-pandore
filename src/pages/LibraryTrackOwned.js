@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Play,
   Pause,
@@ -11,7 +11,6 @@ import {
   Check,
   ListPlus,
   Library,
-  ArrowLeft,
   Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,9 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import CoverImage from '@/components/CoverImage';
+import BackLink from '@/components/BackLink';
+import { apiClient, downloadAuthenticatedFile, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
 import { getLibraryOwnership } from '@/lib/libraryOwnership';
 import { formatTrackDuration } from '@/lib/libraryCollection';
@@ -29,6 +30,8 @@ import { splitGenreTags } from '@/lib/genreTags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import ShareButton from '@/components/ShareButton';
+import { publicPageUrl } from '@/lib/smartLinks';
 
 const LibraryTrackOwned = () => {
   const { trackId } = useParams();
@@ -58,8 +61,8 @@ const LibraryTrackOwned = () => {
         }
         const { data } = await apiClient.get(`/api/tracks/${trackId}`);
         if (cancelled) return;
-        const previewUrl = resolveApiUrl(data?.preview_url);
-        const fileUrl = resolveApiUrl(data?.file_url) || previewUrl;
+        const fileUrl = resolveApiUrl(data?.file_url) || null;
+        const previewUrl = resolveApiUrl(data?.preview_url || data?.file_url);
         setTrack({
           ...data,
           preview_url: previewUrl,
@@ -104,7 +107,7 @@ const LibraryTrackOwned = () => {
       else await unlike('track', trackId);
     } catch (e) {
       setLiked(!next);
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
 
@@ -125,7 +128,7 @@ const LibraryTrackOwned = () => {
       toast.success('Ajouté à la playlist');
       setPlaylistDialogOpen(false);
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     } finally {
       setAddingToPlaylist(false);
     }
@@ -146,24 +149,18 @@ const LibraryTrackOwned = () => {
       setNewPlaylistDescription('');
       toast.success('Playlist créée');
     } catch (e2) {
-      toast.error(e2.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e2, 'Erreur'));
     }
   };
 
-  const handleDownload = () => {
-    const audioUrl = track?.file_url || track?.preview_url;
+  const handleDownload = async () => {
+    const audioUrl = track?.file_url;
     if (!audioUrl) {
       toast.error('Fichier indisponible');
       return;
     }
     try {
-      const link = document.createElement('a');
-      link.href = audioUrl;
-      const safe = (track.title || 'track').replace(/[/\\?%*:|"<>]/g, '-');
-      link.setAttribute('download', safe);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      await downloadAuthenticatedFile(audioUrl, track.title || 'track');
       toast.success('Téléchargement commencé');
     } catch {
       toast.error('Erreur lors du téléchargement');
@@ -213,14 +210,7 @@ const LibraryTrackOwned = () => {
         )}
 
         <div className="relative max-w-6xl mx-auto px-6 md:px-12">
-          <Link
-            to="/library"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-cyan-300 transition-colors mb-6"
-            data-testid="library-track-owned-back"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour à la bibliothèque
-          </Link>
+          <BackLink fallback="/library" label="Retour" testId="library-track-owned-back" />
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -235,18 +225,12 @@ const LibraryTrackOwned = () => {
                 transition={{ duration: 0.45, delay: 0.1 }}
                 className="relative shrink-0"
               >
-                {track.cover_url ? (
-                  <img
-                    src={track.cover_url}
-                    alt={track.title}
-                    className="w-56 h-56 md:w-72 md:h-72 rounded-3xl shadow-2xl object-cover"
-                    data-testid="library-owned-track-cover"
-                  />
-                ) : (
-                  <div className="w-56 h-56 md:w-72 md:h-72 rounded-3xl glass flex items-center justify-center border border-white/10">
-                    <Music className="w-20 h-20 text-muted-foreground/30" />
-                  </div>
-                )}
+                <CoverImage
+                  src={track.cover_url}
+                  alt={track.title}
+                  className="w-56 h-56 md:w-72 md:h-72 rounded-3xl shadow-2xl"
+                  data-testid="library-owned-track-cover"
+                />
                 <div className="absolute -inset-2 rounded-3xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 blur-2xl -z-10" />
               </motion.div>
 
@@ -323,6 +307,12 @@ const LibraryTrackOwned = () => {
                     <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(liked)}`} />
                     {liked ? 'En favoris' : 'Favoris'}
                   </Button>
+                  <ShareButton
+                    url={publicPageUrl(`/track/${trackId}`)}
+                    title={track.title}
+                    text={`${track.title} — ${track.artist_name || ''} sur Kloud`}
+                    testId="share-owned-track-button"
+                  />
                 </div>
               </div>
             </div>
@@ -438,7 +428,7 @@ const LibraryTrackOwned = () => {
                     try {
                       await loadPlaylists();
                     } catch (e) {
-                      toast.error(e.response?.data?.detail || 'Impossible de charger les playlists');
+                      toast.error(formatApiError(e, 'Impossible de charger les playlists'));
                     }
                   }
                 }}

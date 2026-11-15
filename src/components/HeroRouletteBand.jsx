@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { apiClient, normalizeApiList, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, formatApiError, normalizeApiList, resolveApiUrl } from '@/lib/apiClient';
 
 export default function HeroRouletteBand({ tracks: tracksProp }) {
   const navigate = useNavigate();
@@ -23,8 +23,8 @@ export default function HeroRouletteBand({ tracks: tracksProp }) {
         const tracksResp = await apiClient.get('/api/tracks?limit=80');
         const list = normalizeApiList(tracksResp.data).map((t) => ({
           ...t,
-          preview_url: resolveApiUrl(t?.preview_url),
-          file_url: resolveApiUrl(t?.file_url),
+          preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
+          file_url: null,
           cover_url: resolveApiUrl(t?.cover_url)
         }));
         if (mounted) setTracks(list);
@@ -80,7 +80,7 @@ export default function HeroRouletteBand({ tracks: tracksProp }) {
       toast.success("Ajouté à ta bibliothèque");
       navigate(`/library/tracks/${rouletteTrack.track_id}`);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Impossible d’ajouter à la bibliothèque");
+      toast.error(formatApiError(e, "Impossible d’ajouter à la bibliothèque"));
     } finally {
       setRouletteAddLoading(false);
     }

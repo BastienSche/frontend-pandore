@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Music, Disc, Heart, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -10,13 +10,30 @@ import AlbumCard from '@/components/AlbumCard';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient, resolveApiUrl } from '@/lib/apiClient';
+import { apiClient, formatApiError, resolveApiUrl } from '@/lib/apiClient';
 import { artistAvatarSrc } from '@/lib/artistAvatar';
 import { fetchFollowState, followArtist, unfollowArtist } from '@/lib/follows';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { goToLogin } from '@/lib/postLoginRedirect';
+import { useAuth } from '@/hooks/useAuth';
+import ShareButton from '@/components/ShareButton';
+import SmartLinksList from '@/components/SmartLinksList';
+import { normalizeSmartLinks, publicPageUrl } from '@/lib/smartLinks';
+import { setDocumentShareMeta } from '@/lib/sharePage';
+import BackLink from '@/components/BackLink';
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration';
+import { rememberListPosition } from '@/lib/listNavigation';
+
+const isListedCatalogItem = (item) => {
+  const status = String(item?.status || 'published').toLowerCase();
+  return status !== 'draft';
+};
 
 const ArtistProfile = () => {
   const { artistId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const [artist, setArtist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
@@ -26,15 +43,17 @@ const ArtistProfile = () => {
       try {
         const { data } = await apiClient.get(`/api/artists/${artistId}`);
         const tracks = (data?.tracks || []).map((t) => ({
-          ...t,
-          preview_url: resolveApiUrl(t?.preview_url),
-          file_url: resolveApiUrl(t?.file_url),
-          cover_url: resolveApiUrl(t?.cover_url)
-        }));
-        const albums = (data?.albums || []).map((a) => ({
-          ...a,
-          cover_url: resolveApiUrl(a?.cover_url)
-        }));
+            ...t,
+            preview_url: resolveApiUrl(t?.preview_url || t?.file_url),
+            file_url: null,
+            cover_url: resolveApiUrl(t?.cover_url)
+          }));
+        const albums = (data?.albums || [])
+          .filter(isListedCatalogItem)
+          .map((a) => ({
+            ...a,
+            cover_url: resolveApiUrl(a?.cover_url)
+          }));
         setArtist({
           ...data,
           picture: artistAvatarSrc(data),
@@ -66,7 +85,24 @@ const ArtistProfile = () => {
     };
   }, [artistId]);
 
+  useEffect(() => {
+    if (!artist) return undefined;
+    const name = artist.artist_name || artist.name || 'Artiste';
+    setDocumentShareMeta({
+      title: `${name} · Kloud`,
+      description: artist.bio || `Écoute ${name} sur Kloud.`
+    });
+    return () => {
+      document.title = 'Kloud';
+    };
+  }, [artist]);
+
   const toggleFollow = async () => {
+    if (!isAuthenticated) {
+      toast.info('Connecte-toi pour suivre cet artiste.');
+      goToLogin(navigate, location.pathname);
+      return;
+    }
     const next = !following;
     setFollowing(next);
     try {
@@ -74,9 +110,11 @@ const ArtistProfile = () => {
       else await unfollowArtist(artistId);
     } catch (e) {
       setFollowing(!next);
-      toast.error(e.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(e, 'Erreur'));
     }
   };
+
+  useListScrollRestoration(!loading && !!artist);
 
   if (loading) {
     return (
@@ -99,6 +137,11 @@ const ArtistProfile = () => {
   }
 
   const displayName = artist.artist_name || artist.name || 'Artiste';
+  const smartLinks = normalizeSmartLinks(artist.links);
+  const genreList = Array.isArray(artist.genres)
+    ? artist.genres.filter(Boolean)
+    : [];
+  const shareUrl = publicPageUrl(`/artist/${artistId}`);
 
   return (
     <div className="min-h-screen pb-32 relative overflow-hidden">
@@ -108,6 +151,7 @@ const ArtistProfile = () => {
 
       <div className="relative pt-28 pb-10 px-6 md:px-12">
         <div className="max-w-7xl mx-auto">
+          <BackLink fallback="/browse" testId="artist-back-link" />
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -138,23 +182,42 @@ const ArtistProfile = () => {
                 <p className="mt-2 text-sm sm:text-base text-muted-foreground">
                   {artist.tracks?.length || 0} titres • {artist.albums?.length || 0} albums
                 </p>
+                {genreList.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {genreList.map((g) => (
+                      <Badge key={g} className="rounded-full bg-white/5 border-white/10 text-foreground/80">
+                        {g}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
                 {artist.bio && (
                   <p className="mt-4 text-muted-foreground leading-relaxed max-w-2xl line-clamp-4">
                     {artist.bio}
                   </p>
                 )}
+                <SmartLinksList links={smartLinks} />
               </div>
 
+              <div className="flex flex-col gap-3 w-full sm:w-auto shrink-0">
               <Button
                 size="lg"
                 variant="outline"
-                className="rounded-full w-full sm:w-auto shrink-0 border-white/15 hover:bg-white/5"
+                className="rounded-full w-full sm:w-auto border-white/15 hover:bg-white/5"
                 data-testid="follow-artist-button"
                 onClick={toggleFollow}
               >
                 <Heart className={`w-5 h-5 mr-2 ${heartIconActiveClass(following)}`} />
                 {following ? 'Suivi' : 'Suivre'}
               </Button>
+              <ShareButton
+                url={shareUrl}
+                title={displayName}
+                text={`Écoute ${displayName} sur Kloud`}
+                label="Partager"
+                testId="share-artist-button"
+              />
+              </div>
             </div>
           </motion.div>
 

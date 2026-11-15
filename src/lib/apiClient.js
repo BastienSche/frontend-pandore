@@ -27,6 +27,16 @@ const rawBaseUrl =
   process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || defaultApiBaseUrl();
 const baseURL = normalizeApiBaseUrl(rawBaseUrl);
 
+export function apiOrigin() {
+  if (baseURL) return baseURL;
+  if (typeof window !== 'undefined') return window.location.origin;
+  return '';
+}
+
+export function googleOAuthLoginUrl() {
+  return `${apiOrigin()}/api/auth/google/login`;
+}
+
 if (typeof window !== 'undefined' && baseURL && /\.internal(\/|$)/i.test(baseURL)) {
   // eslint-disable-next-line no-console
   console.warn(
@@ -83,7 +93,9 @@ function isAuthRefreshUrl(url = '') {
     url.includes('/auth/register') ||
     url.includes('/auth/refresh') ||
     url.includes('/auth/forgot-password') ||
-    url.includes('/auth/reset-password')
+    url.includes('/auth/reset-password') ||
+    url.includes('/likes/state') ||
+    url.includes('/follows/state')
   );
 }
 
@@ -101,17 +113,98 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-/** Message lisible pour les toasts (réponse vide, 501 proxy, etc.) */
-export function formatApiError(error) {
+function formatDetail(detail) {
+  if (detail == null) return '';
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object' && item.msg) return String(item.msg);
+        return '';
+      })
+      .filter(Boolean)
+      .join(' · ');
+  }
+  if (typeof detail === 'object') {
+    if (detail.msg) return String(detail.msg);
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return '';
+    }
+  }
+  return String(detail);
+}
+
+const API_ERROR_FR = {
+  'Not authenticated': 'Connecte-toi pour continuer',
+  'Invalid credentials': 'Email ou mot de passe incorrect',
+  'Invalid token': 'Session invalide',
+  'Invalid token type': 'Session invalide',
+  'Invalid session': 'Session invalide',
+  'Invalid refresh token': 'Session expirée, reconnecte-toi',
+  'Refresh token expired': 'Session expirée, reconnecte-toi',
+  'Missing refresh token': 'Session expirée, reconnecte-toi',
+  'Token expired': 'Session expirée, reconnecte-toi',
+  'Session expired': 'Session expirée, reconnecte-toi',
+  'User not found': 'Compte introuvable',
+  'Email already registered': 'Cet email est déjà utilisé',
+  'Admin only': 'Accès réservé aux administrateurs',
+  'Not authorized': 'Action non autorisée',
+  'Track not found': 'Titre introuvable',
+  'Album not found': 'Album introuvable',
+  'Playlist not found': 'Playlist introuvable',
+  'Profile not found': 'Profil introuvable',
+  'File not found': 'Fichier introuvable',
+  'Invalid file id': 'Fichier invalide',
+  'Empty file': 'Fichier vide',
+  'No fields to update': 'Aucun champ à mettre à jour',
+  'Only artists can create tracks': 'Seuls les artistes peuvent créer des titres',
+  'Only artists can create albums': 'Seuls les artistes peuvent créer des albums',
+  'Only artists can upload audio': 'Seuls les artistes peuvent envoyer de l’audio',
+  'Only artists can create profiles': 'Seuls les artistes peuvent créer un profil',
+  'Only artists can update profiles': 'Seuls les artistes peuvent modifier un profil',
+  'Profile already exists': 'Ce profil existe déjà',
+  'Artist name required for artist role': 'Le nom d’artiste est requis',
+  'Invalid role': 'Rôle invalide',
+  'Invalid OAuth state': 'Connexion Google interrompue',
+  'Missing code': 'Connexion Google incomplète',
+  'Missing access token': 'Connexion incomplète',
+  'Token exchange failed': 'Connexion Google impossible',
+  'Failed to fetch user info': 'Impossible de récupérer le compte Google',
+  'Contest not found': 'Concours introuvable',
+  'Audio file could not be served': 'Impossible de lire ce fichier audio',
+};
+
+function translateApiMessage(raw) {
+  const msg = String(raw || '').trim();
+  if (!msg) return '';
+  if (API_ERROR_FR[msg]) return API_ERROR_FR[msg];
+  const minLen = msg.match(/string should have at least (\d+)/i);
+  if (minLen) return `Doit faire au moins ${minLen[1]} caractères`;
+  if (/field required/i.test(msg)) return 'Champ requis';
+  if (/value is not a valid/i.test(msg)) return 'Valeur invalide';
+  if (/not authenticated/i.test(msg)) return 'Connecte-toi pour continuer';
+  return msg;
+}
+
+/** Message lisible pour les toasts (422 FastAPI, réponse vide, 501 proxy, etc.) */
+export function formatApiError(error, fallback = 'Erreur réseau') {
+  const status = error?.response?.status;
   const d = error?.response?.data;
+  let raw = '';
   if (d && typeof d === 'object' && d.detail != null) {
-    return typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail);
+    raw = formatDetail(d.detail);
+  } else if (typeof d === 'string' && d.trim()) {
+    raw = d;
   }
-  if (error?.response?.status) {
-    return `Erreur serveur (${error.response.status})`;
-  }
-  if (error?.message) return error.message;
-  return 'Erreur réseau';
+  const translated = translateApiMessage(raw);
+  if (translated) return translated;
+  if (status === 401) return 'Connecte-toi pour continuer';
+  if (status) return `Erreur serveur (${status})`;
+  if (error?.message) return translateApiMessage(error.message) || error.message;
+  return fallback;
 }
 
 let refreshPromise = null;
@@ -155,7 +248,8 @@ apiClient.interceptors.response.use(
       original._retry ||
       sessionRefreshBlocked ||
       isAuthRefreshUrl(url) ||
-      typeof window === 'undefined'
+      typeof window === 'undefined' ||
+      (!getAccessToken() && !getRefreshToken())
     ) {
       return Promise.reject(error);
     }
@@ -192,6 +286,44 @@ export function resolveApiUrl(pathOrUrl) {
   return `${baseURL}${path}`;
 }
 
+/** Download a protected audio file with the JWT (Authorization), not a public <a href>. */
+export async function downloadAuthenticatedFile(pathOrUrl, filename = 'track') {
+  const raw = String(pathOrUrl || '').trim();
+  if (!raw) throw new Error('Fichier indisponible');
+  const requestUrl = /^https?:\/\//i.test(raw) ? raw : raw.startsWith('/') ? raw : `/${raw}`;
+  const response = await apiClient.get(requestUrl, { responseType: 'blob' });
+  const data = response.data;
+  if (data && data.type && data.type.includes('application/json')) {
+    throw new Error('Fichier indisponible');
+  }
+  const blobUrl = URL.createObjectURL(data);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.setAttribute('download', String(filename || 'track').replace(/[/\\?%*:|"<>]/g, '-'));
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+}
+
+/** Adds the JWT so <audio> / download can hit a protected /api/files/audio URL. */
+export function withAudioAccessToken(pathOrUrl) {
+  const url = resolveApiUrl(pathOrUrl);
+  if (!url) return url;
+  const token = getAccessToken();
+  if (!token) return url;
+  try {
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
+    if (!parsed.searchParams.has('token')) {
+      parsed.searchParams.set('token', token);
+    }
+    return parsed.toString();
+  } catch {
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}token=${encodeURIComponent(token)}`;
+  }
+}
+
 /** List endpoints may return a raw array or `{ items, results, data, ... }` depending on environment. */
 export function normalizeApiList(payload) {
   if (Array.isArray(payload)) return payload;
@@ -204,4 +336,39 @@ export function normalizeApiList(payload) {
     if (Array.isArray(payload.artists)) return payload.artists;
   }
   return [];
+}
+
+const TRACK_IDS_BATCH = 100;
+
+/** One (or few) GET /tracks?ids=… instead of N GET /tracks/{id}. Preserves requested order. */
+export async function fetchTracksByIds(ids) {
+  const clean = [];
+  const seen = new Set();
+  for (const id of ids || []) {
+    const tid = String(id || '').trim();
+    if (!tid || seen.has(tid)) continue;
+    seen.add(tid);
+    clean.push(tid);
+  }
+  if (!clean.length) return [];
+
+  const batches = [];
+  for (let i = 0; i < clean.length; i += TRACK_IDS_BATCH) {
+    batches.push(clean.slice(i, i + TRACK_IDS_BATCH));
+  }
+  const chunks = await Promise.all(
+    batches.map((batch) =>
+      apiClient
+        .get('/api/tracks', { params: { ids: batch.join(',') } })
+        .then((r) => normalizeApiList(r.data))
+        .catch(() => [])
+    )
+  );
+  const byId = new Map();
+  for (const list of chunks) {
+    for (const track of list) {
+      if (track?.track_id) byId.set(track.track_id, track);
+    }
+  }
+  return clean.map((id) => byId.get(id)).filter(Boolean);
 }

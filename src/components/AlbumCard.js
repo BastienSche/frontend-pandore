@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Music, Heart, Disc } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Heart, Disc } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { fetchLikeState, like, unlike } from '@/lib/likes';
-import { formatPriceLabel } from '@/lib/pricing';
+import { albumTrackCount, formatItemPriceLabel } from '@/lib/pricing';
 import { heartIconActiveClass } from '@/lib/heartIconClass';
+import { goToLogin } from '@/lib/postLoginRedirect';
+import { useAuth } from '@/hooks/useAuth';
+import CoverImage from '@/components/CoverImage';
+import { rememberListPosition } from '@/lib/listNavigation';
 
 const mixLabel = (v) => {
   const s = String(v || '').toLowerCase();
@@ -22,12 +27,17 @@ const availabilityLabel = (v) => {
   return null;
 };
 
-const AlbumCard = ({ album }) => {
+const AlbumCard = ({ album, owned = false }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [liked, setLiked] = useState(false);
-  const [coverError, setCoverError] = useState(false);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      setLiked(false);
+      return undefined;
+    }
     let mounted = true;
     (async () => {
       try {
@@ -40,10 +50,20 @@ const AlbumCard = ({ album }) => {
     return () => {
       mounted = false;
     };
-  }, [album.album_id]);
+  }, [authLoading, isAuthenticated, album.album_id]);
+
+  const openAlbum = () => {
+    rememberListPosition({ selector: `[data-testid="album-card-${album.album_id}"]` });
+    navigate(`/album/${album.album_id}`);
+  };
 
   const toggleLike = async (e) => {
     e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.info('Connecte-toi pour ajouter aux favoris.');
+      goToLogin(navigate, location.pathname);
+      return;
+    }
     const next = !liked;
     setLiked(next);
     try {
@@ -65,10 +85,15 @@ const AlbumCard = ({ album }) => {
         {/* Cover Image */}
         <div 
           className="relative aspect-square cursor-pointer" 
-          onClick={() => navigate(`/album/${album.album_id}`)}
+          onClick={openAlbum}
         >
           {/* Overlays (no layout impact) */}
-          {mixLabel(album.mix_version) && (
+          {owned && (
+            <div className="absolute top-3 right-3 z-20 px-3 py-1.5 rounded-full bg-emerald-500/80 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
+              Acquis
+            </div>
+          )}
+          {!owned && mixLabel(album.mix_version) && (
             <div className="absolute top-3 right-3 z-20">
               <div className="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 text-[11px] font-semibold text-white">
                 {mixLabel(album.mix_version)}
@@ -76,19 +101,12 @@ const AlbumCard = ({ album }) => {
             </div>
           )}
 
-          {album.cover_url && !coverError ? (
-            <img
-              src={album.cover_url}
-              alt={album.title}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              loading="lazy"
-              onError={() => setCoverError(true)}
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 flex items-center justify-center">
-              <Disc className="w-16 h-16 text-white/30" />
-            </div>
-          )}
+          <CoverImage
+            src={album.cover_url}
+            alt={album.title}
+            className="w-full h-full"
+            imgClassName="transition-transform duration-700 group-hover:scale-110"
+          />
 
           {/* Track Count Badge */}
           <Badge 
@@ -96,7 +114,7 @@ const AlbumCard = ({ album }) => {
             data-testid={`album-tracks-count-${album.album_id}`}
           >
             <Disc className="w-3 h-3 mr-1.5" />
-            {album.track_ids?.length || 0} titres
+            {albumTrackCount(album)} titres
           </Badge>
 
           {availabilityLabel(album.availability) && (
@@ -115,7 +133,7 @@ const AlbumCard = ({ album }) => {
           <div>
             <h3 
               className="font-semibold text-base truncate group-hover:text-purple-400 transition-colors cursor-pointer" 
-              onClick={() => navigate(`/album/${album.album_id}`)}
+              onClick={openAlbum}
               data-testid={`album-title-${album.album_id}`}
             >
               {album.title}
@@ -133,7 +151,7 @@ const AlbumCard = ({ album }) => {
               className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400"
               data-testid={`album-price-${album.album_id}`}
             >
-              {formatPriceLabel(album.price)}
+              {formatItemPriceLabel(album)}
             </span>
             
             <Button 

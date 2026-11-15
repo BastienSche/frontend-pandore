@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient } from '@/lib/apiClient';
+import { apiClient, formatApiError } from '@/lib/apiClient';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -24,7 +24,7 @@ const ForgotPassword = () => {
       if (data?.reset_url) setDebugResetUrl(data.reset_url);
       toast.success(data?.message || 'Si ce compte existe, un lien a été envoyé.');
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur');
+      toast.error(formatApiError(error, 'Erreur'));
     } finally {
       setLoading(false);
     }

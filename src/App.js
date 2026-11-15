@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useLayoutEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AudioPlayerProvider } from '@/contexts/AudioPlayerContext';
 import { Toaster } from '@/components/ui/sonner';
@@ -26,31 +26,102 @@ import UiKit from '@/pages/UiKit';
 import NousDecouvrir from '@/pages/NousDecouvrir';
 import AdminDashboard from '@/pages/AdminDashboard';
 import Concours from '@/pages/Concours';
+import LegalDocument from '@/pages/LegalDocument';
+import Contact from '@/pages/Contact';
+import Help from '@/pages/Help';
+import NotFound from '@/pages/NotFound';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
 import ContestAnnounceModal from '@/components/ContestAnnounceModal';
+import AnalyticsTracker from '@/components/AnalyticsTracker';
+import SiteFooter from '@/components/SiteFooter';
+import CookieBanner from '@/components/CookieBanner';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
+import { ARTIST_ONBOARDING_PATH, consumePostLoginPath, rememberPostLoginPath, safeInternalPath } from '@/lib/postLoginRedirect';
+import { listPathKey, peekListPosition } from '@/lib/listNavigation';
 import '@/App.css';
+
+function ScrollToTop() {
+  const { pathname, search } = useLocation();
+
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    if (peekListPosition(listPathKey(pathname, search))) return;
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [pathname, search]);
+
+  return null;
+}
 
 const ProtectedRoute = ({ children }) => {
   const { loading, isAuthenticated } = useAuth();
+  const location = useLocation();
   if (loading) return null;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    const from = `${location.pathname}${location.search}`;
+    rememberPostLoginPath(from);
+    return <Navigate to="/login" replace state={{ from }} />;
+  }
+  return children;
+};
+
+const GuestRoute = ({ children }) => {
+  const { loading, isAuthenticated, user } = useAuth();
+  const location = useLocation();
+  if (loading) return null;
+  if (isAuthenticated) {
+    if (location.pathname === '/register' && user?.role === 'artist') {
+      consumePostLoginPath(ARTIST_ONBOARDING_PATH);
+      return <Navigate to={ARTIST_ONBOARDING_PATH} replace />;
+    }
+    const next = safeInternalPath(location.state?.from) || consumePostLoginPath('/browse');
+    return <Navigate to={next} replace />;
+  }
   return children;
 };
 
 function AppRouter() {
   return (
     <>
+      <ScrollToTop />
       <Navbar />
+      <AnalyticsTracker />
+      <div className="flex-1">
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/ui" element={<UiKit />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route
+          path="/login"
+          element={
+            <GuestRoute>
+              <Login />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <GuestRoute>
+              <Register />
+            </GuestRoute>
+          }
+        />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/nous-decouvrir" element={<NousDecouvrir />} />
+        <Route path="/legal" element={<LegalDocument />} />
+        <Route path="/cgu" element={<LegalDocument slug="cgu" />} />
+        <Route path="/cgv" element={<LegalDocument slug="cgv" />} />
+        <Route path="/mentions-legales" element={<LegalDocument slug="mentions-legales" />} />
+        <Route path="/confidentialite" element={<LegalDocument slug="confidentialite" />} />
+        <Route path="/cookies" element={<LegalDocument slug="cookies" />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/aide" element={<Help />} />
         <Route path="/concours" element={<Concours />} />
         <Route path="/concours/:contestId" element={<Concours />} />
         <Route
@@ -128,8 +199,11 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
+      </div>
+      <SiteFooter />
+      <CookieBanner />
       <AudioPlayer />
       <ContestAnnounceModal />
     </>
@@ -140,7 +214,7 @@ function App() {
   return (
     <ThemeProvider>
       <AudioPlayerProvider>
-        <div className="App">
+        <div className="App min-h-screen flex flex-col">
           <BrowserRouter>
             <AuthProvider>
               <AppRouter />

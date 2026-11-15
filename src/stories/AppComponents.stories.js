@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { getAlbums, getTracks } from '@/data/fakeData';
+import { getAlbums, getTracks } from '@/stories/fakeData';
 
 function ensureDemoUser() {
   try {

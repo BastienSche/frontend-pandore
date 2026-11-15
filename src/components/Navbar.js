@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion, useDragControls } from 'framer-motion';
 import KloudLogo from '@/components/KloudLogo';
 import NotificationBell from '@/components/NotificationBell';
+import { artistAvatarSrc } from '@/lib/artistAvatar';
 
 const userInitial = (u) => {
   if (!u) return '?';
@@ -24,7 +25,7 @@ const userInitial = (u) => {
 };
 
 const Navbar = () => {
-  const { user, logout, switchRole, isAdmin } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,23 +34,25 @@ const Navbar = () => {
   
   const [isExpanded, setIsExpanded] = useState(true);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isMobileNav, setIsMobileNav] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobileNav(mq.matches);
+    update();
+    if (mq.addEventListener) mq.addEventListener('change', update);
+    else mq.addListener(update);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', update);
+      else mq.removeListener(update);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
-  };
-
-  const handleRoleSwitch = async () => {
-    const currentRole = user.role;
-    const newRole = currentRole === 'artist' ? 'user' : 'artist';
-    
-    if (newRole === 'artist' && !user.artist_name) {
-      const artistName = prompt('Entrez votre nom d\'artiste:');
-      if (!artistName) return;
-      await switchRole(artistName);
-    } else {
-      await switchRole(newRole === 'artist' ? user.artist_name : null);
-    }
   };
 
   const isActive = (path) => {
@@ -120,7 +123,7 @@ const Navbar = () => {
             </Button>
           ))}
 
-          {user ? <NotificationBell compact /> : null}
+          {user && isMobileNav ? <NotificationBell compact /> : null}
 
           {user ? (
             <DropdownMenu>
@@ -131,7 +134,7 @@ const Navbar = () => {
                   data-testid="mobile-user-menu-trigger"
                 >
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src={user.picture} />
+                    <AvatarImage src={artistAvatarSrc(user)} />
                     <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-xs">
                       {userInitial(user)}
                     </AvatarFallback>
@@ -144,7 +147,7 @@ const Navbar = () => {
               >
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
                   <Avatar className="w-9 h-9">
-                    <AvatarImage src={user.picture} />
+                    <AvatarImage src={artistAvatarSrc(user)} />
                     <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-xs">
                       {userInitial(user)}
                     </AvatarFallback>
@@ -184,15 +187,6 @@ const Navbar = () => {
                 >
                   {theme === 'light' ? <Moon className="w-4 h-4 mr-2" /> : <Sun className="w-4 h-4 mr-2 text-yellow-400" />}
                   Thème {theme === 'light' ? 'clair' : 'sombre'}
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={handleRoleSwitch}
-                  className="rounded-xl cursor-pointer"
-                  data-testid="mobile-role-switch-button"
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Mode {user.role === 'artist' ? 'Auditeur' : 'Artiste'}
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator className="bg-white/10 my-2" />
@@ -343,7 +337,7 @@ const Navbar = () => {
               </Button>
             </motion.div>
 
-            {user && <NotificationBell />}
+            {user && !isMobileNav && <NotificationBell />}
 
             {/* User Menu */}
             {user ? (
@@ -355,7 +349,7 @@ const Navbar = () => {
                     data-testid="user-menu-trigger"
                   >
                     <Avatar className="w-8 h-8 border border-white/10">
-                      <AvatarImage src={user.picture} />
+                      <AvatarImage src={artistAvatarSrc(user)} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-sm">
                         {userInitial(user)}
                       </AvatarFallback>
@@ -368,7 +362,7 @@ const Navbar = () => {
                 >
                   <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={user.picture} />
+                      <AvatarImage src={artistAvatarSrc(user)} />
                       <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
                         {userInitial(user)}
                       </AvatarFallback>
@@ -378,28 +372,15 @@ const Navbar = () => {
                       <span className="text-xs text-muted-foreground truncate">
                         {user.email}
                       </span>
+                      {user.role === 'artist' && (
+                        <Badge className="mt-1 w-fit text-[10px] bg-purple-500/20 text-purple-300 border-purple-500/30">
+                          Artiste
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   
                   <DropdownMenuSeparator className="bg-white/10 my-2" />
-                  
-                  <DropdownMenuItem 
-                    onClick={handleRoleSwitch} 
-                    className="rounded-xl cursor-pointer"
-                    data-testid="role-switch-button"
-                  >
-                    <User className="w-4 h-4 mr-2" />
-                    <span className="flex-1">Mode {user.role === 'artist' ? 'Auditeur' : 'Artiste'}</span>
-                    <Badge 
-                      className={`ml-2 text-xs ${
-                        user.role === 'artist' 
-                          ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' 
-                          : 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
-                      }`}
-                    >
-                      {user.role === 'artist' ? 'Artiste' : 'User'}
-                    </Badge>
-                  </DropdownMenuItem>
 
                   <DropdownMenuItem
                     onClick={() => navigate('/settings')}

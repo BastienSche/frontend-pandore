@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { BubbleBackground, GlowOrb } from '@/components/BubbleCard';
-import { apiClient } from '@/lib/apiClient';
+import { apiClient, formatApiError } from '@/lib/apiClient';
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -41,7 +41,7 @@ const ResetPassword = () => {
       toast.success('Mot de passe mis à jour');
       navigate('/login');
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Lien invalide ou expiré');
+      toast.error(formatApiError(error, 'Lien invalide ou expiré'));
     } finally {
       setLoading(false);
     }
